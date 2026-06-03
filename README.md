@@ -2,7 +2,7 @@
 
 A self-hosted investment portfolio tracker that works with any asset class, any currency, and any broker. Built with Node.js, Express, SQLite, and vanilla JavaScript. Deploy on a VPS or run locally — your data stays on your server, not in someone else's cloud.
 
-**Version 1.0.0**
+**Version 1.1.0**
 
 ---
 
@@ -112,13 +112,17 @@ Map asset names to Yahoo Finance ticker symbols for automatic live price updates
 
 Tickers can be edited inline in the settings table. When you add a new holding with a ticker, the mapping is saved automatically for future use.
 
-**App Lock**
-Protect the app with a 6-digit numeric PIN:
+**App Lock — Server-Side Authentication**
+Protect the app with a 6-digit numeric PIN enforced at the server level:
 - Set a PIN and receive a one-time recovery code (save it securely)
-- On next visit, the app shows a lock screen requiring PIN entry
-- "Remember for today" option skips the PIN for the rest of the day in the same browser
+- On next visit, the server blocks ALL requests (static files + API) until the correct PIN is entered
+- Without a valid server-side session cookie, the server returns a minimal inline lock page — the real app code is never sent to the browser
+- API requests without authentication return HTTP 401
+- Server restart invalidates all sessions — must re-enter PIN
+- Once unlocked, the session persists for 24 hours (or until server restart)
 - Recovery code unlocks and removes the lock if you forget your PIN
 - Can be disabled at any time from Settings (requires current PIN)
+- Previously the lock was enforced only on the client side (JavaScript overlay), which could be bypassed. Now the lock is enforced on the server before any application code is served.
 
 ---
 
@@ -244,9 +248,9 @@ This reads `Finance Portfolio Tracker.xlsx` from the project root and populates 
 
 ```
 finance-portfolio-tracker/
-├── server.js              ← Express server, all API routes, SQLite schema
+├── server.js              ← Express server, all API routes, SQLite schema, session & auth middleware
 ├── import-excel.js        ← Excel → SQLite import script
-├── package.json           ← Dependencies and npm scripts
+├── package.json           ← Dependencies (includes express-session) and npm scripts
 ├── package-lock.json      ← Locked dependency versions
 ├── data/
 │   └── portfolio.db       ← SQLite database (auto-created, gitignored)
@@ -315,29 +319,44 @@ finance-portfolio-tracker/
 | PUT | `/api/settings/currency` | Update currency configuration |
 | POST | `/api/settings/currency/restore` | Restore previous currency configuration |
 
-### App Lock
+### App Lock & Authentication
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/lock/status` | Check if app is locked |
+| GET | `/api/lock/status` | Check if app is locked (returns false when session is authenticated — prevents double lock screen) |
+| GET | `/api/lock/config` | Always returns the real lock configuration state (used by Settings tab) |
 | POST | `/api/lock/setup` | Enable lock (returns recovery code) |
-| POST | `/api/lock/unlock` | Unlock with PIN |
+| POST | `/api/lock/unlock` | Unlock with PIN (sets server-side session) |
 | POST | `/api/lock/disable` | Disable lock (requires PIN) |
-| POST | `/api/lock/recovery` | Unlock with recovery code |
+| POST | `/api/lock/recovery` | Unlock with recovery code (sets server-side session) |
+| POST | `/api/lock/logout` | Destroy session and lock the app |
 
 ---
 
-## Data Safety
+## Data Safety & Security
 
 - **No external data sharing.** The app never sends your portfolio data anywhere. Yahoo Finance calls only send ticker symbols (e.g., "TSLA"), not your holdings or amounts.
 - **SQLite with WAL mode.** Write-ahead logging prevents corruption from unexpected shutdowns.
 - **Delete protection.** Categories, types, brokers, and ticker mappings cannot be deleted while holdings reference them.
 - **Batch confirmations.** Destructive batch operations require explicit confirmation.
 - **Currency restore.** Disabling currency saves your previous config for instant rollback.
+- **Server-side authentication (v1.1.0).** The app lock is now enforced at the server level — all requests are blocked without a valid session cookie. The previous client-side-only lock could be bypassed; the new server-side gate cannot. Sessions use cryptographically random secrets, httpOnly cookies, and a 24-hour expiry.
 
 ---
 
 ## Changelog
+
+### v1.1.0 (June 2026)
+- **🔒 Server-side authentication gate** — the app lock is now enforced on the server before any code is served
+- Previous client-side-only lock was unsecured (bypassable); now all requests require a valid session cookie
+- Server returns a minimal inline lock page for unauthenticated browser requests (no app code leaked)
+- API requests without authentication return HTTP 401
+- Session middleware with cryptographically random secret, httpOnly cookies, 24-hour expiry
+- New `/api/lock/config` endpoint returns real lock state (used by Settings)
+- `/api/lock/status` returns `{ locked: false }` when session is valid (prevents double lock screen)
+- `/api/lock/logout` endpoint to destroy session and re-lock the app
+- Lock page buttons use the app's `--accent` blue color (#3b82f6) instead of hardcoded purple
+- Server restart invalidates all sessions — must re-enter PIN
 
 ### v1.0.0 (June 2026)
 - Initial release

@@ -1396,7 +1396,7 @@
 
   // --- Lock Settings ---
   async function loadLockSettings() {
-    const res = await fetch("/api/lock/status");
+    const res = await fetch("/api/lock/config");
     const { locked } = await res.json();
     document.getElementById("lock-setup-section").style.display = locked ? "none" : "block";
     document.getElementById("lock-disable-section").style.display = locked ? "block" : "none";
