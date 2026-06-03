@@ -355,28 +355,28 @@ td.negative { color: var(--red); font-weight: 600; }
   white-space: nowrap;
 }
 .badge-indian-stock { background: #dbeafe; color: #1e40af; }
-.badge-india { background: #dbeafe; color: #1e40af; }
+.badge-india { background: none; color: var(--text); }
 .badge-indian-mutual-fund { background: #e0e7ff; color: #3730a3; }
 .badge-us-stock { background: #d1fae5; color: #065f46; }
-.badge-us { background: #d1fae5; color: #065f46; }
-.badge-crypto { background: #fef3c7; color: #92400e; }
+.badge-us { background: none; color: var(--text); }
+.badge-crypto { background: none; color: var(--text); }
 .badge-etf { background: #ede9fe; color: #5b21b6; }
 .badge-bond { background: #fce7f3; color: #9d174d; }
-.badge-gold { background: #fef9c3; color: #854d0e; }
+.badge-gold { background: none; color: var(--text); }
 .badge-other { background: #f1f5f9; color: #475569; }
 .badge-buy { background: #d1fae5; color: #065f46; }
 .badge-sell { background: #fee2e2; color: #991b1b; }
 .row-sell { opacity: 0.75; }
 
 [data-theme="dark"] .badge-indian-stock { background: #1e3a5f; color: #93c5fd; }
-[data-theme="dark"] .badge-india { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .badge-india { background: none; color: var(--text); }
 [data-theme="dark"] .badge-indian-mutual-fund { background: #312e81; color: #a5b4fc; }
 [data-theme="dark"] .badge-us-stock { background: #064e3b; color: #6ee7b7; }
-[data-theme="dark"] .badge-us { background: #064e3b; color: #6ee7b7; }
-[data-theme="dark"] .badge-crypto { background: #78350f; color: #fcd34d; }
+[data-theme="dark"] .badge-us { background: none; color: var(--text); }
+[data-theme="dark"] .badge-crypto { background: none; color: var(--text); }
 [data-theme="dark"] .badge-etf { background: #4c1d95; color: #c4b5fd; }
 [data-theme="dark"] .badge-bond { background: #831843; color: #f9a8d4; }
-[data-theme="dark"] .badge-gold { background: #713f12; color: #fde047; }
+[data-theme="dark"] .badge-gold { background: none; color: var(--text); }
 [data-theme="dark"] .badge-other { background: #334155; color: #94a3b8; }
 [data-theme="dark"] .badge-buy { background: #064e3b; color: #6ee7b7; }
 [data-theme="dark"] .badge-sell { background: #7f1d1d; color: #fca5a5; }
