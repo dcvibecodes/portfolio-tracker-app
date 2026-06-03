@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Finance Portfolio Tracker</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+
+    <!-- Lock Overlay -->
+    <div id="lock-overlay" class="lock-overlay">
+      <div class="lock-modal">
+        <h2>Portfolio Tracker Locked</h2>
+        <p class="lock-subtitle">Enter your 6-digit PIN to access the app.</p>
+        <input type="password" id="lock-pin-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" />
+        <label class="checkbox-label"><input type="checkbox" id="lock-remember" /> Remember for today</label>
+        <button id="lock-unlock-btn" type="button" class="lock-btn">Unlock</button>
+        <p id="lock-error" class="lock-error"></p>
+        <p class="lock-recovery-link"><a href="#" id="show-recovery-btn">Forgot PIN? Use recovery code</a></p>
+        <div id="lock-recovery-section" class="lock-recovery-section">
+          <input type="text" id="lock-recovery-input" placeholder="Recovery code" />
+          <button id="lock-recovery-submit" type="button" class="lock-btn">Recover</button>
+        </div>
+      </div>
+    </div>
+
+    <header class="app-header">
+      <span class="app-title">Finance Portfolio Tracker</span>
+      <div class="header-actions">
+        <button id="currency-toggle" class="header-btn currency-toggle-btn" title="Toggle display currency">₹ INR</button>
+        <button id="refresh-prices-btn" class="header-btn" title="Refresh all prices">🔄 Prices</button>
+        <button id="theme-toggle" class="theme-toggle-btn" title="Toggle dark mode">🌙</button>
+      </div>
+    </header>
+
+    <nav class="tab-nav">
+      <div class="tab-nav-tabs">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="holdings">Holdings</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+      </div>
+    </nav>
+
+    <main class="container" id="main-container">
+      <div class="pull-indicator" id="pull-indicator"><span class="spinner"></span> Refreshing...</div>
+
+      <!-- ===== DASHBOARD TAB ===== -->
+      <div id="tab-dashboard" class="tab-content active">
+        <div class="dashboard-top">
+          <section class="card summary-card-compact">
+            <h2>Portfolio Summary</h2>
+            <div class="summary-grid-2x2" id="summary-grid"></div>
+          </section>
+          <section class="card chart-card-sm">
+            <h3 class="allocation-title">By Category</h3>
+            <div class="chart-wrapper-compact"><canvas id="class-pie"></canvas></div>
+          </section>
+          <section class="card chart-card-sm">
+            <h3 class="allocation-title">By Type</h3>
+            <div class="chart-wrapper-compact"><canvas id="type-pie"></canvas></div>
+          </section>
+        </div>
+
+        <section class="card">
+          <div class="chart-header">
+            <h2>Monthly Investments</h2>
+            <div class="range-selector">
+              <button class="range-btn active" data-months="12">1Y</button>
+              <button class="range-btn" data-months="24">2Y</button>
+              <button class="range-btn" data-months="36">3Y</button>
+              <button class="range-btn" data-months="60">5Y</button>
+              <button class="range-btn" data-months="0">All</button>
+            </div>
+          </div>
+          <div class="chart-wrapper-monthly"><canvas id="monthly-chart"></canvas></div>
+        </section>
+
+        <section class="card">
+          <div class="pivot-header">
+            <h2>Category Breakdown <span id="pivot-fx-tooltip-wrap" class="pivot-fx-tooltip-wrap" style="display:none;"><span class="pivot-fx-icon" tabindex="0" aria-label="Currency info">ⓘ</span><span class="pivot-fx-tooltip" role="tooltip" id="pivot-fx-tooltip-text"></span></span></h2>
+            <div class="pivot-actions">
+              <button id="expand-all-btn" class="pivot-btn">Expand All</button>
+              <button id="collapse-all-btn" class="pivot-btn">Collapse All</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="pivot-table">
+              <thead><tr>
+                <th>Category / Name</th>
+                <th class="col-amount">Units</th>
+                <th class="col-amount">Invested</th>
+                <th class="col-amount">Current Price</th>
+                <th class="col-amount">Current Value</th>
+                <th class="col-amount">P&L</th>
+                <th class="col-amount">P&L %</th>
+              </tr></thead>
+              <tbody id="pivot-rows"></tbody>
+              <tfoot id="pivot-footer"></tfoot>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== HOLDINGS TAB ===== -->
+      <div id="tab-holdings" class="tab-content">
+        <section class="card">
+          <button id="new-txn-toggle" type="button" class="new-txn-toggle-btn">+ New Transaction</button>
+          <div id="new-txn-content" class="new-txn-content" style="display:none;">
+            <form id="add-form" class="grid add-grid">
+            <label>Date <input type="date" id="add-date" required /></label>
+            <label>Buy/Sell
+              <select id="add-txn-type">
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </label>
+            <label>Asset Name
+              <div class="autocomplete-wrap">
+                <input type="text" id="add-name" required placeholder="Start typing..." autocomplete="off" />
+                <ul class="autocomplete-list" id="add-name-suggestions"></ul>
+              </div>
+            </label>
+            <label>Category <select id="add-asset-class" required></select></label>
+            <label>Type <select id="add-asset-type"></select></label>
+            <label>Broker/Platform <select id="add-broker"><option value="">— None —</option></select></label>
+            <label>Price <input type="number" id="add-buy-price" step="any" required /></label>
+            <label>Quantity <input type="number" id="add-quantity" step="any" required /></label>
+            <label>Invested Amount <input type="number" id="add-invested" step="any" required /></label>
+            <label>Currency
+              <select id="add-currency">
+                <option value="INR">INR (₹)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="CNY">CNY (¥)</option>
+                <option value="SGD">SGD (S$)</option>
+                <option value="AED">AED (د.إ)</option>
+                <option value="AUD">AUD (A$)</option>
+                <option value="CAD">CAD (C$)</option>
+                <option value="CHF">CHF (Fr)</option>
+                <option value="HKD">HKD (HK$)</option>
+                <option value="KRW">KRW (₩)</option>
+                <option value="MYR">MYR (RM)</option>
+                <option value="NZD">NZD (NZ$)</option>
+                <option value="SAR">SAR (﷼)</option>
+                <option value="SEK">SEK (kr)</option>
+                <option value="THB">THB (฿)</option>
+                <option value="TWD">TWD (NT$)</option>
+                <option value="ZAR">ZAR (R)</option>
+              </select>
+            </label>
+            <label id="add-invested-base-label" class="invested-base-label" style="display:none;">
+              <span>Invested in <span id="add-invested-base-currency">INR</span></span>
+              <input type="number" id="add-invested-base" step="any" placeholder="Actual amount in your base currency" />
+              <small class="invested-base-hint">The actual amount you spent in your base currency to make this investment (e.g. INR converted to USD).</small>
+            </label>
+            <label id="ticker-label">Ticker (Yahoo)
+              <input type="text" id="add-ticker" placeholder="e.g. RELIANCE.NS, TSLA, BTC-INR" />
+            </label>
+            <label>Notes <input type="text" id="add-notes" placeholder="Optional" /></label>
+            <button type="submit" class="add-btn">+ Submit</button>
+          </form>
+          <p id="add-msg" class="form-msg"></p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>All Holdings</h2>
+          <div class="filters">
+            <label>Search <input type="text" id="filter-search" placeholder="Asset name..." /></label>
+            <label>Category <select id="filter-class"><option value="">All</option></select></label>
+            <label>Broker <select id="filter-broker"><option value="">All</option></select></label>
+            <label>Currency
+              <select id="filter-currency">
+                <option value="">All</option>
+                <option value="INR">INR</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="JPY">JPY</option>
+                <option value="CNY">CNY</option>
+                <option value="SGD">SGD</option>
+                <option value="AED">AED</option>
+                <option value="AUD">AUD</option>
+                <option value="CAD">CAD</option>
+                <option value="CHF">CHF</option>
+              </select>
+            </label>
+            <button type="button" id="filter-reset-btn" class="filter-reset-btn">Reset</button>
+          </div>
+
+          <!-- Batch action bar (hidden by default) -->
+          <div id="batch-bar" class="batch-bar batch-bar-hidden">
+            <span id="batch-count">0 selected</span>
+            <select id="batch-action">
+              <option value="">— Batch Action —</option>
+              <option value="asset_class">Update Category</option>
+              <option value="asset_type">Update Type</option>
+              <option value="broker">Update Broker</option>
+              <option value="delete">Delete Selected</option>
+            </select>
+            <select id="batch-value" class="batch-value-hidden">
+              <option value="">— Select Value —</option>
+            </select>
+            <button id="batch-apply-btn" class="add-btn">Apply</button>
+            <button id="batch-clear-btn" class="cancel-btn">Clear Selection</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th class="col-check"><input type="checkbox" id="select-all" title="Select all" /></th>
+                <th>Date</th>
+                <th>B/S</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Broker</th>
+                <th>Cur</th>
+                <th class="col-amount">Price</th>
+                <th class="col-amount">Qty</th>
+                <th class="col-amount">Invested</th>
+                <th class="col-amount">Current Price</th>
+                <th class="col-amount">Current Value</th>
+                <th class="col-amount">P&L</th>
+                <th class="col-amount">P&L %</th>
+                <th class="col-actions">Actions</th>
+              </tr></thead>
+              <tbody id="holdings-rows"></tbody>
+            </table>
+          </div>
+          <div class="table-footer" id="holdings-footer"></div>
+        </section>
+      </div>
+
+      <!-- ===== SETTINGS TAB ===== -->
+      <div id="tab-settings" class="tab-content">
+        <!-- Default Currency -->
+        <section class="card">
+          <h2>Currency Configuration</h2>
+          <p class="settings-desc">Configure your base currency to enable multi-currency tracking. Leave as "Not configured" if you don't need currency features.</p>
+          <div id="currency-config-info" class="currency-config-info" style="display:none;">
+            <ul>
+              <li><strong>Base currency</strong> — all portfolio values (invested, current value, P&L) are shown in this currency.</li>
+              <li><strong>Foreign currency transactions</strong> — when adding a holding in a different currency, you'll be asked for the actual base-currency amount you spent. This ensures your "Invested" figures reflect real outflows.</li>
+              <li><strong>Exchange rate display</strong> — optionally show a live exchange rate on the dashboard (e.g. USD/INR).</li>
+            </ul>
+          </div>
+          <div class="currency-setting-row">
+            <label>Base Currency
+              <select id="settings-default-currency" class="settings-select">
+                <option value="">— Not configured —</option>
+                <option value="AED">AED — UAE Dirham</option>
+                <option value="AUD">AUD — Australian Dollar</option>
+                <option value="CAD">CAD — Canadian Dollar</option>
+                <option value="CHF">CHF — Swiss Franc</option>
+                <option value="CNY">CNY — Chinese Yuan</option>
+                <option value="EUR">EUR — Euro</option>
+                <option value="GBP">GBP — British Pound</option>
+                <option value="HKD">HKD — Hong Kong Dollar</option>
+                <option value="INR">INR — Indian Rupee</option>
+                <option value="JPY">JPY — Japanese Yen</option>
+                <option value="KRW">KRW — Korean Won</option>
+                <option value="MYR">MYR — Malaysian Ringgit</option>
+                <option value="NZD">NZD — New Zealand Dollar</option>
+                <option value="SAR">SAR — Saudi Riyal</option>
+                <option value="SEK">SEK — Swedish Krona</option>
+                <option value="SGD">SGD — Singapore Dollar</option>
+                <option value="THB">THB — Thai Baht</option>
+                <option value="TWD">TWD — Taiwan Dollar</option>
+                <option value="USD">USD — US Dollar</option>
+                <option value="ZAR">ZAR — South African Rand</option>
+              </select>
+            </label>
+            <label id="rate-display-label">Show Exchange Rate
+              <select id="settings-rate-display" class="settings-select">
+                <option value="">— None —</option>
+                <option value="AED">AED</option>
+                <option value="AUD">AUD</option>
+                <option value="CAD">CAD</option>
+                <option value="CHF">CHF</option>
+                <option value="CNY">CNY</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="HKD">HKD</option>
+                <option value="INR">INR</option>
+                <option value="JPY">JPY</option>
+                <option value="KRW">KRW</option>
+                <option value="MYR">MYR</option>
+                <option value="NZD">NZD</option>
+                <option value="SAR">SAR</option>
+                <option value="SEK">SEK</option>
+                <option value="SGD">SGD</option>
+                <option value="THB">THB</option>
+                <option value="TWD">TWD</option>
+                <option value="USD">USD</option>
+                <option value="ZAR">ZAR</option>
+              </select>
+            </label>
+            <button id="settings-currency-save-btn" class="add-btn">Save</button>
+          </div>
+          <div id="currency-restore-section" class="currency-restore-section" style="display:none;">
+            <p class="currency-restore-msg">⚠️ Currency is disabled but you have holdings in multiple currencies. Values may be inaccurate without conversion.</p>
+            <button id="currency-restore-btn" class="currency-restore-btn"><span id="currency-restore-label">Restore previous configuration</span></button>
+          </div>
+        </section>
+
+        <div class="settings-grid">
+          <!-- Categories -->
+          <section class="card">
+            <h2>Categories</h2>
+            <p class="settings-desc">Configure the categories (India, US, Gold, Crypto). Renaming propagates to all holdings.</p>
+            <ul class="settings-list" id="settings-classes-list"></ul>
+            <div class="settings-add">
+              <input type="text" id="settings-class-input" placeholder="New category..." />
+              <button id="settings-class-add-btn" class="add-btn">+ Add</button>
+            </div>
+          </section>
+
+          <!-- Types -->
+          <section class="card">
+            <h2>Types</h2>
+            <p class="settings-desc">Configure asset types (Shares, Mutual Fund, ETF, Crypto). Renaming propagates to all holdings.</p>
+            <ul class="settings-list" id="settings-types-list"></ul>
+            <div class="settings-add">
+              <input type="text" id="settings-type-input" placeholder="New asset type..." />
+              <button id="settings-type-add-btn" class="add-btn">+ Add</button>
+            </div>
+          </section>
+
+          <!-- Brokers -->
+          <section class="card">
+            <h2>Brokers / Platforms</h2>
+            <p class="settings-desc">Configure broker platforms. Renaming propagates to all holdings.</p>
+            <ul class="settings-list" id="settings-brokers-list"></ul>
+            <div class="settings-add">
+              <input type="text" id="settings-broker-input" placeholder="New broker..." />
+              <button id="settings-broker-add-btn" class="add-btn">+ Add</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- Ticker Mapping (full width) -->
+        <section class="card">
+          <h2>Ticker Mapping</h2>
+          <p class="settings-desc">Map asset names to Yahoo Finance ticker symbols for live price fetching. Examples: RELIANCE.NS, TSLA, BTC-INR, HDFCBANK.NS</p>
+          <div class="table-wrap">
+            <table class="ticker-table">
+              <thead><tr>
+                <th>Asset Name</th>
+                <th>Yahoo Ticker</th>
+                <th class="col-actions">Actions</th>
+              </tr></thead>
+              <tbody id="settings-tickers-list"></tbody>
+            </table>
+          </div>
+          <div class="settings-add" style="margin-top: 12px;">
+            <input type="text" id="settings-ticker-asset" placeholder="Asset name" />
+            <input type="text" id="settings-ticker-symbol" placeholder="Ticker (e.g. TSLA)" />
+            <button id="settings-ticker-add-btn" class="add-btn">+ Map</button>
+          </div>
+        </section>
+        <!-- App Lock -->
+        <section class="card">
+          <h2>App Lock</h2>
+          <div id="lock-setup-section">
+            <p class="settings-desc">Set a 6-digit PIN to lock the app.</p>
+            <div class="lock-form-row">
+              <label>PIN <input type="password" id="settings-pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="6 digits" /></label>
+              <label>Confirm PIN <input type="password" id="settings-pin-confirm" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="Confirm" /></label>
+            </div>
+            <button id="settings-lock-enable" type="button" class="add-btn">Enable Lock</button>
+            <p id="settings-lock-message" class="form-msg"></p>
+          </div>
+          <div id="lock-recovery-alert-section" style="display:none;"></div>
+          <div id="lock-disable-section" style="display:none;">
+            <p class="lock-active-badge">🔒 App is currently locked</p>
+            <div class="lock-form-row">
+              <label>PIN <input type="password" id="settings-disable-pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="Enter PIN" /></label>
+            </div>
+            <button id="settings-lock-disable" type="button" class="add-btn">Disable Lock</button>
+            <p id="settings-disable-message" class="form-msg"></p>
+          </div>
+        </section>
+      </div>
+
+    </main>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal-overlay" role="dialog" aria-labelledby="edit-modal-title">
+      <div class="modal-content">
+        <h2 id="edit-modal-title">Edit Holding</h2>
+        <form id="edit-form" class="grid edit-grid">
+          <input type="hidden" id="edit-id" />
+          <label>Date <input type="date" id="edit-date" required /></label>
+          <label>Buy/Sell
+            <select id="edit-txn-type">
+              <option value="buy">Buy</option>
+              <option value="sell">Sell</option>
+            </select>
+          </label>
+          <label>Asset Name <input type="text" id="edit-name" required /></label>
+          <label>Category <select id="edit-asset-class" required></select></label>
+          <label>Type <select id="edit-asset-type"></select></label>
+          <label>Broker/Platform <select id="edit-broker"><option value="">— None —</option></select></label>
+          <label>Price <input type="number" id="edit-buy-price" step="any" required /></label>
+          <label>Quantity <input type="number" id="edit-quantity" step="any" required /></label>
+          <label>Invested Amount <input type="number" id="edit-invested" step="any" required /></label>
+          <label>Currency
+            <select id="edit-currency">
+              <option value="INR">INR (₹)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="CNY">CNY (¥)</option>
+              <option value="SGD">SGD (S$)</option>
+              <option value="AED">AED (د.إ)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="CHF">CHF (Fr)</option>
+              <option value="HKD">HKD (HK$)</option>
+              <option value="KRW">KRW (₩)</option>
+              <option value="MYR">MYR (RM)</option>
+              <option value="NZD">NZD (NZ$)</option>
+              <option value="SAR">SAR (﷼)</option>
+              <option value="SEK">SEK (kr)</option>
+              <option value="THB">THB (฿)</option>
+              <option value="TWD">TWD (NT$)</option>
+              <option value="ZAR">ZAR (R)</option>
+            </select>
+          </label>
+          <label id="edit-invested-base-label" class="invested-base-label" style="display:none;">
+            <span>Invested in <span id="edit-invested-base-currency">INR</span></span>
+            <input type="number" id="edit-invested-base" step="any" placeholder="Actual amount in your base currency" />
+            <small class="invested-base-hint">The actual amount you spent in your base currency to make this investment.</small>
+          </label>
+          <label>Ticker <input type="text" id="edit-ticker" placeholder="Yahoo ticker" /></label>
+          <label>Notes <input type="text" id="edit-notes" /></label>
+          <div class="modal-buttons">
+            <button type="submit" class="save-btn">Save</button>
+            <button type="button" id="edit-cancel" class="cancel-btn">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notes Modal -->
+    <div id="notes-modal" class="modal-overlay" role="dialog" aria-labelledby="notes-modal-title">
+      <div class="modal-content modal-content-sm">
+        <h2 id="notes-modal-title">Notes</h2>
+        <p id="notes-modal-asset" class="notes-asset-name"></p>
+        <textarea id="notes-modal-text" class="notes-textarea" rows="4" placeholder="Add a note..."></textarea>
+        <div class="modal-buttons">
+          <button id="notes-save-btn" class="save-btn">Save</button>
+          <button id="notes-cancel-btn" class="cancel-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
