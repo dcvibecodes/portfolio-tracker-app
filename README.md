@@ -1,8 +1,8 @@
-# Finance Portfolio Tracker
+# Portfolio Tracker+
 
 A self-hosted investment portfolio tracker that works with any asset class, any currency, and any broker. Built with Node.js, Express, SQLite, and vanilla JavaScript. Deploy on a VPS or run locally — your data stays on your server, not in someone else's cloud.
 
-**Version 1.1.0**
+**Version 2.0.0**
 
 ---
 
@@ -16,34 +16,36 @@ Most portfolio trackers are either locked behind subscriptions, limited to speci
 
 ### Dashboard
 
-**Portfolio Summary Cards**
+**Portfolio Summary Cards**  
 Four at-a-glance metrics: Total Invested, Current Value, P&L (with percentage), and a live exchange rate (configurable). All values reflect your configured base currency.
 
-**Allocation Charts**
+**Allocation Charts**  
 Two doughnut charts showing portfolio allocation by category (e.g., Stocks, Crypto, Gold) and by type (e.g., Mutual Fund, ETF, Shares). Percentages are shown inline on labels.
 
-**Monthly Investments Chart**
+**Monthly Investments Chart**  
 A combo chart (stacked bars + trend lines) showing:
+
 - Monthly investment amounts broken down by category (stacked bars)
 - Cumulative invested value (dashed line)
 - Estimated portfolio value trajectory (filled line)
 
 Range selector: 1Y, 2Y, 3Y, 5Y, or All time. "All" shows your complete history from the very first transaction.
 
-**Category Breakdown Table**
+**Category Breakdown Table**  
 An expandable/collapsible pivot table grouped by category. Each category row shows invested amount, current value, P&L, and P&L%. Expand a category to see individual assets with their units, current price, and per-asset P&L.
 
 Units and current price are only shown at the individual asset level (not at the category or total level, where they would be meaningless). If foreign currency holdings exist, a tooltip (ⓘ icon) explains how invested amounts are derived.
 
-**Currency Toggle**
+**Currency Toggle**  
 A button in the header lets you switch between viewing all values in your base currency or in a secondary currency (e.g., toggle between ₹ INR and $ USD). One click, entire dashboard re-renders.
 
 ---
 
 ### Holdings
 
-**Add Transaction**
+**Add Transaction**  
 A collapsible form for recording buy or sell transactions. Fields include:
+
 - Date, Buy/Sell toggle, Asset Name (with autocomplete from existing holdings)
 - Category, Type, Broker/Platform (all configurable dropdowns)
 - Price per unit, Quantity, Total invested amount
@@ -54,26 +56,28 @@ A collapsible form for recording buy or sell transactions. Fields include:
 
 When you select Sell, the ticker field hides (you already have it). Quantity and amount are stored as negative values automatically.
 
-**Asset Name Autocomplete**
+**Asset Name Autocomplete**  
 Start typing an asset name and existing names appear as suggestions. Selecting one auto-populates the ticker if a mapping exists.
 
-**All Holdings Table**
+**All Holdings Table**  
 A full table of every transaction with columns for date, buy/sell badge, name, category, broker, currency, price, quantity, invested, current price, current value, P&L, P&L%, and action buttons.
 
-**Filters**
+**Filters**  
 Filter by asset name search, category, broker, or currency. One-click "Reset" clears all filters.
 
-**Batch Operations**
+**Batch Operations**  
 Select multiple rows via checkboxes (includes Select All with indeterminate state), then:
+
 - Batch update category, type, or broker
 - Batch delete with confirmation
 
 **Per-Row Actions**
+
 - Edit (opens a modal with all fields pre-populated)
 - Delete (with confirmation)
 - Notes (popup editor for adding/editing notes per transaction)
 
-**Sort Order**
+**Sort Order**  
 Holdings are displayed most recent first (by date descending, then by ID descending). A past-dated transaction sits in its chronological position.
 
 ---
@@ -85,6 +89,7 @@ Holdings are displayed most recent first (by date descending, then by ID descend
 The app supports a currency-agnostic mode by default. If you don't need multi-currency tracking, leave it unconfigured — all values display as raw numbers with no currency symbols or conversions.
 
 When you configure a base currency:
+
 - All portfolio values display in that currency with the appropriate symbol
 - A secondary "Show Exchange Rate" option lets you pick a currency pair to display on the dashboard
 - The currency selector appears in the add/edit transaction forms
@@ -94,35 +99,35 @@ If you disable currency after having holdings in multiple currencies, the app sh
 
 20+ currencies supported: AED, AUD, CAD, CHF, CNY, EUR, GBP, HKD, INR, JPY, KRW, MYR, NZD, SAR, SEK, SGD, THB, TWD, USD, ZAR.
 
-**Categories**
+**Categories**  
 Define your own asset categories (e.g., "Indian Stock", "US Stock", "Crypto", "Gold", "Real Estate"). Maximum 10. Renaming a category propagates to all holdings that use it. Cannot delete a category while holdings reference it.
 
-**Types**
+**Types**  
 Define asset types within categories (e.g., "Mutual Fund", "ETF", "Shares", "Cryptocurrency", "Bond"). Same rename propagation and delete protection.
 
-**Brokers / Platforms**
+**Brokers / Platforms**  
 Track which platform each holding is on (e.g., "Zerodha", "Vanguard", "Coinbase"). Same rules — rename propagates, delete is protected.
 
-**Ticker Mapping**
+**Ticker Mapping**  
 Map asset names to Yahoo Finance ticker symbols for automatic live price updates. Examples:
-- `Reliance Industries` → `RELIANCE.NS`
-- `Tesla Inc.` → `TSLA`
-- `Bitcoin` → `BTC-INR`
-- `SBI Bluechip Fund` → `0P0000XVL9.BO`
+
+| Asset Name | Ticker |
+|---|---|
+| Reliance Industries | `RELIANCE.NS` |
+| Tesla Inc. | `TSLA` |
+| Bitcoin | `BTC-INR` |
+| SBI Bluechip Fund | `0P0000XVL9.BO` |
 
 Tickers can be edited inline in the settings table. When you add a new holding with a ticker, the mapping is saved automatically for future use.
 
-**App Lock — Server-Side Authentication**
-Protect the app with a 6-digit numeric PIN enforced at the server level:
+**App Lock**  
+Protect the app with a 6-digit numeric PIN:
+
 - Set a PIN and receive a one-time recovery code (save it securely)
-- On next visit, the server blocks ALL requests (static files + API) until the correct PIN is entered
-- Without a valid server-side session cookie, the server returns a minimal inline lock page — the real app code is never sent to the browser
-- API requests without authentication return HTTP 401
-- Server restart invalidates all sessions — must re-enter PIN
-- Once unlocked, the session persists for 24 hours (or until server restart)
+- On next visit, the app shows a lock screen requiring PIN entry
+- "Remember for today" option skips the PIN for the rest of the day in the same browser
 - Recovery code unlocks and removes the lock if you forget your PIN
 - Can be disabled at any time from Settings (requires current PIN)
-- Previously the lock was enforced only on the client side (JavaScript overlay), which could be bypassed. Now the lock is enforced on the server before any application code is served.
 
 ---
 
@@ -135,6 +140,7 @@ Protect the app with a 6-digit numeric PIN enforced at the server level:
 **Exchange rates** — fetched live via Yahoo Finance (e.g., `USDINR=X`). Cached per session to avoid duplicate calls.
 
 **What gets updated:**
+
 - `current_price` on all holdings with a valid ticker
 - Exchange rates for all foreign currencies in your holdings
 - Dashboard, charts, and breakdown all reflect the latest values
@@ -145,11 +151,11 @@ Protect the app with a 6-digit numeric PIN enforced at the server level:
 
 The app handles foreign currency investments without masking what you actually spent:
 
-1. **You add a holding in USD** (or any non-base currency)
-2. **An additional field appears:** "Invested in [your base currency]" — you enter the actual amount that left your bank account in your home currency (e.g., the INR you converted to buy those USD shares)
-3. **In all summaries and breakdowns,** the invested column shows that real base-currency amount — not a fluctuating live-rate conversion
-4. **Current value** still uses live exchange rates (because that's what it's worth today)
-5. **P&L** = current value (live) minus what you actually spent (fixed) — gives you true profit/loss including forex impact
+1. You add a holding in USD (or any non-base currency)
+2. An additional field appears: "Invested in [your base currency]" — you enter the actual amount that left your bank account in your home currency (e.g., the INR you converted to buy those USD shares)
+3. In all summaries and breakdowns, the invested column shows that real base-currency amount — not a fluctuating live-rate conversion
+4. Current value still uses live exchange rates (because that's what it's worth today)
+5. P&L = current value (live) minus what you actually spent (fixed) — gives you true profit/loss including forex impact
 
 The Holdings table continues to show amounts in the original currency for each row, so you can reconcile with your broker statements.
 
@@ -158,9 +164,10 @@ The Holdings table continues to show amounts in the original currency for each r
 ### Dark Mode
 
 Full dark theme with pitch-black background (saves battery on OLED screens):
+
 - All cards, inputs, selects, modals, and charts themed
 - Safari-specific fixes for calendar picker icons and select chevrons
-- Toggle via the 🌙/☀️ button in the header
+- Toggle via the 🌙/☀ button in the header
 - Preference saved in localStorage
 
 ---
@@ -169,7 +176,7 @@ Full dark theme with pitch-black background (saves battery on OLED screens):
 
 The app is designed mobile-first for use on phones:
 
-- **Swipeable tabs** — horizontal scroll-snap between Dashboard, Holdings, and Settings. Swipe left/right or tap the tab buttons.
+- **Swipeable tabs** — horizontal scroll-snap between Dashboard, Holdings, Watchlist, and Settings. Swipe left/right or tap the tab buttons.
 - **Pull to refresh** — pull down on any tab to reload data
 - **No auto-zoom on iOS** — all inputs use 16px font size
 - **Touch-friendly targets** — minimum 40px height on all buttons and inputs
@@ -183,12 +190,14 @@ The app is designed mobile-first for use on phones:
 ### Browser Compatibility
 
 Tested and working on:
+
 - **Chrome** (desktop + Android)
 - **Firefox** (desktop + Android)
 - **Safari** (macOS + iOS/iPadOS)
 - **Edge** (desktop)
 
 Safari-specific handling includes:
+
 - `-webkit-backdrop-filter` for blur effects
 - `-webkit-appearance: none` for consistent select styling
 - Custom SVG chevron on dropdowns (Safari hides the native one with `appearance: none`)
@@ -202,7 +211,7 @@ Safari-specific handling includes:
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+| :--- | :--- |
 | Backend | Node.js, Express |
 | Database | SQLite via better-sqlite3 (WAL mode) |
 | Frontend | Vanilla JavaScript (no framework, no build step) |
@@ -215,6 +224,7 @@ Safari-specific handling includes:
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js v18 or later
 - npm
 
@@ -228,7 +238,7 @@ npm install
 npm start
 ```
 
-The app runs at [http://localhost:3001](http://localhost:3001).
+The app runs at `http://localhost:3001`.
 
 The database (`data/portfolio.db`) is created automatically on first run.
 
@@ -248,9 +258,9 @@ This reads `Finance Portfolio Tracker.xlsx` from the project root and populates 
 
 ```
 finance-portfolio-tracker/
-├── server.js              ← Express server, all API routes, SQLite schema, session & auth middleware
+├── server.js              ← Express server, all API routes, SQLite schema
 ├── import-excel.js        ← Excel → SQLite import script
-├── package.json           ← Dependencies (includes express-session) and npm scripts
+├── package.json           ← Dependencies and npm scripts
 ├── package-lock.json      ← Locked dependency versions
 ├── data/
 │   └── portfolio.db       ← SQLite database (auto-created, gitignored)
@@ -269,20 +279,22 @@ finance-portfolio-tracker/
 ### Holdings
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| :--- | :--- | :--- |
 | GET | `/api/holdings` | List all holdings (supports query filters: name, asset_class, asset_type, broker, currency) |
 | POST | `/api/holdings` | Create a new holding (buy or sell transaction) |
 | PUT | `/api/holdings/:id` | Update a holding |
 | DELETE | `/api/holdings/:id` | Delete a holding |
 | POST | `/api/holdings/batch-update` | Update fields on multiple holdings at once |
 | POST | `/api/holdings/batch-delete` | Delete multiple holdings at once |
+| POST | `/api/holdings/rename-asset` | Rename an asset across all holdings + ticker map |
+| GET | `/api/assets/names` | List all distinct asset names with counts |
 | GET | `/api/autocomplete/assets` | Autocomplete suggestions for asset names |
 | GET | `/api/ticker-for-asset` | Look up ticker symbol for a given asset name |
 
 ### Dashboard Data
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| :--- | :--- | :--- |
 | GET | `/api/summary` | Portfolio summary (totals by class and type) |
 | GET | `/api/breakdown` | Hierarchical breakdown (class → individual assets) |
 | GET | `/api/allocation` | Allocation by asset name (for charts) |
@@ -291,15 +303,24 @@ finance-portfolio-tracker/
 ### Prices & Rates
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| :--- | :--- | :--- |
 | POST | `/api/refresh-prices` | Refresh all prices from Yahoo Finance |
 | GET | `/api/price/:ticker` | Fetch price for a single ticker |
 | GET | `/api/exchange-rate` | Get configured exchange rates |
 
+### Watchlist
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| GET | `/api/watchlist` | Get merged watchlist (portfolio tickers + manual, with live prices) |
+| POST | `/api/watchlist` | Add a ticker to watchlist (validates against Yahoo Finance) |
+| PUT | `/api/watchlist/:id` | Edit a manual watchlist item (name/ticker) |
+| DELETE | `/api/watchlist/:id` | Remove a manual watchlist item |
+
 ### Settings
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| :--- | :--- | :--- |
 | GET | `/api/settings/asset-classes` | List categories |
 | POST | `/api/settings/asset-classes` | Add a category |
 | PUT | `/api/settings/asset-classes/:id` | Rename a category |
@@ -319,46 +340,47 @@ finance-portfolio-tracker/
 | PUT | `/api/settings/currency` | Update currency configuration |
 | POST | `/api/settings/currency/restore` | Restore previous currency configuration |
 
-### App Lock & Authentication
+### App Lock
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/lock/status` | Check if app is locked (returns false when session is authenticated — prevents double lock screen) |
-| GET | `/api/lock/config` | Always returns the real lock configuration state (used by Settings tab) |
+| :--- | :--- | :--- |
+| GET | `/api/lock/status` | Check if app is locked |
 | POST | `/api/lock/setup` | Enable lock (returns recovery code) |
-| POST | `/api/lock/unlock` | Unlock with PIN (sets server-side session) |
+| POST | `/api/lock/unlock` | Unlock with PIN |
 | POST | `/api/lock/disable` | Disable lock (requires PIN) |
-| POST | `/api/lock/recovery` | Unlock with recovery code (sets server-side session) |
-| POST | `/api/lock/logout` | Destroy session and lock the app |
+| POST | `/api/lock/recovery` | Unlock with recovery code |
 
 ---
 
-## Data Safety & Security
+## Data Safety
 
 - **No external data sharing.** The app never sends your portfolio data anywhere. Yahoo Finance calls only send ticker symbols (e.g., "TSLA"), not your holdings or amounts.
 - **SQLite with WAL mode.** Write-ahead logging prevents corruption from unexpected shutdowns.
 - **Delete protection.** Categories, types, brokers, and ticker mappings cannot be deleted while holdings reference them.
 - **Batch confirmations.** Destructive batch operations require explicit confirmation.
 - **Currency restore.** Disabling currency saves your previous config for instant rollback.
-- **Server-side authentication (v1.1.0).** The app lock is now enforced at the server level — all requests are blocked without a valid session cookie. The previous client-side-only lock could be bypassed; the new server-side gate cannot. Sessions use cryptographically random secrets, httpOnly cookies, and a 24-hour expiry.
 
 ---
 
 ## Changelog
 
-### v1.1.0 (June 2026)
-- **🔒 Server-side authentication gate** — the app lock is now enforced on the server before any code is served
-- Previous client-side-only lock was unsecured (bypassable); now all requests require a valid session cookie
-- Server returns a minimal inline lock page for unauthenticated browser requests (no app code leaked)
-- API requests without authentication return HTTP 401
-- Session middleware with cryptographically random secret, httpOnly cookies, 24-hour expiry
-- New `/api/lock/config` endpoint returns real lock state (used by Settings)
-- `/api/lock/status` returns `{ locked: false }` when session is valid (prevents double lock screen)
-- `/api/lock/logout` endpoint to destroy session and re-lock the app
-- Lock page buttons use the app's `--accent` blue color (#3b82f6) instead of hardcoded purple
-- Server restart invalidates all sessions — must re-enter PIN
+### v2.0.0 (June 2026)
+
+- App renamed to Portfolio Tracker+
+- **Watchlist tab** — new dedicated tab showing live prices for all portfolio tickers (auto-populated from ticker mapping) plus manually added tickers. Portfolio entries show grayed-out edit/delete actions; manual entries are fully editable.
+- **Rename Asset** — batch action to rename an asset across all holdings and ticker mappings in one operation (via in-app modal, not browser prompt)
+- **Date format setting** — configurable date display (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD) in Display & Currency settings
+- **Locale-aware number formatting** — digit grouping follows the convention of the display currency (Indian lakhs/crores for INR, Western thousands for USD/EUR/GBP, etc.)
+- **Holdings invested total fix** — footer total now uses `invested_base` (actual base currency outflow) instead of live-rate conversion for foreign holdings
+- **Base currency change warning** — when changing base currency with existing `invested_base` entries, a clear warning explains the impact
+- **Clear form button** — next to Submit on the new transaction form
+- **Category badges simplified** — plain text, no colored backgrounds or colored text
+- **Settings card renamed** to "Display & Currency"
+- **Watchlist validates tickers** against Yahoo Finance before adding
+- **Watchlist auto-detects currency** from Yahoo Finance quote data
 
 ### v1.0.0 (June 2026)
+
 - Initial release
 - Flexible asset categories and types (user-configurable)
 - SQLite database with WAL mode
