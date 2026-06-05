@@ -2,7 +2,7 @@
 
 A self-hosted investment portfolio tracker that works with any asset class, any currency, and any broker. Built with Node.js, Express, SQLite, and vanilla JavaScript. Deploy on a VPS or run locally — your data stays on your server, not in someone else's cloud.
 
-**Version 2.0.0**
+**Version 2.0.1**
 
 ---
 
@@ -363,6 +363,14 @@ finance-portfolio-tracker/
 ---
 
 ## Changelog
+
+### v2.0.1 (June 2026)
+
+- Added CSV export for holdings
+- CSV export includes transaction details, category, type, broker, currency, valuation data, ticker symbols, and notes
+- Improved Holdings filter layout on mobile devices
+- Fixed notes icon rendering issue on iPhone/iOS
+- Minor UI and usability improvements
 
 ### v2.0.0 (June 2026)
 
