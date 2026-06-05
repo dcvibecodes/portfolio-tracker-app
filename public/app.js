@@ -788,6 +788,74 @@
     document.getElementById("filter-currency").value = "";
     loadHoldings();
   });
+  // Download CSV
+document.getElementById("download-csv-btn").addEventListener("click", async () => {
+  const rows = await fetch("/api/holdings").then(r => r.json());
+
+  if (!rows.length) {
+    alert("No holdings to download.");
+    return;
+  }
+
+  const headers = [
+    "Date",
+    "Buy/Sell",
+    "Name",
+    "Category",
+    "Type",
+    "Broker",
+    "Currency",
+    "Price",
+    "Quantity",
+    "Invested",
+    "Invested (Base)",
+    "Current Price",
+    "Current Value",
+    "P&L",
+    "P&L %",
+    "Ticker",
+    "Notes"
+  ];
+
+  const csvRows = [headers.join(",")];
+
+  for (const r of rows) {
+    const values = [
+      r.date,
+      r.txn_type || "buy",
+      `"${(r.name || "").replace(/"/g, '""')}"`,
+      `"${(r.asset_class || "").replace(/"/g, '""')}"`,
+      `"${(r.asset_type || "").replace(/"/g, '""')}"`,
+      `"${(r.broker || "").replace(/"/g, '""')}"`,
+      r.currency || "",
+      r.buy_price ?? "",
+      r.quantity ?? "",
+      r.invested_amount ?? "",
+      r.invested_base ?? "",
+      r.current_price ?? "",
+      r.current_value ?? "",
+      r.gain_loss != null ? r.gain_loss.toFixed(2) : "",
+      r.gain_loss_pct != null ? r.gain_loss_pct.toFixed(2) : "",
+      `"${(r.ticker || "").replace(/"/g, '""')}"`,
+      `"${(r.notes || "").replace(/"/g, '""')}"`
+    ];
+
+    csvRows.push(values.join(","));
+  }
+
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `portfolio-holdings-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+});
 
   document.getElementById("new-txn-toggle").addEventListener("click", function() {
     const content = document.getElementById("new-txn-content");
