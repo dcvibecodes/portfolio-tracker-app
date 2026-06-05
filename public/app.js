@@ -628,7 +628,7 @@
         <td class="col-amount ${plClass}">${r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-"}</td>
         <td class="col-amount ${plClass}">${fmtPct(r.gain_loss_pct)}</td>
         <td class="col-actions">
-          ${r.notes ? `<button class="action-btn" onclick="viewNotes(${r.id})" title="View notes">📝</button>` : `<button class="action-btn notes-empty" onclick="viewNotes(${r.id})" title="Add note">➕</button>`}
+          ${r.notes ? `<button class="action-btn" onclick="viewNotes(${r.id})" title="View notes">📝</button>` : `<button class="action-btn notes-empty" onclick="viewNotes(${r.id})" title="Add note">🗒️</button>`}
           <button class="action-btn" onclick="editHolding(${r.id})" title="Edit">✏️</button>
           <button class="action-btn delete" onclick="deleteHolding(${r.id})" title="Delete">🗑️</button>
         </td>

@@ -1,6 +1,6 @@
 {
   "name": "finance-portfolio-tracker",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Portfolio Tracker+ multi-currency portfolio tracker with watchlist, live prices, and analytics",
   "main": "server.js",
   "scripts": {

@@ -227,6 +227,11 @@ select {
   border: none; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; min-height: 38px; align-self: end; font-family: inherit;
 }
 .filter-reset-btn:hover { background: var(--text-secondary); color: #fff; }
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  align-self: end;
+}
 .form-msg { margin-top: 8px; font-size: 0.85rem; }
 .form-msg.success { color: var(--green); }
 .form-msg.error { color: var(--red); }
@@ -494,6 +499,9 @@ td.negative { color: var(--red); font-weight: 600; }
   .filters { flex-direction: column; gap: 8px; }
   .filters label { width: 100%; }
   .filters input, .filters select { width: 100%; }
+  .filter-actions {
+  align-self: flex-end;
+}
   
   .batch-bar { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; }
   .batch-bar select { width: 100%; }
