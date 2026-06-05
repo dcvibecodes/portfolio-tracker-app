@@ -389,10 +389,28 @@ td.negative { color: var(--red); font-weight: 600; }
 .recovery-warning { font-weight: 600; color: var(--orange) !important; }
 .recovery-tips { font-size: 12px !important; color: var(--text-secondary) !important; }
 
-/* Pull down processing items elements styling */
-.pull-indicator { display: none; text-align: center; padding: 10px; font-size: 12px; color: var(--text-secondary); }
+/* Pull to refresh */
+.pull-indicator {
+  display: none;
+text-align: center;
+padding: 12px;
+font-size: 13px;
+color: var(--text-secondary);
+transition: opacity 0.2s;
+}
 .pull-indicator.visible { display: block; }
-.pull-indicator .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+.pull-indicator .spinner {
+display: inline-block;
+width: 20px;
+height: 20px;
+border: 2px solid var(--border);
+border-top-color: var(--accent);
+border-radius: 50%;
+animation: spin 0.6s linear infinite;
+vertical-align: middle;
+margin-right: 6px;
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Multi-currency descriptive modules layout rules */

@@ -1413,22 +1413,67 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
 
     tabs.forEach((btn, i) => { btn.addEventListener("click", (e) => { e.preventDefault(); container.scrollTo({ left: i * container.offsetWidth, behavior: "smooth" }); }); });
 
-    const pullIndicator = document.getElementById("pull-indicator");
-    let startY = 0, pulling = false;
+    // Pull to refresh
+const pullIndicator = document.createElement("div");
+pullIndicator.className = "pull-indicator";
+pullIndicator.id = "pull-indicator";
+container.parentNode.insertBefore(pullIndicator, container);
+let pullStartY = 0;
+let pullMoveY = 0;
+let isPulling = false;
+const PULL_THRESHOLD = 80;
+function isAtTopOfScroll() {
+const idx = Math.round(container.scrollLeft / container.offsetWidth);
+const activePanel = panels[idx];
+if (activePanel) return activePanel.scrollTop <= 10;
+return true;
+}
 
-    container.addEventListener("touchstart", (e) => { const panel = panels[Math.round(container.scrollLeft / container.offsetWidth)]; if (panel && panel.scrollTop === 0) { startY = e.touches[0].clientY; pulling = true; } });
-    container.addEventListener("touchmove", (e) => { if (!pulling) return; const diff = e.touches[0].clientY - startY; if (diff > 60) { pullIndicator.classList.add("visible"); } });
-    container.addEventListener("touchend", () => {
-      if (pullIndicator.classList.contains("visible")) {
-        const idx = Math.round(container.scrollLeft / container.offsetWidth);
-        const tabName = tabs[idx]?.dataset.tab;
-        if (tabName === "dashboard") loadDashboard();
-        else if (tabName === "holdings") loadHoldings();
-        else if (tabName === "watchlist") loadWatchlist();
-        else if (tabName === "settings") loadSettings();
-        setTimeout(() => pullIndicator.classList.remove("visible"), 1000);
-      }
-      pulling = false;
-    });
+document.addEventListener("touchstart", (e) => {
+if (!isAtTopOfScroll()) return;
+if (e.target.closest(".modal-overlay")) return;
+pullStartY = e.touches[0].clientY;
+pullMoveY = pullStartY;
+isPulling = true;
+}, { passive: true });
+document.addEventListener("touchmove", (e) => {
+if (!isPulling) return;
+pullMoveY = e.touches[0].clientY;
+const dist = pullMoveY - pullStartY;
+if (dist < 0) { isPulling = false;
+pullIndicator.classList.remove("visible"); return; }
+if (dist > 20) {
+pullIndicator.innerHTML = dist > PULL_THRESHOLD
+? '<span class="spinner"></span>Release to refresh...'
+: '<span class="spinner"></span>Pull down to refresh...';
+pullIndicator.classList.add("visible");
+}
+}, { passive: true });
+document.addEventListener("touchend", async () => {
+if (!isPulling) return;
+isPulling = false;
+const dist = pullMoveY - pullStartY;
+if (dist > PULL_THRESHOLD) {
+pullIndicator.innerHTML = '<span class="spinner"></span>Refreshing...';
+try {
+const idx = Math.round(container.scrollLeft / container.offsetWidth);
+const tabName = tabs[idx]?.dataset.tab;
+if (tabName === "dashboard") await loadDashboard();
+else if (tabName === "holdings") await loadHoldings();
+else if (tabName === "watchlist") await loadWatchlist();
+else if (tabName === "settings") await loadSettings();
+pullIndicator.innerHTML = '✓ Updated';
+} catch {
+pullIndicator.innerHTML = '✗ Failed';
+}
+setTimeout(() => {
+pullIndicator.classList.remove("visible");
+pullIndicator.innerHTML = "";
+}, 1500);
+} else {
+pullIndicator.classList.remove("visible");
+pullIndicator.innerHTML = "";
+}
+}, { passive: true });
   }
 })();
