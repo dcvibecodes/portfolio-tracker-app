@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");
 const Database = require("better-sqlite3");
+const bcrypt = require("bcrypt");
 
 const app = express();
 const PORT = 3001;
@@ -129,13 +130,38 @@ if (brokerCount === 0) {
 }
 
 //--- Helpers ---
-function hashPin(pin) {
-  return crypto.createHash("sha256").update(pin).digest("hex");
+const BCRYPT_ROUNDS = 10;
+
+async function hashPin(pin) {
+  return bcrypt.hash(pin, BCRYPT_ROUNDS);
+}
+
+async function verifyPin(pin, hash) {
+  // Support legacy SHA-256 hashes (migration path)
+  if (hash && hash.length === 64 && /^[a-f0-9]{64}$/.test(hash)) {
+    const sha256 = crypto.createHash("sha256").update(pin).digest("hex");
+    return sha256 === hash;
+  }
+  return bcrypt.compare(pin, hash);
 }
 
 function generateRecoveryCode() {
   return crypto.randomBytes(4).toString("hex").toUpperCase();
 }
+
+// --- Persistent session secret ---
+const secretPath = path.join(dataDir, "session-secret.key");
+let SESSION_SECRET;
+if (fs.existsSync(secretPath)) {
+  SESSION_SECRET = fs.readFileSync(secretPath, "utf-8").trim();
+} else {
+  SESSION_SECRET = crypto.randomBytes(32).toString("hex");
+  fs.writeFileSync(secretPath, SESSION_SECRET, "utf-8");
+}
+
+// --- Price refresh TTL ---
+let lastPriceRefreshTime = 0;
+const PRICE_REFRESH_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 let yfInstance = null;
 let ratesSessionCache = {};
@@ -151,11 +177,11 @@ async function getYF() {
     const mod = await import("yahoo-finance2");
     const YahooFinance = mod.default || mod;
     if (typeof YahooFinance === "function" && YahooFinance.prototype) {
-      yfInstance = new YahooFinance();
+      yfInstance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
     } else if (YahooFinance.quote) {
       yfInstance = YahooFinance;
     } else if (typeof YahooFinance === "function") {
-      yfInstance = YahooFinance();
+      yfInstance = YahooFinance({ suppressNotices: ['yahooSurvey'] });
     } else {
       yfInstance = YahooFinance;
     }
@@ -220,10 +246,16 @@ function isValidDate(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
+//--- Async route wrapper (fix #1.1) ---
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
 app.use(express.json());
 
 // Session Setup
-const SESSION_SECRET = crypto.randomBytes(32).toString("hex");
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
@@ -255,7 +287,7 @@ function getLoginPage() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portfolio Tracker+ Locked</title>
+<title>Portfolio+ Locked</title>
 <style>
   *{ margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -273,7 +305,7 @@ function getLoginPage() {
 </head>
 <body>
 <div class="lock-modal">
-  <h2>Portfolio Tracker+ Locked</h2>
+  <h2>Portfolio+ Locked</h2>
   <p class="subtitle">Enter your 6-digit PIN to access the app.</p>
   <input type="password" id="pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" />
   <button id="unlock-btn" type="button">Unlock</button>
@@ -334,7 +366,7 @@ app.put("/api/settings/asset-classes/:id", (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: "Name is required." });
   const old = db.prepare("SELECT name FROM asset_classes WHERE id = ?").get(id);
   if (!old) return res.status(404).json({ error: "Not found." });
-  
+
   db.transaction(() => {
     db.prepare("UPDATE asset_classes SET name = ? WHERE id = ?").run(name.trim(), id);
     db.prepare("UPDATE holdings SET asset_class = ? WHERE asset_class = ?").run(name.trim(), old.name);
@@ -378,7 +410,7 @@ app.put("/api/settings/asset-types/:id", (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: "Name is required." });
   const old = db.prepare("SELECT name FROM asset_types WHERE id = ?").get(id);
   if (!old) return res.status(404).json({ error: "Not found." });
-  
+
   db.transaction(() => {
     db.prepare("UPDATE asset_types SET name = ? WHERE id = ?").run(name.trim(), id);
     db.prepare("UPDATE holdings SET asset_type = ? WHERE asset_type = ?").run(name.trim(), old.name);
@@ -481,6 +513,18 @@ app.get("/api/ticker-for-asset", (req, res) => {
   if (!name) return res.json({ ticker: "" });
   const row = db.prepare("SELECT ticker FROM ticker_map WHERE asset_name = ?").get(name);
   res.json({ ticker: row ? row.ticker : "" });
+});
+
+// GET single holding by ID (fix #1.11)
+app.get("/api/holdings/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const row = db.prepare("SELECT * FROM holdings WHERE id = ?").get(id);
+  if (!row) return res.status(404).json({ error: "Not found." });
+  const isSell = row.txn_type === "sell";
+  const current_value = (!isSell && row.current_price && row.quantity > 0) ? (row.current_price * row.quantity) : null;
+  const gain_loss = current_value != null ? (current_value - row.invested_amount) : null;
+  const gain_loss_pct = (gain_loss != null && row.invested_amount) ? (gain_loss / row.invested_amount * 100) : null;
+  res.json({ ...row, current_value, gain_loss, gain_loss_pct });
 });
 
 app.get("/api/holdings", (req, res) => {
@@ -628,18 +672,22 @@ app.post("/api/holdings/batch-update", (req, res) => {
   }
 
   if (setClauses.length === 0) return res.status(400).json({ error: "No valid fields to update." });
-  const placeholders = ids.map(() => "?").join(",");
+  const safeIds = ids.map(Number).filter(n => Number.isFinite(n) && n > 0);
+  if (safeIds.length === 0) return res.status(400).json({ error: "No valid IDs." });
+  const placeholders = safeIds.map(() => "?").join(",");
   const sql = `UPDATE holdings SET ${setClauses.join(", ")} WHERE id IN (${placeholders})`;
   const stmt = db.prepare(sql);
-  const result = stmt.run(...values, ...ids.map(Number));
+  const result = stmt.run(...values, ...safeIds);
   res.json({ success: true, updated: result.changes });
 });
 
 app.post("/api/holdings/batch-delete", (req, res) => {
   const { ids } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No IDs provided." });
-  const placeholders = ids.map(() => "?").join(",");
-  const result = db.prepare(`DELETE FROM holdings WHERE id IN (${placeholders})`).run(...ids.map(Number));
+  const safeIds = ids.map(Number).filter(n => Number.isFinite(n) && n > 0);
+  if (safeIds.length === 0) return res.status(400).json({ error: "No valid IDs." });
+  const placeholders = safeIds.map(() => "?").join(",");
+  const result = db.prepare(`DELETE FROM holdings WHERE id IN (${placeholders})`).run(...safeIds);
   res.json({ success: true, deleted: result.changes });
 });
 
@@ -668,20 +716,34 @@ app.post("/api/holdings/rename-asset", (req, res) => {
 });
 
 //--- Price updates & refresh ---
-app.post("/api/refresh-prices", async (req, res) => {
+app.post("/api/refresh-prices", asyncHandler(async (req, res) => {
+  // TTL check — skip if refreshed within last 5 minutes (unless force=true)
+  const force = req.body && req.body.force;
+  if (!force && (Date.now() - lastPriceRefreshTime < PRICE_REFRESH_TTL_MS)) {
+    return res.json({ updated: 0, failed: 0, details: [], skipped: true, message: "Prices were refreshed recently. Use force:true to override." });
+  }
+
   ratesSessionCache = {};
   const holdings = db.prepare("SELECT DISTINCT name, ticker FROM holdings WHERE ticker != '' AND ticker IS NOT NULL").all();
   const results = { updated: 0, failed: 0, details: [] };
 
-  for (const h of holdings) {
-    const price = await fetchPrice(h.ticker);
-    if (price != null) {
-      db.prepare("UPDATE holdings SET current_price = ? WHERE name = ? AND ticker = ?").run(price, h.name, h.ticker);
-      results.updated++;
-      results.details.push({ name: h.name, ticker: h.ticker, price });
-    } else {
-      results.failed++;
-      results.details.push({ name: h.name, ticker: h.ticker, price: null, error: "Failed" });
+  // Fetch prices in parallel batches of 5
+  const batchSize = 5;
+  for (let i = 0; i < holdings.length; i += batchSize) {
+    const batch = holdings.slice(i, i + batchSize);
+    const priceResults = await Promise.allSettled(batch.map(h => fetchPrice(h.ticker)));
+    for (let j = 0; j < batch.length; j++) {
+      const h = batch[j];
+      const result = priceResults[j];
+      const price = result.status === "fulfilled" ? result.value : null;
+      if (price != null) {
+        db.prepare("UPDATE holdings SET current_price = ? WHERE name = ? AND ticker = ?").run(price, h.name, h.ticker);
+        results.updated++;
+        results.details.push({ name: h.name, ticker: h.ticker, price });
+      } else {
+        results.failed++;
+        results.details.push({ name: h.name, ticker: h.ticker, price: null, error: "Failed" });
+      }
     }
   }
 
@@ -692,19 +754,20 @@ app.post("/api/refresh-prices", async (req, res) => {
     rates[cur] = await fetchExchangeRate(cur, defaultCur);
   }
   results.rates = rates;
+  lastPriceRefreshTime = Date.now();
   res.json(results);
-});
+}));
 
-app.get("/api/price/:ticker", async (req, res) => {
+app.get("/api/price/:ticker", asyncHandler(async (req, res) => {
   const price = await fetchPrice(req.params.ticker);
   if (price != null) {
     res.json({ ticker: req.params.ticker, price });
   } else {
     res.status(404).json({ error: "Could not fetch price." });
   }
-});
+}));
 
-app.get("/api/exchange-rate", async (req, res) => {
+app.get("/api/exchange-rate", asyncHandler(async (req, res) => {
   const defaultCur = getDefaultCurrency();
   const rateDisplay = db.prepare("SELECT value FROM settings WHERE key = 'rate_display'").get();
   const displayCur = (rateDisplay && rateDisplay.value) || "";
@@ -720,7 +783,7 @@ app.get("/api/exchange-rate", async (req, res) => {
     }
   }
   res.json({ default_currency: defaultCur, rates, display_rate: displayCur });
-});
+}));
 
 //--- Settings Currency endpoints ---
 app.get("/api/settings/currency", (req, res) => {
@@ -788,7 +851,7 @@ app.post("/api/settings/currency/restore", (req, res) => {
 });
 
 //--- Analytics & Summary APIs ---
-app.get("/api/summary", async (req, res) => {
+app.get("/api/summary", asyncHandler(async (req, res) => {
   const rows = db.prepare("SELECT * FROM holdings").all();
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
@@ -833,9 +896,9 @@ app.get("/api/summary", async (req, res) => {
   }
   summary.total.gain_loss = summary.total.current_value - summary.total.invested;
   res.json(summary);
-});
+}));
 
-app.get("/api/allocation", async (req, res) => {
+app.get("/api/allocation", asyncHandler(async (req, res) => {
   const rows = db.prepare("SELECT * FROM holdings").all();
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
@@ -849,9 +912,9 @@ app.get("/api/allocation", async (req, res) => {
     map[key].value += curval;
   }
   res.json(Object.values(map).sort((a, b) => b.value - a.value));
-});
+}));
 
-app.get("/api/breakdown", async (req, res) => {
+app.get("/api/breakdown", asyncHandler(async (req, res) => {
   const rows = db.prepare("SELECT * FROM holdings").all();
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
@@ -893,9 +956,9 @@ app.get("/api/breakdown", async (req, res) => {
   })).sort((a, b) => b.current_value - a.current_value);
 
   res.json({ classes: result, default_currency: defaultCur });
-});
+}));
 
-app.get("/api/monthly-investments", async (req, res) => {
+app.get("/api/monthly-investments", asyncHandler(async (req, res) => {
   const monthsParam = req.query.months;
   const months = monthsParam !== undefined ? Number(monthsParam) : 12;
   const defaultCur = getDefaultCurrency();
@@ -905,7 +968,7 @@ app.get("/api/monthly-investments", async (req, res) => {
   const monthMap = {};
 
   for (const h of rows) {
-    const month = h.date.substring(0, 7); // YYYY-MM
+    const month = h.date.substring(0, 7);
     if (!monthMap[month]) {
       monthMap[month] = { total: 0, by_class: {} };
       classesArr.forEach(c => { monthMap[month].by_class[c] = 0; });
@@ -935,7 +998,7 @@ app.get("/api/monthly-investments", async (req, res) => {
     cumInvested += invested;
     const byClass = {};
     classesArr.forEach(c => { byClass[c] = entry ? (entry.by_class[c] || 0) : 0; });
-    
+
     result.push({ month: key, invested, cumulative_invested: cumInvested, by_class: byClass });
     cursor.setMonth(cursor.getMonth() + 1);
   }
@@ -947,10 +1010,10 @@ app.get("/api/monthly-investments", async (req, res) => {
 
   const sliced = months === 0 ? result : result.slice(-months);
   res.json({ months: sliced, classes: classesArr, total_current_value: totalCurrentValue, default_currency: defaultCur });
-});
+}));
 
 // --- WATCHLIST APIS ---
-app.get("/api/watchlist", async (req, res) => {
+app.get("/api/watchlist", asyncHandler(async (req, res) => {
   const portfolioTickers = db.prepare("SELECT asset_name, ticker FROM ticker_map ORDER BY asset_name").all();
   const manualItems = db.prepare("SELECT * FROM watchlist WHERE is_portfolio = 0 ORDER BY created_at DESC").all();
   const items = [];
@@ -986,14 +1049,22 @@ app.get("/api/watchlist", async (req, res) => {
     } catch(e) {}
   }
 
-  for (const item of orderedItems) {
-    const price = await fetchPrice(item.ticker);
-    if (price != null) { item.current_price = price; }
+  // Fetch prices in parallel batches of 5 (fix #1.2)
+  const batchSize = 5;
+  for (let i = 0; i < orderedItems.length; i += batchSize) {
+    const batch = orderedItems.slice(i, i + batchSize);
+    const priceResults = await Promise.allSettled(batch.map(item => fetchPrice(item.ticker)));
+    for (let j = 0; j < batch.length; j++) {
+      const result = priceResults[j];
+      if (result.status === "fulfilled" && result.value != null) {
+        batch[j].current_price = result.value;
+      }
+    }
   }
   res.json(orderedItems);
-});
+}));
 
-app.post("/api/watchlist", async (req, res) => {
+app.post("/api/watchlist", asyncHandler(async (req, res) => {
   const { ticker, name } = req.body;
   if (!ticker || !ticker.trim()) return res.status(400).json({ error: "Ticker is required." });
   const cleanTicker = ticker.trim().toUpperCase();
@@ -1026,7 +1097,7 @@ app.post("/api/watchlist", async (req, res) => {
 
   const result = db.prepare("INSERT INTO watchlist (ticker, name, currency, is_portfolio) VALUES (?, ?, ?, 0)").run(cleanTicker, resolvedName, currency);
   res.json({ id: result.lastInsertRowid, ticker: cleanTicker, name: resolvedName, currency, current_price: price });
-});
+}));
 
 app.delete("/api/watchlist/:id", (req, res) => {
   const id = Number(req.params.id);
@@ -1042,7 +1113,7 @@ app.put("/api/watchlist/:id", (req, res) => {
   if (!item) return res.status(404).json({ error: "Not found or cannot edit portfolio ticker." });
   const { name, ticker } = req.body;
   if (!ticker || !ticker.trim()) return res.status(400).json({ error: "Ticker is required." });
-  
+
   const cleanTicker = ticker.trim().toUpperCase();
   const cleanName = (name || "").trim() || cleanTicker;
 
@@ -1053,7 +1124,7 @@ app.put("/api/watchlist/:id", (req, res) => {
   res.json({ success: true });
 });
 
-// --- LOCK & SECURITY APIS ---
+// --- LOCK & SECURITY APIS (bcrypt) ---
 app.get("/api/lock/status", (req, res) => {
   if (req.session && req.session.authenticated) {
     return res.json({ locked: false });
@@ -1067,51 +1138,65 @@ app.get("/api/lock/config", (req, res) => {
   res.json({ locked: !!row });
 });
 
-app.post("/api/lock/setup", (req, res) => {
+app.post("/api/lock/setup", asyncHandler(async (req, res) => {
   const { pin } = req.body;
   if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
     return res.status(400).json({ error: "PIN must be exactly 6 digits." });
   }
   const recoveryCode = generateRecoveryCode();
-  const pinHash = hashPin(pin);
-  const recoveryHash = hashPin(recoveryCode);
+  const pinHash = await hashPin(pin);
+  const recoveryHash = await hashPin(recoveryCode);
   db.prepare("INSERT OR REPLACE INTO app_lock (id, pin_hash, recovery_hash, locked) VALUES (1, ?, ?, 1)").run(pinHash, recoveryHash);
+  // Mark current session as authenticated so user can immediately disable without re-entering
+  req.session.authenticated = true;
   res.json({ success: true, recoveryCode });
-});
+}));
 
-app.post("/api/lock/unlock", (req, res) => {
+app.post("/api/lock/unlock", asyncHandler(async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: "PIN required." });
   const row = db.prepare("SELECT pin_hash FROM app_lock WHERE id = 1").get();
   if (!row) return res.status(404).json({ error: "No lock configured." });
-  if (hashPin(pin) !== row.pin_hash) return res.status(401).json({ error: "Incorrect PIN." });
+
+  const match = await verifyPin(pin, row.pin_hash);
+  if (!match) return res.status(401).json({ error: "Incorrect PIN." });
+
+  // If legacy hash, upgrade to bcrypt
+  if (row.pin_hash.length === 64 && /^[a-f0-9]{64}$/.test(row.pin_hash)) {
+    const newHash = await hashPin(pin);
+    db.prepare("UPDATE app_lock SET pin_hash = ? WHERE id = 1").run(newHash);
+  }
 
   req.session.authenticated = true;
   res.json({ success: true });
-});
+}));
 
-app.post("/api/lock/disable", (req, res) => {
+app.post("/api/lock/disable", asyncHandler(async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: "PIN required." });
   const row = db.prepare("SELECT pin_hash FROM app_lock WHERE id = 1").get();
   if (!row) return res.status(404).json({ error: "No lock configured." });
-  if (hashPin(pin) !== row.pin_hash) return res.status(401).json({ error: "Incorrect PIN." });
+
+  const match = await verifyPin(pin, row.pin_hash);
+  if (!match) return res.status(401).json({ error: "Incorrect PIN." });
 
   db.prepare("DELETE FROM app_lock WHERE id = 1").run();
   res.json({ success: true });
-});
+}));
 
-app.post("/api/lock/recovery", (req, res) => {
+app.post("/api/lock/recovery", asyncHandler(async (req, res) => {
   const { code } = req.body;
   if (!code) return res.status(400).json({ error: "Recovery code required." });
   const row = db.prepare("SELECT recovery_hash FROM app_lock WHERE id = 1").get();
   if (!row) return res.status(404).json({ error: "No lock configured." });
-  if (hashPin(code.toUpperCase()) !== row.recovery_hash) return res.status(401).json({ error: "Invalid recovery code." });
+
+  const match = await verifyPin(code.toUpperCase(), row.recovery_hash);
+  if (!match) return res.status(401).json({ error: "Invalid recovery code." });
 
   db.prepare("DELETE FROM app_lock WHERE id = 1").run();
   req.session.authenticated = true;
   res.json({ success: true });
-});
+}));
 
 app.post("/api/lock/logout", (req, res) => {
   req.session.destroy((err) => {
@@ -1119,6 +1204,76 @@ app.post("/api/lock/logout", (req, res) => {
     res.clearCookie("connect.sid");
     return res.json({ success: true });
   });
+});
+
+// --- EXPORT / IMPORT APIs (fix #5.4) ---
+app.get("/api/export", (req, res) => {
+  const data = {
+    holdings: db.prepare("SELECT * FROM holdings").all(),
+    asset_classes: db.prepare("SELECT * FROM asset_classes ORDER BY sort_order").all(),
+    asset_types: db.prepare("SELECT * FROM asset_types ORDER BY sort_order").all(),
+    brokers: db.prepare("SELECT * FROM brokers ORDER BY sort_order").all(),
+    ticker_map: db.prepare("SELECT * FROM ticker_map").all(),
+    watchlist: db.prepare("SELECT * FROM watchlist").all(),
+    settings: db.prepare("SELECT * FROM settings").all()
+  };
+  res.setHeader("Content-Disposition", `attachment; filename="portfolio-backup-${new Date().toISOString().slice(0,10)}.json"`);
+  res.json(data);
+});
+
+app.post("/api/import", (req, res) => {
+  const data = req.body;
+  if (!data || !data.holdings) return res.status(400).json({ error: "Invalid backup file." });
+
+  try {
+    db.transaction(() => {
+      // Clear and reimport
+      if (data.asset_classes) {
+        db.prepare("DELETE FROM asset_classes").run();
+        const stmt = db.prepare("INSERT INTO asset_classes (id, name, sort_order) VALUES (?, ?, ?)");
+        for (const r of data.asset_classes) stmt.run(r.id, r.name, r.sort_order || 0);
+      }
+      if (data.asset_types) {
+        db.prepare("DELETE FROM asset_types").run();
+        const stmt = db.prepare("INSERT INTO asset_types (id, name, sort_order) VALUES (?, ?, ?)");
+        for (const r of data.asset_types) stmt.run(r.id, r.name, r.sort_order || 0);
+      }
+      if (data.brokers) {
+        db.prepare("DELETE FROM brokers").run();
+        const stmt = db.prepare("INSERT INTO brokers (id, name, sort_order) VALUES (?, ?, ?)");
+        for (const r of data.brokers) stmt.run(r.id, r.name, r.sort_order || 0);
+      }
+      if (data.ticker_map) {
+        db.prepare("DELETE FROM ticker_map").run();
+        const stmt = db.prepare("INSERT INTO ticker_map (asset_name, ticker) VALUES (?, ?)");
+        for (const r of data.ticker_map) stmt.run(r.asset_name, r.ticker);
+      }
+      if (data.watchlist) {
+        db.prepare("DELETE FROM watchlist").run();
+        const stmt = db.prepare("INSERT INTO watchlist (id, ticker, name, currency, is_portfolio) VALUES (?, ?, ?, ?, ?)");
+        for (const r of data.watchlist) stmt.run(r.id, r.ticker, r.name, r.currency || "", r.is_portfolio || 0);
+      }
+      if (data.settings) {
+        db.prepare("DELETE FROM settings").run();
+        const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+        for (const r of data.settings) stmt.run(r.key, r.value);
+      }
+      db.prepare("DELETE FROM holdings").run();
+      const stmt = db.prepare("INSERT INTO holdings (id, date, name, asset_class, asset_type, broker, txn_type, buy_price, quantity, invested_amount, currency, current_price, notes, ticker, invested_base) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const r of data.holdings) {
+        stmt.run(r.id, r.date, r.name, r.asset_class, r.asset_type || "", r.broker || "", r.txn_type || "buy", r.buy_price || 0, r.quantity || 0, r.invested_amount || 0, r.currency || "INR", r.current_price, r.notes || "", r.ticker || "", r.invested_base);
+      }
+    })();
+    res.json({ success: true, holdings: data.holdings.length });
+  } catch(e) {
+    res.status(500).json({ error: "Import failed: " + e.message });
+  }
+});
+
+// --- Global error handler (fix #1.1) ---
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Internal server error." });
 });
 
 process.on("SIGINT", () => { db.close(); process.exit(0); });

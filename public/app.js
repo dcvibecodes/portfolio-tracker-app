@@ -8,7 +8,7 @@
     themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
   }
   applyTheme(localStorage.getItem("theme") || "light");
-  
+
   themeToggle.addEventListener("click", () => {
     const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     localStorage.setItem("theme", next);
@@ -16,37 +16,48 @@
   });
 
   //--- Tab Navigation ---
-  const tabBtns = document.querySelectorAll(".tab-btn");
+  const tabBtns = document.querySelectorAll(".bottom-nav-btn");
   const tabContents = document.querySelectorAll(".tab-content");
-  tabBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-      tabBtns.forEach(b => b.classList.remove("active"));
-      tabContents.forEach(c => c.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-      
-      if (btn.dataset.tab === "dashboard") loadDashboard();
-      if (btn.dataset.tab === "holdings") loadHoldings();
-      if (btn.dataset.tab === "watchlist") loadWatchlist();
-      if (btn.dataset.tab === "settings") loadSettings();
+  let currentTab = "dashboard";
+
+  function switchToTab(tabName) {
+    if (currentTab === tabName) return;
+    currentTab = tabName;
+    tabBtns.forEach(b => b.classList.toggle("active", b.dataset.tab === tabName));
+    tabContents.forEach(c => c.classList.toggle("active", c.id === "tab-" + tabName));
+    loadTabData(tabName);
+  }
+
+  function loadTabData(tabName) {
+    if (tabName === "dashboard") loadDashboard();
+    else if (tabName === "holdings") loadHoldings();
+    else if (tabName === "watchlist") loadWatchlist();
+    else if (tabName === "settings") loadSettings();
+  }
+
+  // Desktop click handler (mobile overrides with scroll behavior)
+  if (!window.matchMedia("(max-width: 640px)").matches) {
+    tabBtns.forEach(btn => {
+      btn.addEventListener("click", () => switchToTab(btn.dataset.tab));
     });
-  });
+  }
 
   //--- State Variables ---
   let assetClasses = [];
   let assetTypes = [];
   let brokers = [];
-  let displayCurrency = ""; 
-  let baseCurrency = ""; 
-  let altCurrency = ""; 
-  let altRate = 1; 
-  let currencyConfigured = false; 
-  let dateFormat = "MM/DD/YYYY"; 
+  let displayCurrency = "";
+  let baseCurrency = "";
+  let altCurrency = "";
+  let altRate = 1;
+  let currencyConfigured = false;
+  let dateFormat = "MM/DD/YYYY";
   let selectedIds = new Set();
   let renameOldName = "";
   let notesCurrentId = null;
+  let cachedRateData = null; // Cached exchange rate for holdings tab
 
-  let classPieChart = null, typeBarChart = null, monthlyChart = null;
+  let classPieChart = null, valueTrendChart = null, monthlyChart = null;
 
   //--- Locale & Formatting Helpers ---
   function getLocaleForCurrency(cur) {
@@ -145,6 +156,24 @@
     }
   }
 
+  //--- Safe fetch wrapper (fix #5.1) ---
+  async function apiFetch(url, options) {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    } catch (e) {
+      if (e.message && !e.message.startsWith("HTTP")) {
+        // Network error vs API error
+        throw e;
+      }
+      throw e;
+    }
+  }
+
   function updateCurrencyToggleBtn() {
     const btn = document.getElementById("currency-toggle");
     if (!currencyConfigured) {
@@ -160,16 +189,22 @@
   function toDisplayCurrency(valueInBase) {
     if (!currencyConfigured) return valueInBase;
     if (displayCurrency === baseCurrency) return valueInBase;
-    if (altRate && altRate > 0) return valueInBase / altRate;
-    return valueInBase;
+    // Guard against zero/null rate (fix #1.10)
+    if (!altRate || altRate <= 0) return valueInBase;
+    return valueInBase / altRate;
   }
 
   async function loadDropdowns() {
-    [assetClasses, assetTypes, brokers] = await Promise.all([
-      fetch("/api/settings/asset-classes").then(r => r.json()),
-      fetch("/api/settings/asset-types").then(r => r.json()),
-      fetch("/api/settings/brokers").then(r => r.json())
-    ]);
+    try {
+      [assetClasses, assetTypes, brokers] = await Promise.all([
+        apiFetch("/api/settings/asset-classes"),
+        apiFetch("/api/settings/asset-types"),
+        apiFetch("/api/settings/brokers")
+      ]);
+    } catch (e) {
+      console.error("Failed to load dropdowns:", e);
+      return;
+    }
     populateSelect("add-asset-class", assetClasses, true);
     populateSelect("add-asset-type", assetTypes, true);
     populateSelect("add-broker", brokers, true);
@@ -207,10 +242,16 @@
     input.addEventListener("input", debounce(async () => {
       const q = input.value.trim();
       if (q.length < 1) { list.innerHTML = ""; list.style.display = "none"; return; }
-      const suggestions = await fetch("/api/autocomplete/assets?q=" + encodeURIComponent(q)).then(r => r.json());
-      if (suggestions.length === 0) { list.innerHTML = ""; list.style.display = "none"; return; }
-      list.innerHTML = suggestions.map(s => `<li class="autocomplete-item">${s}</li>`).join("");
-      list.style.display = "block";
+      try {
+        const suggestions = await apiFetch("/api/autocomplete/assets?q=" + encodeURIComponent(q));
+        if (suggestions.length === 0) { list.innerHTML = ""; list.style.display = "none"; return; }
+        list.innerHTML = suggestions.map(s => `<li class="autocomplete-item">${s}</li>`).join("");
+        list.style.display = "block";
+        // Position the dropdown: flip above if near bottom (fix #3.9)
+        positionAutocomplete(input, list);
+      } catch(e) {
+        list.innerHTML = ""; list.style.display = "none";
+      }
     }, 200));
 
     list.addEventListener("click", async (e) => {
@@ -218,10 +259,12 @@
         input.value = e.target.textContent;
         list.innerHTML = "";
         list.style.display = "none";
-        const tickerData = await fetch("/api/ticker-for-asset?name=" + encodeURIComponent(input.value)).then(r => r.json());
-        if (tickerData.ticker) {
-          document.getElementById("add-ticker").value = tickerData.ticker;
-        }
+        try {
+          const tickerData = await apiFetch("/api/ticker-for-asset?name=" + encodeURIComponent(input.value));
+          if (tickerData.ticker) {
+            document.getElementById("add-ticker").value = tickerData.ticker;
+          }
+        } catch(e) {}
       }
     });
 
@@ -230,6 +273,24 @@
         list.style.display = "none";
       }
     });
+  }
+
+  // Flip autocomplete above input if near viewport bottom (fix #3.9)
+  function positionAutocomplete(input, list) {
+    const rect = input.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+      list.style.top = "auto";
+      list.style.bottom = "100%";
+      list.style.marginBottom = "4px";
+      list.style.marginTop = "0";
+    } else {
+      list.style.top = "100%";
+      list.style.bottom = "auto";
+      list.style.marginTop = "4px";
+      list.style.marginBottom = "0";
+    }
   }
 
   function setupTxnTypeToggle() {
@@ -262,7 +323,7 @@
     const editCurrencySelect = document.getElementById("edit-currency");
     const editInvestedBaseLabel = document.getElementById("edit-invested-base-label");
     const editInvestedBaseCurrency = document.getElementById("edit-invested-base-currency");
-    
+
     editCurrencySelect.addEventListener("change", () => {
       if (!currencyConfigured) { editInvestedBaseLabel.style.display = "none"; return; }
       const selectedCurrency = editCurrencySelect.value;
@@ -278,12 +339,26 @@
 
   //--- Dashboard Data Loader ---
   async function loadDashboard() {
-    const [summary, breakdown] = await Promise.all([
-      fetch("/api/summary").then(r => r.json()),
-      fetch("/api/breakdown").then(r => r.json())
-    ]);
-
     const grid = document.getElementById("summary-grid");
+    // Show loading skeleton (fix #5.2)
+    grid.innerHTML = `
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+    `;
+
+    let summary, breakdown;
+    try {
+      [summary, breakdown] = await Promise.all([
+        apiFetch("/api/summary"),
+        apiFetch("/api/breakdown")
+      ]);
+    } catch (e) {
+      grid.innerHTML = '<div class="summary-item"><div class="label">Error</div><div class="value">Failed to load dashboard</div></div>';
+      return;
+    }
+
     grid.innerHTML = "";
 
     altCurrency = summary.display_rate_currency;
@@ -336,14 +411,15 @@
       grid.appendChild(div);
     }
 
-    // --- Render Allocation Charts ---
+    // --- Render Category Doughnut ---
     const classLabels = Object.keys(summary.by_class);
     const classValues = classLabels.map(k => summary.by_class[k].current_value);
     const classColors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4"];
     const totalVal = classValues.reduce((s, v) => s + v, 0);
 
     if (classPieChart) classPieChart.destroy();
-    classPieChart = new Chart(document.getElementById("class-pie"), {
+    const classPieCanvas = document.getElementById("class-pie");
+    classPieChart = new Chart(classPieCanvas, {
       type: "doughnut",
       data: {
         labels: classLabels.map((l, i) => `${l} (${totalVal ? (classValues[i] / totalVal * 100).toFixed(1) : 0}%)`),
@@ -358,90 +434,122 @@
       }
     });
 
-    const typeLabels = Object.keys(summary.by_type || {});
-    const typeValues = typeLabels.map(k => summary.by_type[k].current_value);
-    const typeColors = ["#6366f1", "#ec4899", "#14b8a6", "#f97316", "#84cc16", "#a855f7"];
-    const typeTotalVal = typeValues.reduce((s, v) => s + v, 0);
-
-    if (typeBarChart) typeBarChart.destroy();
-    typeBarChart = new Chart(document.getElementById("type-pie"), {
-      type: "doughnut",
-      data: {
-        labels: typeLabels.map((l, i) => `${l} (${typeTotalVal ? (typeValues[i] / typeTotalVal * 100).toFixed(1) : 0}%)`),
-        datasets: [{ data: typeValues.map(v => toDisplayCurrency(v)), backgroundColor: typeColors.slice(0, typeLabels.length) }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "bottom", labels: { font: { size: 10 }, padding: 6, boxWidth: 10 } },
-          tooltip: { callbacks: { label: (ctx) => curSym + fmtCompact(ctx.raw) } }
-        }
-      }
-    });
-
-    loadMonthlyChart(12);
+    // --- Load value trend + monthly chart ---
+    loadValueTrend(currentTrendMonths);
+    loadMonthlyChart(currentBarMonths);
     renderPivotTable(breakdown);
   }
 
-  //--- Monthly Investments Chart Handler ---
-  async function loadMonthlyChart(months) {
-    const data = await fetch("/api/monthly-investments?months=" + months).then(r => r.json());
+  //--- Value Trend Chart ---
+  async function loadValueTrend(months) {
+    let data;
+    try {
+      data = await apiFetch("/api/monthly-investments?months=" + months);
+    } catch(e) { return; }
     const curSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
-    
+
     const labels = data.months.map(m => {
       const [y, mo] = m.month.split("-");
       return new Date(y, mo - 1).toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
     });
 
     const cumulative = data.months.map(m => toDisplayCurrency(m.cumulative_invested));
-    const classColorMap = { "India": "#3b82f6", "US": "#10b981", "Gold": "#f59e0b", "Crypto": "#8b5cf6" };
-    const defaultColors = ["#ef4444", "#06b6d4", "#ec4899", "#84cc16", "#f97316"];
-
-    const barDatasets = (data.classes || []).map((cls, i) => ({
-      type: "bar", label: cls,
-      data: data.months.map(m => toDisplayCurrency(m.by_class[cls] || 0)),
-      backgroundColor: classColorMap[cls] || defaultColors[i % defaultColors.length],
-      borderRadius: i === (data.classes.length - 1) ? 4 : 0,
-      stack: "invested", order: 3, yAxisID: "y"
-    }));
-
     const portfolioValue = toDisplayCurrency(data.total_current_value || 0);
     const lastCum = cumulative[cumulative.length - 1] || 0;
     const valueTrend = cumulative.map(cum => lastCum === 0 ? 0 : (cum / lastCum) * portfolioValue);
 
-    const lineDatasets = [
-      { type: "line", label: "Invested Value", data: cumulative, borderColor: "#6366f1", backgroundColor: "transparent", borderWidth: 2, borderDash: [5, 3], pointRadius: 2, pointHoverRadius: 4, tension: 0.3, order: 1, yAxisID: "y1" },
-      { type: "line", label: "Portfolio Value", data: valueTrend, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.08)", borderWidth: 2.5, pointRadius: 2, pointHoverRadius: 4, fill: true, tension: 0.3, order: 2, yAxisID: "y1" }
-    ];
-
-    if (monthlyChart) monthlyChart.destroy();
-    monthlyChart = new Chart(document.getElementById("monthly-chart"), {
-      type: "bar",
-      data: { labels, datasets: [...barDatasets, ...lineDatasets] },
+    if (valueTrendChart) valueTrendChart.destroy();
+    const trendCanvas = document.getElementById("value-trend-chart");
+    valueTrendChart = new Chart(trendCanvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          { label: "Invested", data: cumulative, borderColor: "#6366f1", backgroundColor: "rgba(99, 102, 241, 0.05)", borderWidth: 2, borderDash: [5, 3], pointRadius: 1, pointHoverRadius: 3, tension: 0.3, fill: true },
+          { label: "Portfolio Value", data: valueTrend, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.08)", borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 3, fill: true, tension: 0.3 }
+        ]
+      },
       options: {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { position: "top", labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+          legend: { position: "bottom", labels: { font: { size: 10 }, padding: 6, boxWidth: 10 } },
           tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ": " + curSym + fmtCompact(ctx.raw) } }
         },
         scales: {
-          y: { beginAtZero: true, position: "left", stacked: true, title: { display: true, text: "Monthly (" + curSym + ")", font: { size: 10 } }, ticks: { callback: (v) => curSym + fmtCompact(v), font: { size: 9 } }, grid: { color: "rgba(0,0,0,0.05)" } },
-          y1: { beginAtZero: true, position: "right", title: { display: true, text: "Cumulative (" + curSym + ")", font: { size: 10 } }, ticks: { callback: (v) => curSym + fmtCompact(v), font: { size: 9 } }, grid: { drawOnChartArea: false } },
-          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45 } }
+          y: { beginAtZero: true, ticks: { callback: (v) => curSym + fmtCompact(v), font: { size: 9 } }, grid: { color: "rgba(0,0,0,0.05)" } },
+          x: { grid: { display: false }, ticks: { font: { size: 8 }, maxRotation: 45, maxTicksLimit: 8 } }
+        }
+      }
+    });
+  }
+
+  //--- Monthly Investments Bar Chart ---
+  async function loadMonthlyChart(months) {
+    let data;
+    try {
+      data = await apiFetch("/api/monthly-investments?months=" + months);
+    } catch(e) { return; }
+    const curSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
+
+    const labels = data.months.map(m => {
+      const [y, mo] = m.month.split("-");
+      return new Date(y, mo - 1).toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+    });
+
+    const classColorMap = { "India": "#3b82f6", "US": "#10b981", "Gold": "#f59e0b", "Crypto": "#8b5cf6" };
+    const defaultColors = ["#ef4444", "#06b6d4", "#ec4899", "#84cc16", "#f97316"];
+
+    const barDatasets = (data.classes || []).map((cls, i) => ({
+      label: cls,
+      data: data.months.map(m => toDisplayCurrency(m.by_class[cls] || 0)),
+      backgroundColor: classColorMap[cls] || defaultColors[i % defaultColors.length],
+      borderRadius: i === (data.classes.length - 1) ? 4 : 0,
+      stack: "invested"
+    }));
+
+    if (monthlyChart) monthlyChart.destroy();
+    const monthlyCanvas = document.getElementById("monthly-chart");
+    monthlyChart = new Chart(monthlyCanvas, {
+      type: "bar",
+      data: { labels, datasets: barDatasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { position: "bottom", labels: { font: { size: 9 }, boxWidth: 10, padding: 5 } },
+          tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ": " + curSym + fmtCompact(ctx.raw) } }
+        },
+        scales: {
+          y: { beginAtZero: true, stacked: true, ticks: { callback: (v) => curSym + fmtCompact(v), font: { size: 9 } }, grid: { color: "rgba(0,0,0,0.05)" } },
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 8 }, maxRotation: 45, maxTicksLimit: 8 } }
         }
       }
     });
   }
 
   //--- Range Buttons Setup ---
+  let currentBarMonths = 12;
+  let currentTrendMonths = 12;
+
   document.querySelectorAll(".range-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      loadMonthlyChart(Number(btn.dataset.months));
+      currentBarMonths = Number(btn.dataset.months);
+      loadMonthlyChart(currentBarMonths);
     });
   });
+
+  document.querySelectorAll(".range-btn-trend").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".range-btn-trend").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentTrendMonths = Number(btn.dataset.months);
+      loadValueTrend(currentTrendMonths);
+    });
+  });
+
 
   //--- Pivot Table Breakdown ---
   function renderPivotTable(breakdown) {
@@ -452,7 +560,7 @@
     let grandInvested = 0, grandValue = 0;
     const curSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
     const defaultCur = baseCurrency || "";
-    
+
     let hasForeignCurrency = false;
     for (const cls of breakdown.classes) {
       for (const asset of cls.assets) {
@@ -473,7 +581,7 @@
     for (const cls of breakdown.classes) {
       grandInvested += cls.invested;
       grandValue += cls.current_value;
-      
+
       const dInvested = toDisplayCurrency(cls.invested);
       const dValue = toDisplayCurrency(cls.current_value);
       const dGain = toDisplayCurrency(cls.gain_loss);
@@ -533,7 +641,7 @@
     const grandPl = grandValue - grandInvested;
     const grandPct = grandInvested > 0 ? ((grandPl / grandInvested) * 100).toFixed(2) : "0.00";
     const grandPlClass = grandPl >= 0 ? "positive" : "negative";
-    
+
     pivotFooter.innerHTML = `
       <tr>
         <td><strong>TOTAL</strong></td>
@@ -593,13 +701,23 @@
     if (broker) params.set("broker", broker);
     if (currency) params.set("currency", currency);
 
-    const rows = await fetch("/api/holdings?" + params).then(r => r.json());
+    let rows, rateData;
+    try {
+      // Fetch holdings and exchange rate in parallel, cache rate (fix #1.9)
+      [rows, rateData] = await Promise.all([
+        apiFetch("/api/holdings?" + params),
+        cachedRateData || apiFetch("/api/exchange-rate")
+      ]);
+      cachedRateData = rateData;
+    } catch(e) {
+      toast("Failed to load holdings", "error");
+      return;
+    }
+
     const tbody = document.getElementById("holdings-rows");
     tbody.innerHTML = "";
 
     let totalInvested = 0, totalValue = 0;
-    let rateData = { default_currency: "INR", rates: {} };
-    try { rateData = await fetch("/api/exchange-rate").then(r => r.json()); } catch(e) {}
 
     for (const r of rows) {
       const fx = r.currency === rateData.default_currency ? 1 : (rateData.rates[r.currency] || 1);
@@ -628,14 +746,15 @@
         <td class="col-amount ${plClass}">${r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-"}</td>
         <td class="col-amount ${plClass}">${fmtPct(r.gain_loss_pct)}</td>
         <td class="col-actions">
-          ${r.notes ? `<button class="action-btn" onclick="viewNotes(${r.id})" title="View notes">📝</button>` : `<button class="action-btn notes-empty" onclick="viewNotes(${r.id})" title="Add note">🗒️</button>`}
-          <button class="action-btn" onclick="editHolding(${r.id})" title="Edit">✏️</button>
-          <button class="action-btn delete" onclick="deleteHolding(${r.id})" title="Delete">🗑️</button>
+          ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">📝</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">🗒️</button>`}
+          <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">✏️</button>
+          <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">🗑️</button>
         </td>
       `;
       tbody.appendChild(tr);
     }
 
+    // Delegated event listeners (fix #1.7 — no more inline onclick)
     tbody.querySelectorAll(".row-check").forEach(cb => {
       cb.addEventListener("change", () => {
         const id = Number(cb.dataset.id);
@@ -650,6 +769,16 @@
     const footerSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
     document.getElementById("holdings-footer").textContent = `${rows.length} entries | Invested: ${footerSym}${fmtCompact(toDisplayCurrency(totalInvested))} | Value: ${footerSym}${fmtCompact(toDisplayCurrency(totalValue))} | P&L: ${footerSym}${fmtCompact(toDisplayCurrency(pl))}`;
   }
+
+  //--- Delegated click handlers for holdings table (fix #1.7) ---
+  document.getElementById("holdings-rows").addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    if (btn.classList.contains("edit-btn")) editHolding(id);
+    else if (btn.classList.contains("delete-btn")) deleteHolding(id);
+    else if (btn.classList.contains("notes-btn")) viewNotes(id);
+  });
 
   //--- Action Elements Setup ---
   document.getElementById("select-all").addEventListener("change", function() {
@@ -693,26 +822,29 @@
     btnLoading(btn, true);
 
     if (action === "delete") {
-      if (!confirm(`Delete ${ids.length} selected holdings? This cannot be undone.`)) { btnLoading(btn, false); return; }
-      const res = await fetch("/api/holdings/batch-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
-      const data = await res.json();
-      if (res.ok) { toast(`Deleted ${data.deleted} holdings`, "success"); selectedIds.clear(); updateBatchBar(); loadHoldings(); }
-      else { toast(data.error || "Error", "error"); }
+      if (!await showConfirm(`Delete ${ids.length} selected holdings?`, "This cannot be undone.")) { btnLoading(btn, false); return; }
+      try {
+        const data = await apiFetch("/api/holdings/batch-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+        toast(`Deleted ${data.deleted} holdings`, "success"); selectedIds.clear(); updateBatchBar(); loadHoldings();
+      } catch(e) { toast(e.message || "Error", "error"); }
     } else if (action === "rename_asset") {
-      const allRows = await fetch("/api/holdings").then(r => r.json());
-      const selectedRows = allRows.filter(r => ids.includes(r.id));
-      const uniqueNames = [...new Set(selectedRows.map(r => r.name))];
-      if (uniqueNames.length > 1) { toast("Select entries of a single asset to rename.", "error"); btnLoading(btn, false); return; }
+      try {
+        const allRows = await apiFetch("/api/holdings");
+        const selectedRows = allRows.filter(r => ids.includes(r.id));
+        const uniqueNames = [...new Set(selectedRows.map(r => r.name))];
+        if (uniqueNames.length > 1) { toast("Select entries of a single asset to rename.", "error"); btnLoading(btn, false); return; }
+        btnLoading(btn, false);
+        openRenameModal(uniqueNames[0]);
+      } catch(e) { toast("Error loading data", "error"); }
       btnLoading(btn, false);
-      openRenameModal(uniqueNames[0]);
       return;
     } else {
       if (!value) { toast("Select a value", "error"); btnLoading(btn, false); return; }
       const updates = { [action]: value };
-      const res = await fetch("/api/holdings/batch-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, updates }) });
-      const data = await res.json();
-      if (res.ok) { toast(`Updated ${data.updated} holdings`, "success"); selectedIds.clear(); updateBatchBar(); loadHoldings(); }
-      else { toast(data.error || "Error", "error"); }
+      try {
+        const data = await apiFetch("/api/holdings/batch-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, updates }) });
+        toast(`Updated ${data.updated} holdings`, "success"); selectedIds.clear(); updateBatchBar(); loadHoldings();
+      } catch(e) { toast(e.message || "Error", "error"); }
     }
     btnLoading(btn, false);
     document.getElementById("batch-action").value = "";
@@ -726,6 +858,23 @@
     document.getElementById("select-all").indeterminate = false;
     updateBatchBar();
   });
+
+  //--- Custom Confirm Modal (fix #5.5 — replaces native confirm/prompt) ---
+  function showConfirm(title, message) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById("confirm-modal");
+      document.getElementById("confirm-modal-title").textContent = title;
+      document.getElementById("confirm-modal-message").textContent = message || "";
+      overlay.classList.add("open");
+      const yesBtn = document.getElementById("confirm-modal-yes");
+      const noBtn = document.getElementById("confirm-modal-no");
+      function cleanup() { overlay.classList.remove("open"); yesBtn.removeEventListener("click", onYes); noBtn.removeEventListener("click", onNo); }
+      function onYes() { cleanup(); resolve(true); }
+      function onNo() { cleanup(); resolve(false); }
+      yesBtn.addEventListener("click", onYes);
+      noBtn.addEventListener("click", onNo);
+    });
+  }
 
   //--- Transaction Submission Form ---
   document.getElementById("add-form").addEventListener("submit", async (e) => {
@@ -753,24 +902,24 @@
       if (investedBaseVal) body.invested_base = investedBaseVal;
     }
 
-    const res = await fetch("/api/holdings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const data = await res.json();
-    if (res.ok) {
+    try {
+      await apiFetch("/api/holdings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       showMsg(document.getElementById("add-msg"), "Transaction added", "success");
-      if (txnType === "buy" && !ticker) { toast("Tip: Add a ticker in Settings Ticker Mapping for live price updates", "info"); }
+      if (txnType === "buy" && !ticker) { toast("Tip: Add a ticker in Settings → Ticker Mapping for live price updates", "info"); }
       document.getElementById("add-form").reset();
-      document.getElementById("add-date").valueAsDate = new Date();
+      document.getElementById("add-date").value = new Date().toISOString().slice(0, 10);
       if (currencyConfigured) document.getElementById("add-currency").value = baseCurrency;
       document.getElementById("add-invested-base-label").style.display = "none";
+      cachedRateData = null; // Invalidate cached rate
       loadHoldings();
-    } else {
-      showMsg(document.getElementById("add-msg"), data.error, "error");
+    } catch(e) {
+      showMsg(document.getElementById("add-msg"), e.message || "Error", "error");
     }
   });
 
   document.getElementById("add-form-clear").addEventListener("click", () => {
     document.getElementById("add-form").reset();
-    document.getElementById("add-date").valueAsDate = new Date();
+    document.getElementById("add-date").value = new Date().toISOString().slice(0, 10);
     if (currencyConfigured) document.getElementById("add-currency").value = baseCurrency;
     document.getElementById("add-invested-base-label").style.display = "none";
     document.getElementById("add-msg").textContent = "";
@@ -788,91 +937,62 @@
     document.getElementById("filter-currency").value = "";
     loadHoldings();
   });
+
   // Download CSV
-document.getElementById("download-csv-btn").addEventListener("click", async () => {
-  const rows = await fetch("/api/holdings").then(r => r.json());
+  document.getElementById("download-csv-btn").addEventListener("click", async () => {
+    let rows;
+    try { rows = await apiFetch("/api/holdings"); } catch(e) { toast("Failed to fetch data", "error"); return; }
+    if (!rows.length) { toast("No holdings to download.", "info"); return; }
 
-  if (!rows.length) {
-    alert("No holdings to download.");
-    return;
-  }
+    const headers = ["Date","Buy/Sell","Name","Category","Type","Broker","Currency","Price","Quantity","Invested","Invested (Base)","Current Price","Current Value","P&L","P&L %","Ticker","Notes"];
+    const csvRows = [headers.join(",")];
 
-  const headers = [
-    "Date",
-    "Buy/Sell",
-    "Name",
-    "Category",
-    "Type",
-    "Broker",
-    "Currency",
-    "Price",
-    "Quantity",
-    "Invested",
-    "Invested (Base)",
-    "Current Price",
-    "Current Value",
-    "P&L",
-    "P&L %",
-    "Ticker",
-    "Notes"
-  ];
+    for (const r of rows) {
+      const values = [
+        r.date, r.txn_type || "buy",
+        `"${(r.name || "").replace(/"/g, '""')}"`,
+        `"${(r.asset_class || "").replace(/"/g, '""')}"`,
+        `"${(r.asset_type || "").replace(/"/g, '""')}"`,
+        `"${(r.broker || "").replace(/"/g, '""')}"`,
+        r.currency || "", r.buy_price ?? "", r.quantity ?? "",
+        r.invested_amount ?? "", r.invested_base ?? "",
+        r.current_price ?? "", r.current_value ?? "",
+        r.gain_loss != null ? r.gain_loss.toFixed(2) : "",
+        r.gain_loss_pct != null ? r.gain_loss_pct.toFixed(2) : "",
+        `"${(r.ticker || "").replace(/"/g, '""')}"`,
+        `"${(r.notes || "").replace(/"/g, '""')}"`
+      ];
+      csvRows.push(values.join(","));
+    }
 
-  const csvRows = [headers.join(",")];
-
-  for (const r of rows) {
-    const values = [
-      r.date,
-      r.txn_type || "buy",
-      `"${(r.name || "").replace(/"/g, '""')}"`,
-      `"${(r.asset_class || "").replace(/"/g, '""')}"`,
-      `"${(r.asset_type || "").replace(/"/g, '""')}"`,
-      `"${(r.broker || "").replace(/"/g, '""')}"`,
-      r.currency || "",
-      r.buy_price ?? "",
-      r.quantity ?? "",
-      r.invested_amount ?? "",
-      r.invested_base ?? "",
-      r.current_price ?? "",
-      r.current_value ?? "",
-      r.gain_loss != null ? r.gain_loss.toFixed(2) : "",
-      r.gain_loss_pct != null ? r.gain_loss_pct.toFixed(2) : "",
-      `"${(r.ticker || "").replace(/"/g, '""')}"`,
-      `"${(r.notes || "").replace(/"/g, '""')}"`
-    ];
-
-    csvRows.push(values.join(","));
-  }
-
-  const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `portfolio-holdings-${new Date().toISOString().slice(0, 10)}.csv`;
-
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  URL.revokeObjectURL(url);
-});
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `portfolio-holdings-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
 
   document.getElementById("new-txn-toggle").addEventListener("click", function() {
     const content = document.getElementById("new-txn-content");
     const isopen = content.style.display !== "none";
     content.style.display = isopen ? "none" : "block";
     this.classList.toggle("open", !isopen);
-    this.textContent = isopen ? "+ New Transaction" : "X Close";
+    this.textContent = isopen ? "+ New Transaction" : "✕ Close";
   });
 
   //--- Edit Modal Actions ---
   const editModal = document.getElementById("edit-modal");
   document.getElementById("edit-cancel").addEventListener("click", () => editModal.classList.remove("open"));
 
-  window.editHolding = async function(id) {
-    const rows = await fetch("/api/holdings").then(r => r.json());
-    const row = rows.find(r => r.id === id);
-    if (!row) return;
+  async function editHolding(id) {
+    let row;
+    try {
+      row = await apiFetch(`/api/holdings/${id}`);
+    } catch(e) { toast("Failed to load holding", "error"); return; }
 
     document.getElementById("edit-id").value = id;
     document.getElementById("edit-date").value = row.date;
@@ -902,7 +1022,7 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     const editCurrencyLabel = document.getElementById("edit-currency").closest("label");
     if (editCurrencyLabel) editCurrencyLabel.style.display = currencyConfigured ? "" : "none";
     editModal.classList.add("open");
-  };
+  }
 
   document.getElementById("edit-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -929,15 +1049,21 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
       if (investedBaseVal) body.invested_base = investedBaseVal;
     }
 
-    const res = await fetch(`/api/holdings/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { editModal.classList.remove("open"); loadHoldings(); }
+    try {
+      await apiFetch(`/api/holdings/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      editModal.classList.remove("open");
+      cachedRateData = null;
+      loadHoldings();
+    } catch(e) { toast(e.message || "Error saving", "error"); }
   });
 
-  window.deleteHolding = async function(id) {
-    if (!confirm("Delete this holding?")) return;
-    const res = await fetch(`/api/holdings/${id}`, { method: "DELETE" });
-    if (res.ok) loadHoldings();
-  };
+  async function deleteHolding(id) {
+    if (!await showConfirm("Delete this holding?", "This action cannot be undone.")) return;
+    try {
+      await apiFetch(`/api/holdings/${id}`, { method: "DELETE" });
+      loadHoldings();
+    } catch(e) { toast("Error deleting", "error"); }
+  }
 
   //--- Currency Header Toggle Actions ---
   document.getElementById("currency-toggle").addEventListener("click", () => {
@@ -948,6 +1074,7 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     }
     updateCurrencyToggleBtn();
     loadDashboard();
+    cachedRateData = null;
     loadHoldings();
   });
 
@@ -955,31 +1082,34 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     const btn = this;
     btn.disabled = true; btn.textContent = "🔄 Fetching...";
     try {
-      const res = await fetch("/api/refresh-prices", { method: "POST" });
-      const data = await res.json();
+      const data = await apiFetch("/api/refresh-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: true }) });
       btn.textContent = `✅ ${data.updated} updated`;
       setTimeout(() => { btn.textContent = "🔄 Prices"; btn.disabled = false; }, 3000);
+      cachedRateData = null;
       loadHoldings(); loadDashboard();
-      if (document.getElementById("tab-watchlist").classList.contains("active")) { loadWatchlist(); }
+      if (currentTab === "watchlist") loadWatchlist();
     } catch (e) {
       btn.textContent = "❌ Error";
       setTimeout(() => { btn.textContent = "🔄 Prices"; btn.disabled = false; }, 3000);
     }
   });
 
+
   //--- Settings Loader & Renders ---
   async function loadSettings() {
-    const [classes, types, brokersData, tickers] = await Promise.all([
-      fetch("/api/settings/asset-classes").then(r => r.json()),
-      fetch("/api/settings/asset-types").then(r => r.json()),
-      fetch("/api/settings/brokers").then(r => r.json()),
-      fetch("/api/settings/tickers").then(r => r.json())
-    ]);
-    renderSettingsList("settings-classes-list", classes, "asset-classes");
-    renderSettingsList("settings-types-list", types, "asset-types");
-    renderSettingsList("settings-brokers-list", brokersData, "brokers");
-    renderTickersList(tickers);
-    loadLockSettings();
+    try {
+      const [classes, types, brokersData, tickers] = await Promise.all([
+        apiFetch("/api/settings/asset-classes"),
+        apiFetch("/api/settings/asset-types"),
+        apiFetch("/api/settings/brokers"),
+        apiFetch("/api/settings/tickers")
+      ]);
+      renderSettingsList("settings-classes-list", classes, "asset-classes");
+      renderSettingsList("settings-types-list", types, "asset-types");
+      renderSettingsList("settings-brokers-list", brokersData, "brokers");
+      renderTickersList(tickers);
+      loadLockSettings();
+    } catch(e) { toast("Failed to load settings", "error"); }
   }
 
   function renderSettingsList(listId, items, endpoint) {
@@ -1000,19 +1130,20 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
         const newName = input.value.trim();
         if (!newName || newName === input.dataset.original) return;
         btnLoading(btn, true);
-        const res = await fetch(`/api/settings/${endpoint}/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) });
-        if (res.ok) { input.dataset.original = newName; toast("Renamed successfully", "success"); loadDropdowns(); }
-        else { const err = await res.json(); toast(err.error || "Error", "error"); }
+        try {
+          await apiFetch(`/api/settings/${endpoint}/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) });
+          input.dataset.original = newName; toast("Renamed successfully", "success"); loadDropdowns();
+        } catch(e) { toast(e.message || "Error", "error"); }
         btnLoading(btn, false);
       });
 
       li.querySelector(".settings-delete-btn").addEventListener("click", async function() {
-        if (!confirm(`Delete "${item.name}"?`)) return;
+        if (!await showConfirm(`Delete "${item.name}"?`, "This cannot be undone.")) return;
         const btn = this; btnLoading(btn, true);
-        const res = await fetch(`/api/settings/${endpoint}/${item.id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (res.ok) { toast("Deleted: " + item.name, "success"); loadSettings(); loadDropdowns(); }
-        else { toast(data.error || "Cannot delete", "error"); }
+        try {
+          await apiFetch(`/api/settings/${endpoint}/${item.id}`, { method: "DELETE" });
+          toast("Deleted: " + item.name, "success"); loadSettings(); loadDropdowns();
+        } catch(e) { toast(e.message || "Cannot delete", "error"); }
         btnLoading(btn, false);
       });
     }
@@ -1039,20 +1170,19 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
         if (!newTicker || newTicker === input.dataset.original) return;
         btnLoading(btn, true);
         try {
-          const res = await fetch("/api/settings/tickers", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset_name: input.dataset.asset, ticker: newTicker }) });
-          if (res.ok) { input.dataset.original = newTicker; toast("Ticker updated: " + input.dataset.asset, "success"); }
-          else { const err = await res.json(); toast(err.error || "Error saving ticker", "error"); }
-        } catch(e) { toast("Network error", "error"); }
+          await apiFetch("/api/settings/tickers", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset_name: input.dataset.asset, ticker: newTicker }) });
+          input.dataset.original = newTicker; toast("Ticker updated: " + input.dataset.asset, "success");
+        } catch(e) { toast(e.message || "Error saving ticker", "error"); }
         btnLoading(btn, false);
       });
 
       tr.querySelector(".ticker-delete-btn").addEventListener("click", async function() {
-        if (!confirm(`Remove ticker mapping for "${t.asset_name}"?`)) return;
+        if (!await showConfirm(`Remove ticker mapping for "${t.asset_name}"?`)) return;
         const btn = this; btnLoading(btn, true);
-        const res = await fetch(`/api/settings/tickers/${encodeURIComponent(t.asset_name)}`, { method: "DELETE" });
-        const data = await res.json();
-        if (res.ok) { toast("Ticker removed: " + t.asset_name, "success"); loadSettings(); }
-        else { toast(data.error || "Cannot delete ticker", "error"); }
+        try {
+          await apiFetch(`/api/settings/tickers/${encodeURIComponent(t.asset_name)}`, { method: "DELETE" });
+          toast("Ticker removed: " + t.asset_name, "success"); loadSettings();
+        } catch(e) { toast(e.message || "Cannot delete ticker", "error"); }
         btnLoading(btn, false);
       });
     }
@@ -1062,27 +1192,30 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
   document.getElementById("settings-class-add-btn").addEventListener("click", async function() {
     const btn = this; const input = document.getElementById("settings-class-input");
     const name = input.value.trim(); if (!name) return; btnLoading(btn, true);
-    const res = await fetch("/api/settings/asset-classes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-    if (res.ok) { input.value = ""; toast("Added: " + name, "success"); loadSettings(); loadDropdowns(); }
-    else { const err = await res.json(); toast(err.error, "error"); }
+    try {
+      await apiFetch("/api/settings/asset-classes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      input.value = ""; toast("Added: " + name, "success"); loadSettings(); loadDropdowns();
+    } catch(e) { toast(e.message || "Error", "error"); }
     btnLoading(btn, false);
   });
 
   document.getElementById("settings-type-add-btn").addEventListener("click", async function() {
     const btn = this; const input = document.getElementById("settings-type-input");
     const name = input.value.trim(); if (!name) return; btnLoading(btn, true);
-    const res = await fetch("/api/settings/asset-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-    if (res.ok) { input.value = ""; toast("Added: " + name, "success"); loadSettings(); loadDropdowns(); }
-    else { const err = await res.json(); toast(err.error, "error"); }
+    try {
+      await apiFetch("/api/settings/asset-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      input.value = ""; toast("Added: " + name, "success"); loadSettings(); loadDropdowns();
+    } catch(e) { toast(e.message || "Error", "error"); }
     btnLoading(btn, false);
   });
 
   document.getElementById("settings-broker-add-btn").addEventListener("click", async function() {
     const btn = this; const input = document.getElementById("settings-broker-input");
     const name = input.value.trim(); if (!name) return; btnLoading(btn, true);
-    const res = await fetch("/api/settings/brokers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-    if (res.ok) { input.value = ""; toast("Added: " + name, "success"); loadSettings(); loadDropdowns(); }
-    else { const err = await res.json(); toast(err.error, "error"); }
+    try {
+      await apiFetch("/api/settings/brokers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      input.value = ""; toast("Added: " + name, "success"); loadSettings(); loadDropdowns();
+    } catch(e) { toast(e.message || "Error", "error"); }
     btnLoading(btn, false);
   });
 
@@ -1091,8 +1224,10 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     const symbolInput = document.getElementById("settings-ticker-symbol");
     const asset_name = assetInput.value.trim(); const ticker = symbolInput.value.trim();
     if (!asset_name || !ticker) return; btnLoading(btn, true);
-    const res = await fetch("/api/settings/tickers", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset_name, ticker }) });
-    if (res.ok) { assetInput.value = ""; symbolInput.value = ""; toast("Mapped: " + asset_name + " -> " + ticker, "success"); loadSettings(); }
+    try {
+      await apiFetch("/api/settings/tickers", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset_name, ticker }) });
+      assetInput.value = ""; symbolInput.value = ""; toast("Mapped: " + asset_name + " → " + ticker, "success"); loadSettings();
+    } catch(e) { toast(e.message || "Error", "error"); }
     btnLoading(btn, false);
   });
 
@@ -1102,20 +1237,24 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     const rateDisplay = document.getElementById("settings-rate-display").value;
 
     if (currency && currencyConfigured && currency !== baseCurrency) {
-      const checkRes = await fetch("/api/settings/currency").then(r => r.json());
-      if (checkRes.invested_base_count > 0) {
-        const confirmed = confirm(`WARNING: You have ${checkRes.invested_base_count} holding(s) where you recorded the invested amount in ${baseCurrency}.\n\nChanging base currency from ${baseCurrency} to ${currency} will cause those values to be misinterpreted.\n\nAre you sure you want to proceed?`);
-        if (!confirmed) { document.getElementById("settings-default-currency").value = baseCurrency; return; }
-      }
+      try {
+        const checkRes = await apiFetch("/api/settings/currency");
+        if (checkRes.invested_base_count > 0) {
+          const confirmed = await showConfirm("Change base currency?", `You have ${checkRes.invested_base_count} holding(s) with invested amount in ${baseCurrency}. Changing to ${currency} will misinterpret those values.`);
+          if (!confirmed) { document.getElementById("settings-default-currency").value = baseCurrency; return; }
+        }
+      } catch(e) {}
     }
 
     if (!currency && currencyConfigured) {
-      const checkRes = await fetch("/api/settings/currency").then(r => r.json());
-      if (checkRes.holding_currencies && checkRes.holding_currencies.length > 1) {
-        const currencies = checkRes.holding_currencies.join(", ");
-        const confirmed = confirm(`WARNING: You have holdings in multiple currencies (${currencies}).\n\nDisabling currency configuration will stop conversions, break visuals and hide exchange details.\n\nAre you sure you want to proceed?`);
-        if (!confirmed) { document.getElementById("settings-default-currency").value = baseCurrency; return; }
-      }
+      try {
+        const checkRes = await apiFetch("/api/settings/currency");
+        if (checkRes.holding_currencies && checkRes.holding_currencies.length > 1) {
+          const currencies = checkRes.holding_currencies.join(", ");
+          const confirmed = await showConfirm("Disable currency?", `You have holdings in multiple currencies (${currencies}). Disabling will stop conversions and break visuals.`);
+          if (!confirmed) { document.getElementById("settings-default-currency").value = baseCurrency; return; }
+        }
+      } catch(e) {}
     }
 
     btnLoading(btn, true);
@@ -1123,17 +1262,19 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     const body = { currency, rate_display: rateDisplay, date_format: selectedDateFormat };
     if (!currency && currencyConfigured) body.save_previous = true;
 
-    const res = await fetch("/api/settings/currency", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { toast("Currency settings saved", "success"); await loadDefaultCurrency(); loadDashboard(); loadHoldings(); }
-    else { toast("Error saving currency", "error"); }
+    try {
+      await apiFetch("/api/settings/currency", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      toast("Currency settings saved", "success"); await loadDefaultCurrency(); cachedRateData = null; loadDashboard(); loadHoldings();
+    } catch(e) { toast("Error saving currency", "error"); }
     btnLoading(btn, false);
   });
 
   document.getElementById("currency-restore-btn").addEventListener("click", async function() {
     const btn = this; btnLoading(btn, true);
-    const res = await fetch("/api/settings/currency/restore", { method: "POST" });
-    if (res.ok) { toast("Currency configuration restored", "success"); await loadDefaultCurrency(); loadDashboard(); loadHoldings(); }
-    else { const err = await res.json(); toast(err.error || "Error restoring", "error"); }
+    try {
+      await apiFetch("/api/settings/currency/restore", { method: "POST" });
+      toast("Currency configuration restored", "success"); await loadDefaultCurrency(); cachedRateData = null; loadDashboard(); loadHoldings();
+    } catch(e) { toast(e.message || "Error restoring", "error"); }
     btnLoading(btn, false);
   });
 
@@ -1152,7 +1293,7 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
 
   async function loadDefaultCurrency() {
     try {
-      const data = await fetch("/api/settings/currency").then(r => r.json());
+      const data = await apiFetch("/api/settings/currency");
       const cur = data.default_currency || "";
       currencyConfigured = !!cur; baseCurrency = cur; displayCurrency = cur;
       document.getElementById("settings-default-currency").value = cur;
@@ -1189,31 +1330,36 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     } catch(e) {}
   }
 
-  //--- Notes Logic ---
+  //--- Notes Logic (fix #1.3 — uses GET by ID, preserves invested_base & txn_type) ---
   const notesModal = document.getElementById("notes-modal");
-  window.viewNotes = async function(id) {
-    const rows = await fetch("/api/holdings").then(r => r.json());
-    const row = rows.find(r => r.id === id);
-    if (!row) return;
+  async function viewNotes(id) {
+    let row;
+    try { row = await apiFetch(`/api/holdings/${id}`); } catch(e) { toast("Error loading", "error"); return; }
     notesCurrentId = id;
     document.getElementById("notes-modal-asset").textContent = row.name;
     document.getElementById("notes-modal-text").value = row.notes || "";
     notesModal.classList.add("open");
-  };
+  }
 
   document.getElementById("notes-cancel-btn").addEventListener("click", () => { notesModal.classList.remove("open"); notesCurrentId = null; });
   document.getElementById("notes-save-btn").addEventListener("click", async function() {
     if (!notesCurrentId) return;
     const btn = this; const notes = document.getElementById("notes-modal-text").value;
     btnLoading(btn, true);
-    const rows = await fetch("/api/holdings").then(r => r.json());
-    const row = rows.find(r => r.id === notesCurrentId);
-    if (row) {
-      const body = { date: row.date, name: row.name, asset_class: row.asset_class, asset_type: row.asset_type, broker: row.broker, buy_price: row.buy_price, quantity: row.quantity, invested_amount: row.invested_amount, currency: row.currency, ticker: row.ticker, notes: notes };
-      const res = await fetch(`/api/holdings/${notesCurrentId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (res.ok) { toast("Note saved", "success"); notesModal.classList.remove("open"); notesCurrentId = null; loadHoldings(); }
-      else { toast("Error saving note", "error"); }
-    }
+    try {
+      const row = await apiFetch(`/api/holdings/${notesCurrentId}`);
+      const body = {
+        date: row.date, name: row.name, asset_class: row.asset_class,
+        asset_type: row.asset_type, broker: row.broker,
+        txn_type: row.txn_type, // fix #1.3: preserve txn_type
+        buy_price: row.buy_price, quantity: Math.abs(row.quantity),
+        invested_amount: Math.abs(row.invested_amount),
+        currency: row.currency, ticker: row.ticker, notes: notes,
+        invested_base: row.invested_base != null ? Math.abs(row.invested_base) : null // fix #1.3: preserve invested_base
+      };
+      await apiFetch(`/api/holdings/${notesCurrentId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      toast("Note saved", "success"); notesModal.classList.remove("open"); notesCurrentId = null; loadHoldings();
+    } catch(e) { toast("Error saving note", "error"); }
     btnLoading(btn, false);
   });
 
@@ -1224,7 +1370,7 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     const loadingMsg = document.getElementById("watchlist-loading");
     tbody.innerHTML = ""; emptyMsg.style.display = "none"; loadingMsg.style.display = "block";
     try {
-      const items = await fetch("/api/watchlist").then(r => r.json());
+      const items = await apiFetch("/api/watchlist");
       loadingMsg.style.display = "none";
       if (items.length === 0) { emptyMsg.style.display = "block"; return; }
 
@@ -1232,8 +1378,8 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
         const tr = document.createElement("tr");
         const priceStr = item.current_price != null ? getCurrencySymbol(item.currency) + Number(item.current_price).toLocaleString(getLocaleForCurrency(item.currency), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
         const sourceBadge = item.is_portfolio ? '<span class="watchlist-badge watchlist-badge-portfolio">Portfolio</span>' : '<span class="watchlist-badge watchlist-badge-manual">Manual</span>';
-        const editBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio cannot edit" disabled>⚙️</button>' : `<button class="action-btn watchlist-edit-btn" data-id="${item.id}" data-name="${item.name.replace(/"/g, '&quot;')}" data-ticker="${item.ticker}" title="Edit">✏️</button>`;
-        const deleteBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio cannot delete" disabled>🗑️</button>' : `<button class="action-btn delete watchlist-remove-btn" data-id="${item.id}" title="Remove">🗑️</button>`;
+        const editBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>⚙️</button>' : `<button class="action-btn watchlist-edit-btn" data-id="${item.id}" data-name="${item.name.replace(/"/g, '&quot;')}" data-ticker="${item.ticker}" title="Edit">✏️</button>`;
+        const deleteBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>🗑️</button>' : `<button class="action-btn delete watchlist-remove-btn" data-id="${item.id}" title="Remove">🗑️</button>`;
 
         tr.innerHTML = `<td>${item.name}</td><td class="watchlist-ticker-cell">${item.ticker}</td><td class="col-amount watchlist-price">${priceStr}</td><td>${sourceBadge}</td><td class="col-actions">${editBtn} ${deleteBtn}</td>`;
         tbody.appendChild(tr);
@@ -1242,29 +1388,52 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
       tbody.querySelectorAll(".watchlist-remove-btn").forEach(btn => {
         btn.addEventListener("click", async function() {
           const id = this.dataset.id;
-          if (!confirm("Remove this ticker from your watchlist?")) return;
+          if (!await showConfirm("Remove from watchlist?", "This ticker will be removed.")) return;
           btnLoading(this, true);
-          const res = await fetch(`/api/watchlist/${id}`, { method: "DELETE" });
-          if (res.ok) { toast("Removed from watchlist", "success"); loadWatchlist(); }
-          else { const err = await res.json(); toast(err.error || "Error", "error"); btnLoading(this, false); }
+          try {
+            await apiFetch(`/api/watchlist/${id}`, { method: "DELETE" });
+            toast("Removed from watchlist", "success"); loadWatchlist();
+          } catch(e) { toast(e.message || "Error", "error"); btnLoading(this, false); }
         });
       });
 
+      // Watchlist edit using custom modal instead of prompt() (fix #5.5)
       tbody.querySelectorAll(".watchlist-edit-btn").forEach(btn => {
         btn.addEventListener("click", function() {
           const id = this.dataset.id; const name = this.dataset.name; const ticker = this.dataset.ticker;
-          const newName = prompt("Edit name:", name); if (newName === null) return;
-          const newTicker = prompt("Edit ticker:", ticker); if (newTicker === null) return;
-          if (!newTicker.trim()) { toast("Ticked cannot be empty", "error"); return; }
-
-          fetch(`/api/watchlist/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName.trim() || ticker, ticker: newTicker.trim() }) }).then(async res => {
-            if (res.ok) { toast("Watchlist item updated", "success"); loadWatchlist(); }
-            else { const err = await res.json(); toast(err.error || "Error updating", "error"); }
-          });
+          openWatchlistEditModal(id, name, ticker);
         });
       });
     } catch(e) { loadingMsg.style.display = "none"; emptyMsg.style.display = "block"; console.error("Failed to load watchlist:", e); }
   }
+
+  // Watchlist edit modal (fix #5.5)
+  function openWatchlistEditModal(id, name, ticker) {
+    document.getElementById("watchlist-edit-id").value = id;
+    document.getElementById("watchlist-edit-name").value = name;
+    document.getElementById("watchlist-edit-ticker").value = ticker;
+    document.getElementById("watchlist-edit-modal").classList.add("open");
+  }
+
+  document.getElementById("watchlist-edit-cancel").addEventListener("click", () => {
+    document.getElementById("watchlist-edit-modal").classList.remove("open");
+  });
+
+  document.getElementById("watchlist-edit-save").addEventListener("click", async function() {
+    const btn = this;
+    const id = document.getElementById("watchlist-edit-id").value;
+    const name = document.getElementById("watchlist-edit-name").value.trim();
+    const ticker = document.getElementById("watchlist-edit-ticker").value.trim();
+    if (!ticker) { toast("Ticker cannot be empty", "error"); return; }
+    btnLoading(btn, true);
+    try {
+      await apiFetch(`/api/watchlist/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name || ticker, ticker }) });
+      toast("Watchlist item updated", "success");
+      document.getElementById("watchlist-edit-modal").classList.remove("open");
+      loadWatchlist();
+    } catch(e) { toast(e.message || "Error updating", "error"); }
+    btnLoading(btn, false);
+  });
 
   document.getElementById("watchlist-add-btn").addEventListener("click", async function() {
     const btn = this;
@@ -1274,11 +1443,9 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     if (!ticker) { toast("Enter a ticker symbol", "error"); return; }
     btnLoading(btn, true);
     try {
-      const res = await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticker, name }) });
-      const data = await res.json();
-      if (res.ok) { tickerInput.value = ""; nameInput.value = ""; toast(`Added ${data.name || data.ticker} to watchlist`, "success"); loadWatchlist(); }
-      else { toast(data.error || "Error adding ticker", "error"); }
-    } catch(e) { toast("Network error", "error"); }
+      const data = await apiFetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticker, name }) });
+      tickerInput.value = ""; nameInput.value = ""; toast(`Added ${data.name || data.ticker} to watchlist`, "success"); loadWatchlist();
+    } catch(e) { toast(e.message || "Error adding ticker", "error"); }
     btnLoading(btn, false);
   });
 
@@ -1303,20 +1470,22 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     if (newName === renameOldName) { msg.textContent = "Name is unchanged."; msg.className = "form-msg error"; return; }
     btnLoading(btn, true);
 
-    const res = await fetch("/api/holdings/rename-asset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_name: renameOldName, new_name: newName }) });
-    const data = await res.json();
+    try {
+      const data = await apiFetch("/api/holdings/rename-asset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_name: renameOldName, new_name: newName }) });
+      toast(`Renamed "${renameOldName}" to "${newName}" across ${data.renamed} entries`, "success"); renameModal.classList.remove("open"); selectedIds.clear(); updateBatchBar(); loadHoldings(); loadDashboard();
+    } catch(e) { msg.textContent = e.message || "Error renaming."; msg.className = "form-msg error"; }
     btnLoading(btn, false);
-    if (res.ok) { toast(`Renamed "${renameOldName}" to "${newName}" across ${data.renamed} entries`, "success"); renameModal.classList.remove("open"); selectedIds.clear(); updateBatchBar(); loadHoldings(); loadDashboard(); }
-    else { msg.textContent = data.error || "Error renaming."; msg.className = "form-msg error"; }
   });
   document.getElementById("rename-modal-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("rename-modal-save").click(); } });
 
   //--- Security Pin Lock Utilities ---
   async function loadLockSettings() {
-    const res = await fetch("/api/lock/config"); const { locked } = await res.json();
-    document.getElementById("lock-setup-section").style.display = locked ? "none" : "block";
-    document.getElementById("lock-disable-section").style.display = locked ? "block" : "none";
-    document.getElementById("lock-recovery-alert-section").style.display = "none";
+    try {
+      const { locked } = await apiFetch("/api/lock/config");
+      document.getElementById("lock-setup-section").style.display = locked ? "none" : "block";
+      document.getElementById("lock-disable-section").style.display = locked ? "block" : "none";
+      document.getElementById("lock-recovery-alert-section").style.display = "none";
+    } catch(e) {}
   }
 
   document.getElementById("settings-lock-enable").addEventListener("click", async () => {
@@ -1325,22 +1494,21 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
     if (pin.length !== 6 || !/^\d{6}$/.test(pin)) { msg.textContent = "PIN must be exactly 6 digits."; msg.className = "form-msg error"; return; }
     if (pin !== confirmPin) { msg.textContent = "PINs do not match."; msg.className = "form-msg error"; return; }
 
-    const res = await fetch("/api/lock/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
-    const data = await res.json();
-    if (data.success) {
+    try {
+      const data = await apiFetch("/api/lock/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
       document.getElementById("lock-setup-section").style.display = "none";
       const alertSection = document.getElementById("lock-recovery-alert-section");
-      alertSection.innerHTML = `<div class="recovery-alert"><div class="recovery-alert-header">Lock enabled successfully</div><div class="recovery-alert-body"><p>Your recovery code:</p><code class="recovery-code">${data.recoveryCode}</code><p class="recovery-warning">Save this code now. This is the only time it will be shown.</p><p class="recovery-tips">Tips: Save it in notes, email it or save in password manager.</p></div></div>`;
+      alertSection.innerHTML = `<div class="recovery-alert"><div class="recovery-alert-header">✓ Lock enabled successfully</div><div class="recovery-alert-body"><p>Your recovery code:</p><code class="recovery-code">${data.recoveryCode}</code><p class="recovery-warning">⚠ Save this code now. This is the only time it will be shown. If you forget your PIN and don't have this code, you will permanently lose access to the app.</p><p class="recovery-tips">Tips: Save it in your notes app, email it to yourself, or store it in your password manager.</p></div></div>`;
       alertSection.style.display = "block"; document.getElementById("lock-disable-section").style.display = "block";
-    } else { msg.textContent = data.error || "Failed"; msg.className = "form-msg error"; }
+    } catch(e) { msg.textContent = e.message || "Failed"; msg.className = "form-msg error"; }
   });
 
   document.getElementById("settings-lock-disable").addEventListener("click", async () => {
     const pin = document.getElementById("settings-disable-pin").value; const msg = document.getElementById("settings-disable-message");
-    const res = await fetch("/api/lock/disable", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
-    const data = await res.json();
-    if (data.success) { localStorage.removeItem("lock-remembered"); msg.textContent = "Lock disabled."; msg.className = "form-msg success"; document.getElementById("settings-disable-pin").value = ""; loadLockSettings(); }
-    else { msg.textContent = data.error || "Incorrect PIN"; msg.className = "form-msg error"; }
+    try {
+      await apiFetch("/api/lock/disable", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
+      localStorage.removeItem("lock-remembered"); msg.textContent = "Lock disabled."; msg.className = "form-msg success"; document.getElementById("settings-disable-pin").value = ""; loadLockSettings();
+    } catch(e) { msg.textContent = e.message || "Incorrect PIN"; msg.className = "form-msg error"; }
   });
 
   document.querySelectorAll('#settings-pin, #settings-pin-confirm, #settings-disable-pin, #lock-pin-input').forEach(input => { input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); }); });
@@ -1351,17 +1519,20 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
   const lockOverlay = document.getElementById("lock-overlay");
   document.getElementById("lock-unlock-btn").addEventListener("click", async() => {
     const pin = document.getElementById("lock-pin-input").value; const err = document.getElementById("lock-error"); const remember = document.getElementById("lock-remember").checked;
-    const res = await fetch("/api/lock/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
-    if (res.ok) { if (remember) localStorage.setItem("lock-remembered", new Date().toISOString().slice(0, 10)); lockOverlay.style.display = "none"; initApp(); }
-    else { err.textContent = "Incorrect PIN."; err.style.display = "block"; }
+    try {
+      await apiFetch("/api/lock/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
+      if (remember) localStorage.setItem("lock-remembered", new Date().toISOString().slice(0, 10));
+      lockOverlay.style.display = "none"; initApp();
+    } catch(e) { err.textContent = e.message || "Incorrect PIN."; err.style.display = "block"; }
   });
   document.getElementById("lock-pin-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("lock-unlock-btn").click(); } });
   document.getElementById("show-recovery-btn").addEventListener("click", e => { e.preventDefault(); document.getElementById("lock-recovery-section").style.display = "block"; });
   document.getElementById("lock-recovery-submit").addEventListener("click", async () => {
     const code = document.getElementById("lock-recovery-input").value; const err = document.getElementById("lock-error");
-    const res = await fetch("/api/lock/recovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
-    if (res.ok) { lockOverlay.style.display = "none"; initApp(); }
-    else { err.textContent = "Invalid recovery code."; err.style.display = "block"; }
+    try {
+      await apiFetch("/api/lock/recovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      lockOverlay.style.display = "none"; initApp();
+    } catch(e) { err.textContent = e.message || "Invalid recovery code."; err.style.display = "block"; }
   });
   document.getElementById("lock-recovery-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("lock-recovery-submit").click(); } });
 
@@ -1369,7 +1540,8 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
   async function initApp() {
     await loadDropdowns();
     await loadDefaultCurrency();
-    try { await fetch("/api/refresh-prices", { method: "POST" }); } catch(e) {}
+    // Refresh prices only if TTL allows (server-side check)
+    try { await apiFetch("/api/refresh-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }); } catch(e) {}
     loadDashboard();
     setupAutocomplete("add-name", "add-name-suggestions");
     setupTxnTypeToggle();
@@ -1380,12 +1552,12 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
       fxIcon.addEventListener("click", function(e) { e.stopPropagation(); const tooltip = this.nextElementSibling; if (tooltip) tooltip.classList.toggle("pivot-fx-tooltip-visible"); });
     }
     document.addEventListener("click", () => { const tooltip = document.querySelector(".pivot-fx-tooltip-visible"); if (tooltip) tooltip.classList.remove("pivot-fx-tooltip-visible"); });
-    document.getElementById("add-date").valueAsDate = new Date();
+    document.getElementById("add-date").value = new Date().toISOString().slice(0, 10); // fix #2.5: use .value not .valueAsDate
   }
 
   async function checkLockAndInit() {
     try {
-      const res = await fetch("/api/lock/status"); const { locked } = await res.json();
+      const { locked } = await apiFetch("/api/lock/status");
       if (locked) {
         const remembered = localStorage.getItem("lock-remembered"); const today = new Date().toISOString().slice(0, 10);
         if (remembered === today) { lockOverlay.style.display = "none"; initApp(); }
@@ -1396,181 +1568,228 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
   checkLockAndInit();
   loadLockSettings();
 
-  //--- Mobile: Swipe sync tabs with scroll-snap panels + collapsible header
- if (window.matchMedia("(max-width: 640px)").matches) {
- const container = document.getElementById("main-container");
- const tabs = Array.from(document.querySelectorAll(".tab-btn"));
- const panels = Array.from(document.querySelectorAll(".tab-content"));
- const appHeader = document.querySelector(".app-header");
- const tabNav = document.querySelector(".tab-nav");
- // Measure and set CSS custom properties for header/tab heights
- function setLayoutVars() {
- const headerH = appHeader.offsetHeight;
- const tabH = tabNav.offsetHeight;
- document.documentElement.style.setProperty("--header-height", headerH +
- "px");
- document.documentElement.style.setProperty("--tab-height", tabH + "px");
- }
- setLayoutVars();
- window.addEventListener("resize", setLayoutVars);
-//--- Header hide/show on vertical scroll within panels ---
- let headerHidden = false;
- let lastScrollTops = new Map(); // per-panel scroll tracking
- const SCROLL_DOWN_THRESHOLD = 10;
- const SCROLL_UP_THRESHOLD = 5;
- function hideHeader() {
- if (headerHidden) return;
- headerHidden = true;
- appHeader.classList.add("header-hidden");
- tabNav.classList.add("tabs-at-top");
- }
- function showHeader() {
- if (!headerHidden) return;
- headerHidden = false;
- appHeader.classList.remove("header-hidden");
- tabNav.classList.remove("tabs-at-top");
- }
- // Attach scroll listeners to each tab panel
- panels.forEach(panel => {
- lastScrollTops.set(panel, 0);
- panel.addEventListener("scroll", () => {
- const scrollTop = panel.scrollTop;
- const lastScrollTop = lastScrollTops.get(panel) || 0;
- const delta = scrollTop - lastScrollTop;
- if (scrollTop <= 5) {
- // At the very top always show header
- showHeader();
- } else if (delta > SCROLL_DOWN_THRESHOLD) {
- // Scrolling down hide header
- hideHeader();
- } else if (delta < -SCROLL_UP_THRESHOLD) {
- // Scrolling up (any amount) show header
- showHeader();
- }
- lastScrollTops.set(panel, scrollTop);
- }, { passive: true });
- });
- // Sync tab highlight on horizontal scroll
- let scrollTimeout;
- container.addEventListener("scroll", () => {
- clearTimeout(scrollTimeout);
- scrollTimeout = setTimeout(() => {
- const idx = Math.round(container.scrollLeft / container.offsetWidth);
- tabs.forEach((t, i) => t.classList.toggle("active", i === idx));
- }, 50);
- });
- // Tab click scrolls to panel
- tabs.forEach((btn, i) => {
- btn.addEventListener("click", (e) => {
- e.preventDefault();
- container.scrollTo({ left: i * container.offsetWidth, behavior: "smooth"
- });
- });
- });
- // Pull to refresh
- const pullIndicator = document.createElement("div");
- pullIndicator.className = "pull-indicator";
- pullIndicator.id = "pull-indicator";
- container.parentNode.insertBefore(pullIndicator, container);
- let pullStartY = 0;
- let pullMoveY = 0;
- let isPulling = false;
- const PULL_THRESHOLD = 80;
- function isAtTopOfScroll() {
- const idx = Math.round(container.scrollLeft / container.offsetWidth);
- const activePanel = panels[idx];
- if (activePanel) return activePanel.scrollTop <= 10;
- return true;
- }
- document.addEventListener("touchstart", (e) => {
- if (!isAtTopOfScroll()) return;
- if (e.target.closest(".modal-overlay")) return;
- pullStartY = e.touches[0].clientY;
- pullMoveY = pullStartY;
- isPulling = true;
- }, { passive: true });
- document.addEventListener("touchmove", (e) => {
- if (!isPulling) return;
- pullMoveY = e.touches[0].clientY;
- const dist = pullMoveY - pullStartY;
- if (dist < 0) { isPulling = false;
- pullIndicator.classList.remove("visible"); return; }
- if (dist > 20) {
- pullIndicator.innerHTML = dist > PULL_THRESHOLD
- ? '<span class="spinner"></span>Release to refresh...'
- : '<span class="spinner"></span>Pull down to refresh...';
- pullIndicator.classList.add("visible");
- }
- }, { passive: true });
- document.addEventListener("touchend", async () => {
- if (!isPulling) return;
- isPulling = false;
- const dist = pullMoveY - pullStartY;
- if (dist > PULL_THRESHOLD) {
- pullIndicator.innerHTML = '<span class="spinner"></span>Refreshing...';
- try {
- const idx = Math.round(container.scrollLeft / container.offsetWidth);
- const tabName = tabs[idx]?.dataset.tab;
- if (tabName === "dashboard") await loadDashboard();
- else if (tabName === "holdings") await loadHoldings();
- else if (tabName === "watchlist") await loadWatchlist();
- else if (tabName === "settings") await loadSettings();
- pullIndicator.innerHTML = '✓ Updated';
- } catch {
- pullIndicator.innerHTML = '✗ Failed';
- }
- setTimeout(() => {
- pullIndicator.classList.remove("visible");
- pullIndicator.innerHTML = "";
- }, 1500);
- } else {
- pullIndicator.classList.remove("visible");
- pullIndicator.innerHTML = "";
- }
- }, { passive: true });
- }
 
-// --- Chart tooltip dismiss on tap outside (mobile fix) ---
-// On touch devices, tapping outside the chart or tapping the same point
-// should dismiss the tooltip. Chart.js doesn't do this by default.
-let lastTapChartKey = null;
-document.addEventListener("click", (e) => {
- const canvas = e.target.closest("canvas");
- if (!canvas) {
- // Tap is NOT on a canvas dismiss all chart tooltips
- [classPieChart, typeBarChart, monthlyChart].forEach(chart => {
- if (chart && chart.tooltip) {
- chart.setActiveElements([]);
- chart.tooltip.setActiveElements([], {x: 0, y: 0 });
- chart.update("none");
- }
- });
- lastTapChartKey = null;
- return;
- }
- // Tap IS on a canvas find the chart instance
- const chartInstance = [classPieChart, typeBarChart, monthlyChart].find(
- c => c && c.canvas === canvas
- );
- if (!chartInstance || !chartInstance.tooltip) return;
- const activeEls = chartInstance.getActiveElements();
- if (activeEls.length === 0) {
- // Tapped empty area of chart dismiss tooltip
- chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
- chartInstance.update("none");
- lastTapChartKey = null;
- } else {
- const currentKey = canvas.id + "-" + activeEls[0].datasetIndex + "-" +
- activeEls[0].index;
- if (lastTapChartKey === currentKey) {
- // Tapped same data point again dismiss
- chartInstance.setActiveElements([]);
- chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
- chartInstance.update("none");
- lastTapChartKey = null;
- } else {
- lastTapChartKey = currentKey;
- }
- }
-});
+  //--- Mobile: Swipe sync with bottom nav + collapsible header ---
+  if (window.matchMedia("(max-width: 640px)").matches) {
+    const container = document.getElementById("main-container");
+    const tabs = Array.from(document.querySelectorAll(".bottom-nav-btn"));
+    const panels = Array.from(document.querySelectorAll(".tab-content"));
+    const appHeader = document.querySelector(".app-header");
+    const bottomNav = document.querySelector(".bottom-nav");
+
+    function setLayoutVars() {
+      const headerH = appHeader.offsetHeight;
+      const bottomNavH = bottomNav.offsetHeight;
+      document.documentElement.style.setProperty("--header-height", headerH + "px");
+      document.documentElement.style.setProperty("--bottom-nav-height", bottomNavH + "px");
+    }
+    setLayoutVars();
+    window.addEventListener("resize", setLayoutVars);
+
+    // iOS viewport height fix (fix #2.3)
+    function setViewportHeight() {
+      const vh = window.innerHeight;
+      document.documentElement.style.setProperty("--app-vh", vh + "px");
+    }
+    setViewportHeight();
+    window.addEventListener("resize", setViewportHeight);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", setViewportHeight);
+    }
+
+    // Header hide/show on vertical scroll within panels
+    let headerHidden = false;
+    let lastScrollTops = new Map();
+    const SCROLL_DOWN_THRESHOLD = 10;
+    const SCROLL_UP_THRESHOLD = 5;
+
+    function hideHeader() {
+      if (headerHidden) return;
+      headerHidden = true;
+      appHeader.classList.add("header-hidden");
+      document.body.classList.add("header-collapsed");
+    }
+
+    function showHeader() {
+      if (!headerHidden) return;
+      headerHidden = false;
+      appHeader.classList.remove("header-hidden");
+      document.body.classList.remove("header-collapsed");
+    }
+
+    panels.forEach(panel => {
+      lastScrollTops.set(panel, 0);
+      panel.addEventListener("scroll", () => {
+        const scrollTop = panel.scrollTop;
+        const lastScrollTop = lastScrollTops.get(panel) || 0;
+        const delta = scrollTop - lastScrollTop;
+        if (scrollTop <= 5) {
+          showHeader();
+        } else if (delta > SCROLL_DOWN_THRESHOLD) {
+          hideHeader();
+        } else if (delta < -SCROLL_UP_THRESHOLD) {
+          showHeader();
+        }
+        lastScrollTops.set(panel, scrollTop);
+      }, { passive: true });
+    });
+
+    // Sync bottom nav highlight on horizontal scroll AND load data (fix #1.8)
+    let scrollTimeout;
+    let lastSyncedIdx = 0;
+    container.addEventListener("scroll", () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const idx = Math.round(container.scrollLeft / container.offsetWidth);
+        if (idx === lastSyncedIdx) return;
+        lastSyncedIdx = idx;
+        const tabName = tabs[idx] ? tabs[idx].dataset.tab : null;
+        if (tabName) {
+          currentTab = tabName;
+          tabs.forEach((t, i) => t.classList.toggle("active", i === idx));
+          loadTabData(tabName);
+        }
+      }, 80);
+    }, { passive: true });
+
+    // Bottom nav click scrolls to panel
+    tabs.forEach((btn, i) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        tabs.forEach(t => t.classList.remove("active"));
+        btn.classList.add("active");
+        container.scrollTo({ left: i * container.offsetWidth, behavior: "smooth" });
+      });
+    });
+
+    // Pull to refresh — indicator inside each panel (matches expense tracker)
+    panels.forEach(panel => {
+      const indicator = document.createElement("div");
+      indicator.className = "pull-indicator";
+      panel.insertBefore(indicator, panel.firstChild);
+    });
+
+    function getActiveIndicator() {
+      const idx = Math.round(container.scrollLeft / container.offsetWidth);
+      const activePanel = panels[idx];
+      return activePanel ? activePanel.querySelector(".pull-indicator") : null;
+    }
+
+    let pullStartY = 0;
+    let pullMoveY = 0;
+    let isPulling = false;
+    const PULL_THRESHOLD = 80;
+
+    function isAtTopOfScroll() {
+      const idx = Math.round(container.scrollLeft / container.offsetWidth);
+      const activePanel = panels[idx];
+      if (activePanel) return activePanel.scrollTop <= 10;
+      return true;
+    }
+
+    document.addEventListener("touchstart", (e) => {
+      if (!isAtTopOfScroll()) return;
+      if (e.target.closest(".modal-overlay")) return;
+      pullStartY = e.touches[0].clientY;
+      pullMoveY = pullStartY;
+      isPulling = true;
+    }, { passive: true });
+
+    document.addEventListener("touchmove", (e) => {
+      if (!isPulling) return;
+      pullMoveY = e.touches[0].clientY;
+      const dist = pullMoveY - pullStartY;
+      if (dist < 0) { isPulling = false; const ind = getActiveIndicator(); if (ind) ind.classList.remove("visible"); return; }
+
+      const indicator = getActiveIndicator();
+      if (indicator && dist > 20) {
+        indicator.innerHTML = dist > PULL_THRESHOLD
+          ? '<span class="spinner"></span>Release to refresh...'
+          : '<span class="spinner"></span>Pull down to refresh...';
+        indicator.classList.add("visible");
+      }
+    }, { passive: true });
+
+    document.addEventListener("touchend", async () => {
+      if (!isPulling) return;
+      isPulling = false;
+      const dist = pullMoveY - pullStartY;
+      const indicator = getActiveIndicator();
+
+      if (dist > PULL_THRESHOLD) {
+        if (indicator) indicator.innerHTML = '<span class="spinner"></span>Refreshing...';
+        try {
+          const idx = Math.round(container.scrollLeft / container.offsetWidth);
+          const tabName = tabs[idx]?.dataset.tab;
+          cachedRateData = null;
+          if (tabName === "dashboard") await loadDashboard();
+          else if (tabName === "holdings") await loadHoldings();
+          else if (tabName === "watchlist") await loadWatchlist();
+          else if (tabName === "settings") await loadSettings();
+          if (indicator) indicator.innerHTML = '✓ Updated';
+        } catch {
+          if (indicator) indicator.innerHTML = '✗ Failed';
+        }
+        setTimeout(() => { if (indicator) { indicator.classList.remove("visible"); indicator.innerHTML = ""; } }, 1500);
+      } else {
+        if (indicator) { indicator.classList.remove("visible"); indicator.innerHTML = ""; }
+      }
+    }, { passive: true });
+
+    // Handle virtual keyboard resizing modals (fix #3.8)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", () => {
+        const openModal = document.querySelector(".modal-overlay.open .modal-content");
+        if (openModal) {
+          openModal.style.maxHeight = (window.visualViewport.height - 40) + "px";
+        }
+      });
+      window.visualViewport.addEventListener("scroll", () => {
+        const openModal = document.querySelector(".modal-overlay.open .modal-content");
+        if (openModal) {
+          openModal.style.maxHeight = (window.visualViewport.height - 40) + "px";
+        }
+      });
+    }
+  }
+
+  // --- Chart tooltip dismiss on tap outside (mobile fix) ---
+  let lastTapChartKey = null;
+  document.addEventListener("click", (e) => {
+    const canvas = e.target.closest("canvas");
+    if (!canvas) {
+      [classPieChart, valueTrendChart, monthlyChart].forEach(chart => {
+        if (chart && chart.tooltip) {
+          chart.setActiveElements([]);
+          chart.tooltip.setActiveElements([], {x: 0, y: 0 });
+          chart.update("none");
+        }
+      });
+      lastTapChartKey = null;
+      return;
+    }
+    const chartInstance = [classPieChart, valueTrendChart, monthlyChart].find(c => c && c.canvas === canvas);
+    if (!chartInstance || !chartInstance.tooltip) return;
+    const activeEls = chartInstance.getActiveElements();
+    if (activeEls.length === 0) {
+      chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
+      chartInstance.update("none");
+      lastTapChartKey = null;
+    } else {
+      const currentKey = canvas.id + "-" + activeEls[0].datasetIndex + "-" + activeEls[0].index;
+      if (lastTapChartKey === currentKey) {
+        chartInstance.setActiveElements([]);
+        chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
+        chartInstance.update("none");
+        lastTapChartKey = null;
+      } else {
+        lastTapChartKey = currentKey;
+      }
+    }
+  });
+
+  // --- Register Service Worker ---
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
 })();

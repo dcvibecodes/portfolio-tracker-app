@@ -17,7 +17,7 @@
 <meta name="theme-color" content="#1a1a2e" />
   <title>Portfolio+</title>
   <link rel="stylesheet" href="/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js loaded at end of body with pinned version and SRI -->
 </head>
 <body>
   <div id="lock-overlay" class="lock-overlay">
@@ -45,46 +45,64 @@
     </div>
   </header>
 
-  <nav class="tab-nav">
-    <div class="tab-nav-tabs">
-      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-btn" data-tab="holdings">Holdings</button>
-      <button class="tab-btn" data-tab="watchlist">Watchlist</button>
-      <button class="tab-btn" data-tab="settings">Settings</button>
-    </div>
+  <nav class="bottom-nav" role="tablist" aria-label="Main navigation">
+    <button class="bottom-nav-btn active" data-tab="dashboard" role="tab" aria-selected="true" aria-controls="tab-dashboard">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="bottom-nav-btn" data-tab="holdings" role="tab" aria-selected="false" aria-controls="tab-holdings">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span>Holdings</span>
+    </button>
+    <button class="bottom-nav-btn" data-tab="watchlist" role="tab" aria-selected="false" aria-controls="tab-watchlist">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Watchlist</span>
+    </button>
+    <button class="bottom-nav-btn" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
+    </button>
   </nav>
 
   <main class="container" id="main-container">
     
-    <div id="tab-dashboard" class="tab-content active">
-      <div class="dashboard-top">
-        <section class="card summary-card-compact">
-          <h2>Portfolio Summary</h2>
-          <div class="summary-grid-2x2" id="summary-grid"></div>
-        </section>
-        <section class="card chart-card-sm">
+    <div id="tab-dashboard" class="tab-content active" role="tabpanel" aria-labelledby="tab-dashboard-btn">
+      <section class="summary-row" id="summary-row">
+        <div class="summary-grid-row" id="summary-grid"></div>
+      </section>
+
+      <div class="dashboard-charts-row">
+        <section class="card chart-card-eq">
           <h3 class="allocation-title">By Category</h3>
-          <div class="chart-wrapper-compact"><canvas id="class-pie"></canvas></div>
+          <div class="chart-wrapper-compact"><canvas id="class-pie" role="img" aria-label="Portfolio allocation by category chart"></canvas></div>
         </section>
-        <section class="card chart-card-sm">
-          <h3 class="allocation-title">By Type</h3>
-          <div class="chart-wrapper-compact"><canvas id="type-pie"></canvas></div>
+        <section class="card chart-card-eq">
+          <div class="chart-header-compact">
+            <h3 class="allocation-title">Portfolio Value</h3>
+            <div class="range-selector range-selector-trend">
+              <button class="range-btn-trend active" data-months="12">1Y</button>
+              <button class="range-btn-trend" data-months="24">2Y</button>
+              <button class="range-btn-trend" data-months="36">3Y</button>
+              <button class="range-btn-trend" data-months="60">5Y</button>
+              <button class="range-btn-trend" data-months="0">All</button>
+            </div>
+          </div>
+          <div class="chart-wrapper-compact"><canvas id="value-trend-chart" role="img" aria-label="Cumulative invested vs portfolio value chart"></canvas></div>
+        </section>
+        <section class="card chart-card-eq">
+          <div class="chart-header-compact">
+            <h3 class="allocation-title">Monthly Investments</h3>
+            <div class="range-selector">
+              <button class="range-btn active" data-months="12">1Y</button>
+              <button class="range-btn" data-months="24">2Y</button>
+              <button class="range-btn" data-months="36">3Y</button>
+              <button class="range-btn" data-months="60">5Y</button>
+              <button class="range-btn" data-months="0">All</button>
+            </div>
+          </div>
+          <div class="chart-wrapper-compact"><canvas id="monthly-chart" role="img" aria-label="Monthly investments bar chart"></canvas></div>
         </section>
       </div>
-
-      <section class="card">
-        <div class="chart-header">
-          <h2>Monthly Investments</h2>
-          <div class="range-selector">
-            <button class="range-btn active" data-months="12">1Y</button>
-            <button class="range-btn" data-months="24">2Y</button>
-            <button class="range-btn" data-months="36">3Y</button>
-            <button class="range-btn" data-months="60">5Y</button>
-            <button class="range-btn" data-months="0">All</button>
-          </div>
-        </div>
-        <div class="chart-wrapper-monthly"><canvas id="monthly-chart"></canvas></div>
-      </section>
 
       <section class="card">
         <div class="pivot-header">
@@ -114,7 +132,7 @@
       </section>
     </div>
 
-    <div id="tab-holdings" class="tab-content">
+    <div id="tab-holdings" class="tab-content" role="tabpanel" aria-labelledby="tab-holdings-btn">
       <section class="card">
         <button id="new-txn-toggle" type="button" class="new-txn-toggle-btn">+ New Transaction</button>
         <div id="new-txn-content" class="new-txn-content" style="display:none;">
@@ -258,7 +276,7 @@
       </section>
     </div>
 
-    <div id="tab-watchlist" class="tab-content">
+    <div id="tab-watchlist" class="tab-content" role="tabpanel" aria-labelledby="tab-watchlist-btn">
       <section class="card watchlist-card">
         <div class="watchlist-header">
           <h2>Watchlist</h2>
@@ -288,7 +306,7 @@
       </section>
     </div>
 
-    <div id="tab-settings" class="tab-content">
+    <div id="tab-settings" class="tab-content" role="tabpanel" aria-labelledby="tab-settings-btn">
       <section class="card">
         <h2>Display & Currency</h2>
         <p class="settings-desc">Configure date format, base currency, and exchange rate display.</p>
@@ -432,11 +450,11 @@
         </div>
         <div id="lock-recovery-alert-section" style="display:none;"></div>
         <div id="lock-disable-section" style="display:none;">
-          <p class="lock-active-badge">App is currently locked</p>
+          <p class="lock-active-badge">🔒 App is currently locked</p>
           <div class="lock-form-row">
             <label>PIN <input type="password" id="settings-disable-pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="Enter PIN" /></label>
           </div>
-          <button id="settings-lock-disable" type="button" class="add-btn">Disable Lock</button>
+          <button id="settings-lock-disable" type="button" class="cancel-btn">Disable Lock</button>
           <p id="settings-disable-message" class="form-msg"></p>
         </div>
       </section>
@@ -528,7 +546,49 @@
     </div>
   </div>
 
+  <!-- Confirm Modal (fix #5.5 — replaces native confirm()) -->
+  <div id="confirm-modal" class="modal-overlay" role="dialog" aria-labelledby="confirm-modal-title">
+    <div class="modal-content modal-content-sm" style="text-align:center;">
+      <h2 id="confirm-modal-title">Confirm</h2>
+      <p id="confirm-modal-message" class="settings-desc" style="margin-bottom:20px;"></p>
+      <div class="modal-buttons" style="justify-content:center;">
+        <button id="confirm-modal-yes" class="save-btn">Yes</button>
+        <button id="confirm-modal-no" class="cancel-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Watchlist Edit Modal (fix #5.5 — replaces native prompt()) -->
+  <div id="watchlist-edit-modal" class="modal-overlay" role="dialog" aria-labelledby="watchlist-edit-title">
+    <div class="modal-content modal-content-sm">
+      <h2 id="watchlist-edit-title">Edit Watchlist Item</h2>
+      <input type="hidden" id="watchlist-edit-id" />
+      <label class="rename-label">Name
+        <input type="text" id="watchlist-edit-name" placeholder="Display name" />
+      </label>
+      <label class="rename-label">Ticker
+        <input type="text" id="watchlist-edit-ticker" placeholder="Yahoo ticker symbol" />
+      </label>
+      <div class="modal-buttons">
+        <button id="watchlist-edit-save" class="save-btn">Save</button>
+        <button id="watchlist-edit-cancel" class="cancel-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container"></div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <script src="/app.js"></script>
+  <script>
+    // Detect horizontal scroll overflow on tables
+    function checkTableScroll() {
+      document.querySelectorAll('.table-wrap').forEach(wrap => {
+        wrap.classList.toggle('has-scroll', wrap.scrollWidth > wrap.clientWidth + 2);
+      });
+    }
+    window.addEventListener('resize', checkTableScroll);
+    new MutationObserver(checkTableScroll).observe(document.body, { childList: true, subtree: true });
+    setTimeout(checkTableScroll, 500);
+  </script>
 </body>
 </html>
