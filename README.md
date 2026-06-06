@@ -1,8 +1,8 @@
-# Portfolio Tracker+
+# Portfolio+
 
 A self-hosted investment portfolio tracker that works with any asset class, any currency, and any broker. Built with Node.js, Express, SQLite, and vanilla JavaScript. Deploy on a VPS or run locally — your data stays on your server, not in someone else's cloud.
 
-**Version 2.0.1**
+**Version 2.1.0**
 
 ---
 
@@ -16,14 +16,11 @@ Most portfolio trackers are either locked behind subscriptions, limited to speci
 
 ### Dashboard
 
-**Portfolio Summary Cards**  
-Four at-a-glance metrics: Total Invested, Current Value, P&L (with percentage), and a live exchange rate (configurable). All values reflect your configured base currency.
+**Portfolio Summary Cards** Four at-a-glance metrics: Total Invested, Current Value, P&L (with percentage), and a live exchange rate (configurable). All values reflect your configured base currency.
 
-**Allocation Charts**  
-Two doughnut charts showing portfolio allocation by category (e.g., Stocks, Crypto, Gold) and by type (e.g., Mutual Fund, ETF, Shares). Percentages are shown inline on labels.
+**Allocation Charts** Two doughnut charts showing portfolio allocation by category (e.g., Stocks, Crypto, Gold) and by type (e.g., Mutual Fund, ETF, Shares). Percentages are shown inline on labels.
 
-**Monthly Investments Chart**  
-A combo chart (stacked bars + trend lines) showing:
+**Monthly Investments Chart** A combo chart (stacked bars + trend lines) showing:
 
 - Monthly investment amounts broken down by category (stacked bars)
 - Cumulative invested value (dashed line)
@@ -31,20 +28,17 @@ A combo chart (stacked bars + trend lines) showing:
 
 Range selector: 1Y, 2Y, 3Y, 5Y, or All time. "All" shows your complete history from the very first transaction.
 
-**Category Breakdown Table**  
-An expandable/collapsible pivot table grouped by category. Each category row shows invested amount, current value, P&L, and P&L%. Expand a category to see individual assets with their units, current price, and per-asset P&L.
+**Category Breakdown Table** An expandable/collapsible pivot table grouped by category. Each category row shows invested amount, current value, P&L, and P&L%. Expand a category to see individual assets with their units, current price, and per-asset P&L.
 
 Units and current price are only shown at the individual asset level (not at the category or total level, where they would be meaningless). If foreign currency holdings exist, a tooltip (ⓘ icon) explains how invested amounts are derived.
 
-**Currency Toggle**  
-A button in the header lets you switch between viewing all values in your base currency or in a secondary currency (e.g., toggle between ₹ INR and $ USD). One click, entire dashboard re-renders.
+**Currency Toggle** A button in the header lets you switch between viewing all values in your base currency or in a secondary currency (e.g., toggle between ₹ INR and $ USD). One click, entire dashboard re-renders.
 
 ---
 
 ### Holdings
 
-**Add Transaction**  
-A collapsible form for recording buy or sell transactions. Fields include:
+**Add Transaction** A collapsible form for recording buy or sell transactions. Fields include:
 
 - Date, Buy/Sell toggle, Asset Name (with autocomplete from existing holdings)
 - Category, Type, Broker/Platform (all configurable dropdowns)
@@ -56,17 +50,13 @@ A collapsible form for recording buy or sell transactions. Fields include:
 
 When you select Sell, the ticker field hides (you already have it). Quantity and amount are stored as negative values automatically.
 
-**Asset Name Autocomplete**  
-Start typing an asset name and existing names appear as suggestions. Selecting one auto-populates the ticker if a mapping exists.
+**Asset Name Autocomplete** Start typing an asset name and existing names appear as suggestions. Selecting one auto-populates the ticker if a mapping exists.
 
-**All Holdings Table**  
-A full table of every transaction with columns for date, buy/sell badge, name, category, broker, currency, price, quantity, invested, current price, current value, P&L, P&L%, and action buttons.
+**All Holdings Table** A full table of every transaction with columns for date, buy/sell badge, name, category, broker, currency, price, quantity, invested, current price, current value, P&L, P&L%, and action buttons.
 
-**Filters**  
-Filter by asset name search, category, broker, or currency. One-click "Reset" clears all filters.
+**Filters** Filter by asset name search, category, broker, or currency. One-click "Reset" clears all filters.
 
-**Batch Operations**  
-Select multiple rows via checkboxes (includes Select All with indeterminate state), then:
+**Batch Operations** Select multiple rows via checkboxes (includes Select All with indeterminate state), then:
 
 - Batch update category, type, or broker
 - Batch delete with confirmation
@@ -77,8 +67,7 @@ Select multiple rows via checkboxes (includes Select All with indeterminate stat
 - Delete (with confirmation)
 - Notes (popup editor for adding/editing notes per transaction)
 
-**Sort Order**  
-Holdings are displayed most recent first (by date descending, then by ID descending). A past-dated transaction sits in its chronological position.
+**Sort Order** Holdings are displayed most recent first (by date descending, then by ID descending). A past-dated transaction sits in its chronological position.
 
 ---
 
@@ -99,17 +88,13 @@ If you disable currency after having holdings in multiple currencies, the app sh
 
 20+ currencies supported: AED, AUD, CAD, CHF, CNY, EUR, GBP, HKD, INR, JPY, KRW, MYR, NZD, SAR, SEK, SGD, THB, TWD, USD, ZAR.
 
-**Categories**  
-Define your own asset categories (e.g., "Indian Stock", "US Stock", "Crypto", "Gold", "Real Estate"). Maximum 10. Renaming a category propagates to all holdings that use it. Cannot delete a category while holdings reference it.
+**Categories** Define your own asset categories (e.g., "Indian Stock", "US Stock", "Crypto", "Gold", "Real Estate"). Maximum 10. Renaming a category propagates to all holdings that use it. Cannot delete a category while holdings reference it.
 
-**Types**  
-Define asset types within categories (e.g., "Mutual Fund", "ETF", "Shares", "Cryptocurrency", "Bond"). Same rename propagation and delete protection.
+**Types** Define asset types within categories (e.g., "Mutual Fund", "ETF", "Shares", "Cryptocurrency", "Bond"). Same rename propagation and delete protection.
 
-**Brokers / Platforms**  
-Track which platform each holding is on (e.g., "Zerodha", "Vanguard", "Coinbase"). Same rules — rename propagates, delete is protected.
+**Brokers / Platforms** Track which platform each holding is on (e.g., "Zerodha", "Vanguard", "Coinbase"). Same rules — rename propagates, delete is protected.
 
-**Ticker Mapping**  
-Map asset names to Yahoo Finance ticker symbols for automatic live price updates. Examples:
+**Ticker Mapping** Map asset names to Yahoo Finance ticker symbols for automatic live price updates. Examples:
 
 | Asset Name | Ticker |
 |---|---|
@@ -120,8 +105,7 @@ Map asset names to Yahoo Finance ticker symbols for automatic live price updates
 
 Tickers can be edited inline in the settings table. When you add a new holding with a ticker, the mapping is saved automatically for future use.
 
-**App Lock**  
-Protect the app with a 6-digit numeric PIN:
+**App Lock** Protect the app with a 6-digit numeric PIN:
 
 - Set a PIN and receive a one-time recovery code (save it securely)
 - On next visit, the app shows a lock screen requiring PIN entry
@@ -174,16 +158,20 @@ Full dark theme with pitch-black background (saves battery on OLED screens):
 
 ### Mobile Experience
 
-The app is designed mobile-first for use on phones:
+The app is designed mobile-first for use on phones (iPhone and Android):
 
+- **Collapsible header** — the app title bar (name, currency toggle, refresh button) slides up and hides when you scroll down, giving more screen real estate to content. Scrolling up brings it back instantly. Tab bar stays fixed at all times.
 - **Swipeable tabs** — horizontal scroll-snap between Dashboard, Holdings, Watchlist, and Settings. Swipe left/right or tap the tab buttons.
 - **Pull to refresh** — pull down on any tab to reload data
+- **Chart tooltip dismiss** — tapping outside a chart or tapping the same data point again dismisses the tooltip (no more stuck tooltips on touch devices)
 - **No auto-zoom on iOS** — all inputs use 16px font size
 - **Touch-friendly targets** — minimum 40px height on all buttons and inputs
 - **Stacked forms** — all form fields go single-column on mobile
 - **Horizontal scroll tables** — data tables scroll sideways without breaking layout
 - **Batch bar stacks vertically** — dropdowns and buttons go full-width
 - **Tooltip tap-to-toggle** — the ⓘ icon works on touch (hover doesn't exist on mobile)
+- **Safe area support** — respects iPhone notch/Dynamic Island via `env(safe-area-inset-top)`
+- **Dynamic viewport height** — uses 100dvh with fallback for Android Chrome's collapsing address bar
 
 ---
 
@@ -216,194 +204,4 @@ Safari-specific handling includes:
 | Database | SQLite via better-sqlite3 (WAL mode) |
 | Frontend | Vanilla JavaScript (no framework, no build step) |
 | Charts | Chart.js (loaded via CDN) |
-| Price Data | Yahoo Finance (yahoo-finance2 npm package) |
-| Styling | Custom CSS with CSS variables, dark mode, responsive |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js v18 or later
-- npm
-
-### Install & Run
-
-```bash
-# Install dependencies
-npm install
-
-# Start the server
-npm start
-```
-
-The app runs at `http://localhost:3001`.
-
-The database (`data/portfolio.db`) is created automatically on first run.
-
-### Import from Excel (optional)
-
-If you have an existing spreadsheet with your portfolio data:
-
-```bash
-npm run import
-```
-
-This reads `Finance Portfolio Tracker.xlsx` from the project root and populates the database. See `import-excel.js` for the expected column layout.
-
----
-
-## Project Structure
-
-```
-finance-portfolio-tracker/
-├── server.js              ← Express server, all API routes, SQLite schema
-├── import-excel.js        ← Excel → SQLite import script
-├── package.json           ← Dependencies and npm scripts
-├── package-lock.json      ← Locked dependency versions
-├── data/
-│   └── portfolio.db       ← SQLite database (auto-created, gitignored)
-├── public/
-│   ├── index.html         ← Single-page HTML
-│   ├── app.js             ← All frontend logic
-│   └── style.css          ← Complete styling (light + dark + responsive)
-├── README.md              ← This file
-└── MIGRATE-TO-COMPUTER-B.md ← Deployment/migration guide
-```
-
----
-
-## API Reference
-
-### Holdings
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| GET | `/api/holdings` | List all holdings (supports query filters: name, asset_class, asset_type, broker, currency) |
-| POST | `/api/holdings` | Create a new holding (buy or sell transaction) |
-| PUT | `/api/holdings/:id` | Update a holding |
-| DELETE | `/api/holdings/:id` | Delete a holding |
-| POST | `/api/holdings/batch-update` | Update fields on multiple holdings at once |
-| POST | `/api/holdings/batch-delete` | Delete multiple holdings at once |
-| POST | `/api/holdings/rename-asset` | Rename an asset across all holdings + ticker map |
-| GET | `/api/assets/names` | List all distinct asset names with counts |
-| GET | `/api/autocomplete/assets` | Autocomplete suggestions for asset names |
-| GET | `/api/ticker-for-asset` | Look up ticker symbol for a given asset name |
-
-### Dashboard Data
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| GET | `/api/summary` | Portfolio summary (totals by class and type) |
-| GET | `/api/breakdown` | Hierarchical breakdown (class → individual assets) |
-| GET | `/api/allocation` | Allocation by asset name (for charts) |
-| GET | `/api/monthly-investments` | Monthly investment data with cumulative totals |
-
-### Prices & Rates
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| POST | `/api/refresh-prices` | Refresh all prices from Yahoo Finance |
-| GET | `/api/price/:ticker` | Fetch price for a single ticker |
-| GET | `/api/exchange-rate` | Get configured exchange rates |
-
-### Watchlist
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| GET | `/api/watchlist` | Get merged watchlist (portfolio tickers + manual, with live prices) |
-| POST | `/api/watchlist` | Add a ticker to watchlist (validates against Yahoo Finance) |
-| PUT | `/api/watchlist/:id` | Edit a manual watchlist item (name/ticker) |
-| DELETE | `/api/watchlist/:id` | Remove a manual watchlist item |
-
-### Settings
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| GET | `/api/settings/asset-classes` | List categories |
-| POST | `/api/settings/asset-classes` | Add a category |
-| PUT | `/api/settings/asset-classes/:id` | Rename a category |
-| DELETE | `/api/settings/asset-classes/:id` | Delete a category (if unused) |
-| GET | `/api/settings/asset-types` | List types |
-| POST | `/api/settings/asset-types` | Add a type |
-| PUT | `/api/settings/asset-types/:id` | Rename a type |
-| DELETE | `/api/settings/asset-types/:id` | Delete a type (if unused) |
-| GET | `/api/settings/brokers` | List brokers |
-| POST | `/api/settings/brokers` | Add a broker |
-| PUT | `/api/settings/brokers/:id` | Rename a broker |
-| DELETE | `/api/settings/brokers/:id` | Delete a broker (if unused) |
-| GET | `/api/settings/tickers` | List all ticker mappings |
-| PUT | `/api/settings/tickers` | Add or update a ticker mapping |
-| DELETE | `/api/settings/tickers/:name` | Delete a ticker mapping (if unused) |
-| GET | `/api/settings/currency` | Get currency configuration |
-| PUT | `/api/settings/currency` | Update currency configuration |
-| POST | `/api/settings/currency/restore` | Restore previous currency configuration |
-
-### App Lock
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| GET | `/api/lock/status` | Check if app is locked |
-| POST | `/api/lock/setup` | Enable lock (returns recovery code) |
-| POST | `/api/lock/unlock` | Unlock with PIN |
-| POST | `/api/lock/disable` | Disable lock (requires PIN) |
-| POST | `/api/lock/recovery` | Unlock with recovery code |
-
----
-
-## Data Safety
-
-- **No external data sharing.** The app never sends your portfolio data anywhere. Yahoo Finance calls only send ticker symbols (e.g., "TSLA"), not your holdings or amounts.
-- **SQLite with WAL mode.** Write-ahead logging prevents corruption from unexpected shutdowns.
-- **Delete protection.** Categories, types, brokers, and ticker mappings cannot be deleted while holdings reference them.
-- **Batch confirmations.** Destructive batch operations require explicit confirmation.
-- **Currency restore.** Disabling currency saves your previous config for instant rollback.
-
----
-
-## Changelog
-
-### v2.0.1 (June 2026)
-
-- Added CSV export for holdings
-- CSV export includes transaction details, category, type, broker, currency, valuation data, ticker symbols, and notes
-- Improved Holdings filter layout on mobile devices
-- Fixed notes icon rendering issue on iPhone/iOS
-- Minor UI and usability improvements
-
-### v2.0.0 (June 2026)
-
-- App renamed to Portfolio Tracker+
-- **Watchlist tab** — new dedicated tab showing live prices for all portfolio tickers (auto-populated from ticker mapping) plus manually added tickers. Portfolio entries show grayed-out edit/delete actions; manual entries are fully editable.
-- **Rename Asset** — batch action to rename an asset across all holdings and ticker mappings in one operation (via in-app modal, not browser prompt)
-- **Date format setting** — configurable date display (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD) in Display & Currency settings
-- **Locale-aware number formatting** — digit grouping follows the convention of the display currency (Indian lakhs/crores for INR, Western thousands for USD/EUR/GBP, etc.)
-- **Holdings invested total fix** — footer total now uses `invested_base` (actual base currency outflow) instead of live-rate conversion for foreign holdings
-- **Base currency change warning** — when changing base currency with existing `invested_base` entries, a clear warning explains the impact
-- **Clear form button** — next to Submit on the new transaction form
-- **Category badges simplified** — plain text, no colored backgrounds or colored text
-- **Settings card renamed** to "Display & Currency"
-- **Watchlist validates tickers** against Yahoo Finance before adding
-- **Watchlist auto-detects currency** from Yahoo Finance quote data
-
-### v1.0.0 (June 2026)
-
-- Initial release
-- Flexible asset categories and types (user-configurable)
-- SQLite database with WAL mode
-- Dashboard with summary cards, allocation charts, monthly investment chart
-- Holdings management with buy/sell transactions, batch operations, filters
-- Settings for categories, types, brokers, ticker mapping, currency
-- Yahoo Finance integration for live prices and exchange rates
-- Multi-currency support with base-currency invested tracking
-- Currency-agnostic mode (optional — works without any currency config)
-- Currency disable warning with one-click restore
-- Category Breakdown table with expandable asset details
-- Foreign currency tooltip explaining invested amount derivation
-- 20+ supported currencies
-- Monthly chart "All" range shows complete investment history
-- App lock with 6-digit PIN and recovery code
-- Dark mode (OLED-friendly pitch black)
-- Mobile responsive with swipeable tabs and pull-to-refresh
-- Full Safari (iOS + macOS) cross-browser compatibility
+| Price Data | Yahoo Finance (yahoo-finance2

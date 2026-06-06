@@ -1396,84 +1396,181 @@ document.getElementById("download-csv-btn").addEventListener("click", async () =
   checkLockAndInit();
   loadLockSettings();
 
-  //--- Mobile Experience Tweaks ---
-  if (window.matchMedia("(max-width: 640px)").matches) {
-    const container = document.getElementById("main-container");
-    const tabs = Array.from(document.querySelectorAll(".tab-btn"));
-    const panels = Array.from(document.querySelectorAll(".tab-content"));
+  //--- Mobile: Swipe sync tabs with scroll-snap panels + collapsible header
+ if (window.matchMedia("(max-width: 640px)").matches) {
+ const container = document.getElementById("main-container");
+ const tabs = Array.from(document.querySelectorAll(".tab-btn"));
+ const panels = Array.from(document.querySelectorAll(".tab-content"));
+ const appHeader = document.querySelector(".app-header");
+ const tabNav = document.querySelector(".tab-nav");
+ // Measure and set CSS custom properties for header/tab heights
+ function setLayoutVars() {
+ const headerH = appHeader.offsetHeight;
+ const tabH = tabNav.offsetHeight;
+ document.documentElement.style.setProperty("--header-height", headerH +
+ "px");
+ document.documentElement.style.setProperty("--tab-height", tabH + "px");
+ }
+ setLayoutVars();
+ window.addEventListener("resize", setLayoutVars);
+//--- Header hide/show on vertical scroll within panels ---
+ let headerHidden = false;
+ let lastScrollTops = new Map(); // per-panel scroll tracking
+ const SCROLL_DOWN_THRESHOLD = 10;
+ const SCROLL_UP_THRESHOLD = 5;
+ function hideHeader() {
+ if (headerHidden) return;
+ headerHidden = true;
+ appHeader.classList.add("header-hidden");
+ tabNav.classList.add("tabs-at-top");
+ }
+ function showHeader() {
+ if (!headerHidden) return;
+ headerHidden = false;
+ appHeader.classList.remove("header-hidden");
+ tabNav.classList.remove("tabs-at-top");
+ }
+ // Attach scroll listeners to each tab panel
+ panels.forEach(panel => {
+ lastScrollTops.set(panel, 0);
+ panel.addEventListener("scroll", () => {
+ const scrollTop = panel.scrollTop;
+ const lastScrollTop = lastScrollTops.get(panel) || 0;
+ const delta = scrollTop - lastScrollTop;
+ if (scrollTop <= 5) {
+ // At the very top always show header
+ showHeader();
+ } else if (delta > SCROLL_DOWN_THRESHOLD) {
+ // Scrolling down hide header
+ hideHeader();
+ } else if (delta < -SCROLL_UP_THRESHOLD) {
+ // Scrolling up (any amount) show header
+ showHeader();
+ }
+ lastScrollTops.set(panel, scrollTop);
+ }, { passive: true });
+ });
+ // Sync tab highlight on horizontal scroll
+ let scrollTimeout;
+ container.addEventListener("scroll", () => {
+ clearTimeout(scrollTimeout);
+ scrollTimeout = setTimeout(() => {
+ const idx = Math.round(container.scrollLeft / container.offsetWidth);
+ tabs.forEach((t, i) => t.classList.toggle("active", i === idx));
+ }, 50);
+ });
+ // Tab click scrolls to panel
+ tabs.forEach((btn, i) => {
+ btn.addEventListener("click", (e) => {
+ e.preventDefault();
+ container.scrollTo({ left: i * container.offsetWidth, behavior: "smooth"
+ });
+ });
+ });
+ // Pull to refresh
+ const pullIndicator = document.createElement("div");
+ pullIndicator.className = "pull-indicator";
+ pullIndicator.id = "pull-indicator";
+ container.parentNode.insertBefore(pullIndicator, container);
+ let pullStartY = 0;
+ let pullMoveY = 0;
+ let isPulling = false;
+ const PULL_THRESHOLD = 80;
+ function isAtTopOfScroll() {
+ const idx = Math.round(container.scrollLeft / container.offsetWidth);
+ const activePanel = panels[idx];
+ if (activePanel) return activePanel.scrollTop <= 10;
+ return true;
+ }
+ document.addEventListener("touchstart", (e) => {
+ if (!isAtTopOfScroll()) return;
+ if (e.target.closest(".modal-overlay")) return;
+ pullStartY = e.touches[0].clientY;
+ pullMoveY = pullStartY;
+ isPulling = true;
+ }, { passive: true });
+ document.addEventListener("touchmove", (e) => {
+ if (!isPulling) return;
+ pullMoveY = e.touches[0].clientY;
+ const dist = pullMoveY - pullStartY;
+ if (dist < 0) { isPulling = false;
+ pullIndicator.classList.remove("visible"); return; }
+ if (dist > 20) {
+ pullIndicator.innerHTML = dist > PULL_THRESHOLD
+ ? '<span class="spinner"></span>Release to refresh...'
+ : '<span class="spinner"></span>Pull down to refresh...';
+ pullIndicator.classList.add("visible");
+ }
+ }, { passive: true });
+ document.addEventListener("touchend", async () => {
+ if (!isPulling) return;
+ isPulling = false;
+ const dist = pullMoveY - pullStartY;
+ if (dist > PULL_THRESHOLD) {
+ pullIndicator.innerHTML = '<span class="spinner"></span>Refreshing...';
+ try {
+ const idx = Math.round(container.scrollLeft / container.offsetWidth);
+ const tabName = tabs[idx]?.dataset.tab;
+ if (tabName === "dashboard") await loadDashboard();
+ else if (tabName === "holdings") await loadHoldings();
+ else if (tabName === "watchlist") await loadWatchlist();
+ else if (tabName === "settings") await loadSettings();
+ pullIndicator.innerHTML = '✓ Updated';
+ } catch {
+ pullIndicator.innerHTML = '✗ Failed';
+ }
+ setTimeout(() => {
+ pullIndicator.classList.remove("visible");
+ pullIndicator.innerHTML = "";
+ }, 1500);
+ } else {
+ pullIndicator.classList.remove("visible");
+ pullIndicator.innerHTML = "";
+ }
+ }, { passive: true });
+ }
 
-    let scrollTimeout;
-    container.addEventListener("scroll", () => {
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        const idx = Math.round(container.scrollLeft / container.offsetWidth);
-        tabs.forEach((t, i) => t.classList.toggle("active", i === idx));
-      }, 50);
-    });
-
-    tabs.forEach((btn, i) => { btn.addEventListener("click", (e) => { e.preventDefault(); container.scrollTo({ left: i * container.offsetWidth, behavior: "smooth" }); }); });
-
-    // Pull to refresh
-const pullIndicator = document.createElement("div");
-pullIndicator.className = "pull-indicator";
-pullIndicator.id = "pull-indicator";
-container.parentNode.insertBefore(pullIndicator, container);
-let pullStartY = 0;
-let pullMoveY = 0;
-let isPulling = false;
-const PULL_THRESHOLD = 80;
-function isAtTopOfScroll() {
-const idx = Math.round(container.scrollLeft / container.offsetWidth);
-const activePanel = panels[idx];
-if (activePanel) return activePanel.scrollTop <= 10;
-return true;
-}
-
-document.addEventListener("touchstart", (e) => {
-if (!isAtTopOfScroll()) return;
-if (e.target.closest(".modal-overlay")) return;
-pullStartY = e.touches[0].clientY;
-pullMoveY = pullStartY;
-isPulling = true;
-}, { passive: true });
-document.addEventListener("touchmove", (e) => {
-if (!isPulling) return;
-pullMoveY = e.touches[0].clientY;
-const dist = pullMoveY - pullStartY;
-if (dist < 0) { isPulling = false;
-pullIndicator.classList.remove("visible"); return; }
-if (dist > 20) {
-pullIndicator.innerHTML = dist > PULL_THRESHOLD
-? '<span class="spinner"></span>Release to refresh...'
-: '<span class="spinner"></span>Pull down to refresh...';
-pullIndicator.classList.add("visible");
-}
-}, { passive: true });
-document.addEventListener("touchend", async () => {
-if (!isPulling) return;
-isPulling = false;
-const dist = pullMoveY - pullStartY;
-if (dist > PULL_THRESHOLD) {
-pullIndicator.innerHTML = '<span class="spinner"></span>Refreshing...';
-try {
-const idx = Math.round(container.scrollLeft / container.offsetWidth);
-const tabName = tabs[idx]?.dataset.tab;
-if (tabName === "dashboard") await loadDashboard();
-else if (tabName === "holdings") await loadHoldings();
-else if (tabName === "watchlist") await loadWatchlist();
-else if (tabName === "settings") await loadSettings();
-pullIndicator.innerHTML = '✓ Updated';
-} catch {
-pullIndicator.innerHTML = '✗ Failed';
-}
-setTimeout(() => {
-pullIndicator.classList.remove("visible");
-pullIndicator.innerHTML = "";
-}, 1500);
-} else {
-pullIndicator.classList.remove("visible");
-pullIndicator.innerHTML = "";
-}
-}, { passive: true });
-  }
+// --- Chart tooltip dismiss on tap outside (mobile fix) ---
+// On touch devices, tapping outside the chart or tapping the same point
+// should dismiss the tooltip. Chart.js doesn't do this by default.
+let lastTapChartKey = null;
+document.addEventListener("click", (e) => {
+ const canvas = e.target.closest("canvas");
+ if (!canvas) {
+ // Tap is NOT on a canvas dismiss all chart tooltips
+ [classPieChart, typeBarChart, monthlyChart].forEach(chart => {
+ if (chart && chart.tooltip) {
+ chart.setActiveElements([]);
+ chart.tooltip.setActiveElements([], {x: 0, y: 0 });
+ chart.update("none");
+ }
+ });
+ lastTapChartKey = null;
+ return;
+ }
+ // Tap IS on a canvas find the chart instance
+ const chartInstance = [classPieChart, typeBarChart, monthlyChart].find(
+ c => c && c.canvas === canvas
+ );
+ if (!chartInstance || !chartInstance.tooltip) return;
+ const activeEls = chartInstance.getActiveElements();
+ if (activeEls.length === 0) {
+ // Tapped empty area of chart dismiss tooltip
+ chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
+ chartInstance.update("none");
+ lastTapChartKey = null;
+ } else {
+ const currentKey = canvas.id + "-" + activeEls[0].datasetIndex + "-" +
+ activeEls[0].index;
+ if (lastTapChartKey === currentKey) {
+ // Tapped same data point again dismiss
+ chartInstance.setActiveElements([]);
+ chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
+ chartInstance.update("none");
+ lastTapChartKey = null;
+ } else {
+ lastTapChartKey = currentKey;
+ }
+ }
+});
 })();
