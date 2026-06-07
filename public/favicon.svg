@@ -1,25 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Background -->
-  <rect width="512" height="512" rx="92" fill="#1a1a2e"/>
+  <rect width="512" height="512" rx="92" fill="#2563eb"/>
 
   <!-- Chart area -->
-  <rect x="96" y="96" width="320" height="320" rx="20" fill="#1e3a5f"/>
+  <rect x="96" y="96" width="320" height="320" rx="20" fill="#1e40af"/>
   <rect x="96" y="96" width="320" height="320" rx="20"
-        fill="none" stroke="#2563eb" stroke-width="4"/>
+        fill="none" stroke="#60a5fa" stroke-width="4"/>
 
   <!-- Grid lines -->
   <line x1="120" y1="176" x2="392" y2="176"
-        stroke="#2563eb" stroke-width="1" opacity="0.3"/>
+        stroke="#93c5fd" stroke-width="1" opacity="0.35"/>
   <line x1="120" y1="256" x2="392" y2="256"
-        stroke="#2563eb" stroke-width="1" opacity="0.3"/>
+        stroke="#93c5fd" stroke-width="1" opacity="0.35"/>
   <line x1="120" y1="336" x2="392" y2="336"
-        stroke="#2563eb" stroke-width="1" opacity="0.3"/>
+        stroke="#93c5fd" stroke-width="1" opacity="0.35"/>
 
   <!-- Growth line -->
   <polyline
     points="130,360 175,320 225,335 275,265 330,220 385,150"
     fill="none"
-    stroke="#60a5fa"
+    stroke="#bfdbfe"
     stroke-width="8"
     stroke-linecap="round"
     stroke-linejoin="round"/>
@@ -27,22 +27,22 @@
   <!-- Fill under line -->
   <polygon
     points="130,360 175,320 225,335 275,265 330,220 385,150 385,390 130,390"
-    fill="#3b82f6"
-    opacity="0.2"/>
+    fill="#93c5fd"
+    opacity="0.25"/>
 
   <!-- Data points -->
-  <circle cx="130" cy="360" r="6" fill="#93c5fd"/>
-  <circle cx="175" cy="320" r="6" fill="#93c5fd"/>
-  <circle cx="225" cy="335" r="6" fill="#93c5fd"/>
-  <circle cx="275" cy="265" r="6" fill="#93c5fd"/>
-  <circle cx="330" cy="220" r="6" fill="#93c5fd"/>
-  <circle cx="385" cy="150" r="8" fill="#60a5fa"
-          stroke="#ffffff" stroke-width="3"/>
+  <circle cx="130" cy="360" r="6" fill="#bfdbfe"/>
+  <circle cx="175" cy="320" r="6" fill="#bfdbfe"/>
+  <circle cx="225" cy="335" r="6" fill="#bfdbfe"/>
+  <circle cx="275" cy="265" r="6" fill="#bfdbfe"/>
+  <circle cx="330" cy="220" r="6" fill="#bfdbfe"/>
+  <circle cx="385" cy="150" r="8" fill="#ffffff"
+          stroke="#bfdbfe" stroke-width="3"/>
 
   <!-- Plus badge -->
-  <circle cx="400" cy="400" r="52" fill="#3b82f6"/>
+  <circle cx="400" cy="400" r="52" fill="#60a5fa"/>
   <circle cx="400" cy="400" r="52"
-          fill="none" stroke="#1a1a2e" stroke-width="8"/>
+          fill="none" stroke="#2563eb" stroke-width="8"/>
 
   <line x1="400" y1="375" x2="400" y2="425"
         stroke="#ffffff" stroke-width="10"

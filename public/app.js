@@ -1500,6 +1500,9 @@
       const alertSection = document.getElementById("lock-recovery-alert-section");
       alertSection.innerHTML = `<div class="recovery-alert"><div class="recovery-alert-header">✓ Lock enabled successfully</div><div class="recovery-alert-body"><p>Your recovery code:</p><code class="recovery-code">${data.recoveryCode}</code><p class="recovery-warning">⚠ Save this code now. This is the only time it will be shown. If you forget your PIN and don't have this code, you will permanently lose access to the app.</p><p class="recovery-tips">Tips: Save it in your notes app, email it to yourself, or store it in your password manager.</p></div></div>`;
       alertSection.style.display = "block"; document.getElementById("lock-disable-section").style.display = "block";
+      document.getElementById("settings-disable-pin").value = "";
+      document.getElementById("settings-disable-message").textContent = "";
+      document.getElementById("settings-disable-message").className = "form-msg";
     } catch(e) { msg.textContent = e.message || "Failed"; msg.className = "form-msg error"; }
   });
 
@@ -1607,6 +1610,8 @@
       if (headerHidden) return;
       headerHidden = true;
       appHeader.classList.add("header-hidden");
+      const nav = document.querySelector(".bottom-nav");
+      if (nav) nav.classList.add("nav-hidden");
       document.body.classList.add("header-collapsed");
     }
 
@@ -1614,6 +1619,8 @@
       if (!headerHidden) return;
       headerHidden = false;
       appHeader.classList.remove("header-hidden");
+      const nav = document.querySelector(".bottom-nav");
+      if (nav) nav.classList.remove("nav-hidden");
       document.body.classList.remove("header-collapsed");
     }
 

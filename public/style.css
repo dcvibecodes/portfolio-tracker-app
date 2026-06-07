@@ -615,12 +615,21 @@ margin-right: 6px;
     right: 0;
     z-index: 100;
     padding: calc(env(safe-area-inset-top) + 10px) 14px 10px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     will-change: transform;
   }
 
   .app-header.header-hidden {
     transform: translateY(-100%);
+  }
+
+  .bottom-nav {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+
+  .bottom-nav.nav-hidden {
+    transform: translateY(100%);
   }
 
   .app-title { font-size: 0.95rem; }
@@ -640,7 +649,6 @@ margin-right: 6px;
     padding: 0;
 
     margin-top: var(--header-height, 52px);
-    transition: margin-top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     height: calc(100vh - var(--header-height, 52px) - var(--bottom-nav-height, 60px));
     height: calc(100dvh - var(--header-height, 52px) - var(--bottom-nav-height, 60px));
@@ -648,8 +656,8 @@ margin-right: 6px;
 
   body.header-collapsed .container {
     margin-top: 0;
-    height: calc(100vh - var(--bottom-nav-height, 60px));
-    height: calc(100dvh - var(--bottom-nav-height, 60px));
+    height: 100vh;
+    height: 100dvh;
   }
 
   .container::-webkit-scrollbar { display: none; }
@@ -670,7 +678,7 @@ margin-right: 6px;
 
   .dashboard-charts-row { grid-template-columns: 1fr; }
   .chart-card-eq { height: auto; min-height: 200px; }
-  .summary-grid-row { flex-direction: column; gap: 8px; }
+  .summary-grid-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .summary-grid-row .summary-item { min-width: unset; }
   .chart-wrapper-compact { min-height: 160px; }
   .card { padding: 14px; margin-bottom: 12px; border-radius: 10px; }

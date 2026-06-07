@@ -264,7 +264,7 @@ app.use(session({
 }));
 
 function authMiddleware(req, res, next) {
-  const openPaths = ["/api/lock/status", "/api/lock/unlock", "/api/lock/recovery", "/api/lock/setup"];
+  const openPaths = ["/api/lock/status", "/api/lock/unlock", "/api/lock/recovery", "/api/lock/setup", "/api/lock/disable"];
   if (openPaths.includes(req.path)) {
     return next();
   }
