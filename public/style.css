@@ -43,7 +43,7 @@ button, a, input, select, textarea, [tabindex] {
 .app-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: calc(env(safe-area-inset-top) + 12px) 20px 12px;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -67,7 +67,7 @@ button, a, input, select, textarea, [tabindex] {
 
 .theme-toggle-btn {
   background: none; border: none; font-size: 1.3rem; cursor: pointer;
-  padding: 4px 8px; border-radius: 6px;
+  padding: 4px 8px; border-radius: 6px; color: inherit;
 }
 .theme-toggle-btn:hover { background: var(--border); }
 
@@ -119,64 +119,6 @@ button, a, input, select, textarea, [tabindex] {
 .bottom-nav-btn span { display: inline; }
 
 .nav-icon { width: 16px; height: 16px; }
-
-/* Mobile: move to bottom, vertical icon+label layout */
-@media (max-width: 640px) {
-  .bottom-nav {
-    position: fixed;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    border-bottom: none;
-    border-top: 1px solid var(--border);
-    padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px));
-    justify-content: space-around;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
-  }
-
-  [data-theme="dark"] .bottom-nav {
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
-  }
-
-  .bottom-nav-btn {
-    flex-direction: column;
-    gap: 2px;
-    border: none;
-    background: none;
-    padding: 6px 12px;
-    font-size: 0.65rem;
-    font-weight: 500;
-    border-radius: 8px;
-  }
-
-  .bottom-nav-btn .nav-icon {
-    width: 22px;
-    height: 22px;
-    transition: transform 0.2s;
-  }
-
-  .bottom-nav-btn.active {
-    background: none;
-    color: var(--accent);
-    border: none;
-  }
-
-  .bottom-nav-btn.active .nav-icon {
-    stroke: var(--accent);
-    transform: scale(1.1);
-  }
-
-  .bottom-nav-btn:hover {
-    border-color: transparent;
-    color: var(--text);
-  }
-
-  .bottom-nav-btn:active {
-    transform: scale(0.92);
-  }
-}
 
 /* Layout framework structures */
 .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
@@ -365,7 +307,7 @@ select {
 /* Autocomplete container */
 .autocomplete-wrap { position: relative; }
 .autocomplete-list {
-  position: absolute; top: 100%; left: 0; right: 0; z-index: 50; background: var(--surface);
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 1100; background: var(--surface);
   border: 1px solid var(--border); border-radius: 6px; max-height: 200px; overflow-y: auto;
   list-style: none; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
@@ -417,7 +359,7 @@ td.negative { color: var(--red); font-weight: 600; }
 [data-theme="dark"] .badge-buy { background: #064e3b; color: #6ee7b7; }
 [data-theme="dark"] .badge-sell { background: #7f1d1d; color: #fca5a5; }
 
-.action-btn { background: none; border: none; cursor: pointer; padding: 4px 6px; font-size: 0.85rem; border-radius: 4px; }
+.action-btn { background: none; border: none; cursor: pointer; padding: 4px 6px; font-size: 0.85rem; border-radius: 4px; color: inherit; }
 .action-btn:hover { background: var(--border); }
 .action-btn.delete { color: var(--red); }
 .action-btn.notes-empty { opacity: 0.4; }
@@ -426,17 +368,19 @@ td.negative { color: var(--red); font-weight: 600; }
 /* Modal overlay layouts */
 .modal-overlay { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
 .modal-overlay.open { display: flex; }
-.modal-content { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+.modal-content { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
 .modal-content h2 { margin-bottom: 16px; }
 .edit-grid { grid-template-columns: 1fr 1fr; }
 .edit-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 .edit-grid input, .edit-grid select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; background: var(--bg); color: var(--text); min-height: 40px; font-family: inherit; }
 .modal-buttons { grid-column: 1/ -1; display: flex; gap: 10px; margin-top: 12px; }
+.modal-buttons button { flex: 1; }
 
 .save-btn { padding: 8px 20px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; min-height: 40px; font-family: inherit; }
 .save-btn:hover { background: var(--accent-hover); }
-.save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.save-btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 .cancel-btn { padding: 8px 20px; background: var(--border); color: var(--text); border: none; border-radius: 6px; cursor: pointer; min-height: 40px; font-family: inherit; }
+.cancel-btn:hover { background: var(--text-secondary); color: #fff; }
 
 /* Settings components grid layouts */
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
@@ -607,299 +551,191 @@ margin-right: 6px;
   .chart-card-eq { height: auto; min-height: 220px; }
 }
 
-@media (max-width: 640px) {
-  .app-header {
+/* ---- Focus Visible ---- */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+
+/* ===== MOBILE RESPONSIVE ===== */
+
+/* Prevent horizontal scroll on page */
+html, body { max-width: 100vw; overflow-x: hidden; }
+
+@media (max-width: 768px) {
+  /* Nav → fixed bottom tab bar */
+  .bottom-nav {
     position: fixed;
-    top: 0;
+    bottom: 0;
     left: 0;
     right: 0;
+    top: auto;
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    padding: 6px 8px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
     z-index: 100;
-    padding: calc(env(safe-area-inset-top) + 10px) 14px 10px;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform;
-  }
-
-  .app-header.header-hidden {
-    transform: translateY(-100%);
-  }
-
-  .bottom-nav {
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform;
-  }
-
-  .bottom-nav.nav-hidden {
-    transform: translateY(100%);
-  }
-
-  .app-title { font-size: 0.95rem; }
-  .header-actions { gap: 5px; }
-  .header-btn { padding: 5px 8px; font-size: 0.75rem; min-height: 28px; }
-  .currency-toggle-btn { font-size: 0.75rem; }
-
-  .container {
-    display: flex;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    justify-content: space-around;
     gap: 0;
-    max-width: 100vw;
-    padding: 0;
-
-    margin-top: var(--header-height, 52px);
-
-    height: calc(100vh - var(--header-height, 52px) - var(--bottom-nav-height, 60px));
-    height: calc(100dvh - var(--header-height, 52px) - var(--bottom-nav-height, 60px));
   }
-
-  body.header-collapsed .container {
-    margin-top: 0;
-    height: 100vh;
-    height: 100dvh;
+  .bottom-nav-btn {
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px;
+    font-size: 0.65rem;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    flex: 1;
+    justify-content: center;
   }
-
-  .container::-webkit-scrollbar { display: none; }
-  .container { -ms-overflow-style: none; scrollbar-width: none; }
-
-  .tab-content {
-    display: block !important;
-    flex: 0 0 100%;
-    min-width: 100%;
-    width: 100%;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-    padding: 12px 10px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    height: 100%;
+  .bottom-nav-btn:hover { background: transparent; border: none; }
+  .bottom-nav-btn.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent);
+    border: none;
   }
+  .bottom-nav-btn.active .nav-icon { stroke: var(--accent); }
+  .bottom-nav-btn .nav-icon { width: 20px; height: 20px; }
 
-  .dashboard-charts-row { grid-template-columns: 1fr; }
-  .chart-card-eq { height: auto; min-height: 200px; }
-  .summary-grid-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .summary-grid-row .summary-item { min-width: unset; }
-  .chart-wrapper-compact { min-height: 160px; }
-  .card { padding: 14px; margin-bottom: 12px; border-radius: 10px; }
-  .card h2 { font-size: 1rem; }
-  .grid { grid-template-columns: 1fr 1fr; }
-  .add-grid, .edit-grid, .settings-grid { grid-template-columns: 1fr; }
+  /* Body padding for fixed bottom nav */
+  body { padding-bottom: 68px; }
 
-  .filters { flex-direction: column; gap: 8px; }
+  /* Container */
+  .container { padding: 12px; }
+
+  /* Cards */
+  .card { padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 1rem; margin-bottom: 12px; }
+
+  /* Forms → single column */
+  .grid, .add-grid, .edit-grid, .batch-grid { grid-template-columns: 1fr; }
+
+  /* Charts → single column */
+  .dashboard-charts-row, .charts { grid-template-columns: 1fr; }
+  .chart-card-eq { height: auto; min-height: 220px; }
+  .chart-panel { max-height: none; }
+
+  /* Settings → single column */
+  .settings-grid { grid-template-columns: 1fr; }
+
+  /* Summary → 2 per row */
+  .summary-grid, .summary-grid-row { gap: 10px; }
+  .summary-item { min-width: calc(50% - 6px); flex: 1 1 calc(50% - 6px); }
+
+  /* Filters → stack */
+  .filters { flex-direction: column; align-items: stretch; }
   .filters label { width: 100%; }
   .filters input, .filters select { width: 100%; }
-  .filter-actions { align-self: flex-end; }
+  .buttons { flex-wrap: wrap; }
+  .report-range { flex-direction: column; align-items: stretch; }
+  .report-range label { min-width: 100%; }
+  .report-range-btns { flex-wrap: wrap; }
 
-  .batch-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 12px;
-  }
+  /* Currency / date-format rows */
+  .currency-setting-row { flex-direction: column; align-items: stretch; }
+  .date-format-row { flex-direction: column; align-items: stretch; }
+  .lock-form-row { flex-direction: column; }
 
-  .batch-bar select { width: 100%; }
+  /* Filter actions */
+  .filter-actions { width: 100%; justify-content: stretch; }
+  .filter-actions button { flex: 1; }
 
-  .batch-bar .add-btn,
-  .batch-bar .cancel-btn {
-    width: 100%;
-    text-align: center;
-  }
+  /* Batch bar */
+  .batch-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .batch-bar select, .batch-bar .add-btn, .batch-bar .cancel-btn { width: 100%; }
 
-  #batch-count { text-align: center; }
-
-  .pivot-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .pivot-actions {
-    width: 100%;
-    display: flex;
-    gap: 8px;
-  }
-
-  .pivot-actions .pivot-btn {
-    flex: 1;
-    text-align: center;
-  }
-
-  .pivot-table { font-size: 0.8rem; }
-  .pivot-table th,
-  .pivot-table td { padding: 8px 6px; }
-
-  .pivot-fx-tooltip {
-    left: 0;
-    transform: none;
-    width: 260px;
-  }
-
-  .currency-setting-row {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .currency-setting-row label { width: 100%; }
-  .settings-select { width: 100%; min-width: unset; }
-
-  .currency-setting-row .add-btn {
-    width: 100%;
-    text-align: center;
-  }
-
-  .settings-add { flex-wrap: wrap; }
-
-  .settings-add input {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-
-  .settings-add .add-btn {
-    width: 100%;
-    text-align: center;
-  }
-
-  .lock-form-row {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .lock-form-row label { width: 100%; }
-
-  .modal-content {
-    max-height: 85vh;
-    max-height: 85dvh;
-    overflow-y: auto;
-  }
-
-  .ticker-table { min-width: 500px; }
-
+  /* Watchlist add row */
   .watchlist-add-row { flex-direction: column; }
+  .watchlist-add-row input { min-width: 100%; }
 
-  .watchlist-add-row input {
-    width: 100%;
-    min-width: unset;
-  }
+  /* Settings add rows */
+  .settings-add { flex-wrap: wrap; }
+  .settings-add input { min-width: 100%; flex: 1 1 100%; }
 
-  .watchlist-add-row .add-btn {
-    width: 100%;
-    text-align: center;
-  }
+  /* Modals → wider */
+  .modal-content { width: 95%; padding: 20px; }
+  .edit-grid { grid-template-columns: 1fr; }
 
-  .watchlist-table {
-    min-width: unset;
-    table-layout: auto;
-    width: 100%;
-  }
+  /* Header */
+  .app-header { padding: 10px 14px; }
+  .app-title { font-size: 1rem; }
 
-  .watchlist-table th:nth-child(1),
-  .watchlist-table td:nth-child(1),
-  .watchlist-table th:nth-child(2),
-  .watchlist-table td:nth-child(2),
-  .watchlist-table th:nth-child(3),
-  .watchlist-table td:nth-child(3),
-  .watchlist-table th:nth-child(4),
-  .watchlist-table td:nth-child(4),
-  .watchlist-table th:nth-child(5),
-  .watchlist-table td:nth-child(5) {
-    width: auto;
-  }
+  /* Pivot header actions */
+  .pivot-header { flex-direction: column; align-items: flex-start; gap: 8px; }
 
-  .watchlist-table th,
-  .watchlist-table td {
-    padding: 8px 6px;
-    font-size: 0.8rem;
-  }
+  /* Chart headers */
+  .chart-header-compact { flex-direction: column; align-items: flex-start; gap: 6px; }
 
-  .watchlist-ticker-cell {
-    font-size: 0.7rem;
-  }
+  /* New txn toggle full width */
+  .new-txn-toggle-btn { width: 100%; justify-content: center; }
+
+  /* Collapsible filter btn full width */
+  .filters-toggle-btn { width: 100%; justify-content: center; }
+
+  /* ---- MOBILE TABLES: Allow side scroll, prevent overlap ---- */
+  /* Keep table-wrap scrollable */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Ensure no text overlaps — give cells breathing room */
+  th, td { white-space: nowrap; padding: 8px 8px; }
+
+  /* Pivot table: tighter but readable */
+  .pivot-table { font-size: 0.8rem; }
+  .pivot-table th, .pivot-table td { padding: 8px 6px; }
+  .pivot-child-cell { padding-left: 20px !important; }
+
+  /* Watchlist table: auto layout so columns size to content */
+  .watchlist-table { table-layout: auto; }
+  .watchlist-table th, .watchlist-table td { width: auto !important; }
+
+  /* Ticker table: auto layout, no overlap */
+  .ticker-table { table-layout: auto; }
+  .ticker-table td:nth-child(1),
+  .ticker-table td:nth-child(2),
+  .ticker-table td:nth-child(3) { width: auto !important; }
+  .ticker-edit-input { min-width: 100px; }
+
+  /* Holdings table: ensure min-widths so nothing overlaps */
+  #tab-holdings .table-wrap table { min-width: 700px; }
+  .pivot-table { min-width: 500px; }
 }
-
 @media (max-width: 480px) {
-  .grid, .add-grid { grid-template-columns: 1fr; }
-  .summary-item .value { font-size: 1rem; }
-  .tab-btn { padding: 7px 10px; font-size: 0.75rem; }
-  .lock-modal { padding: 32px 24px; }
-}
+  .container { padding: 8px; }
+  .card { padding: 12px; margin-bottom: 10px; }
 
-/* === Fix #3.2: Suppress native pull-to-refresh on mobile === */
-@media (max-width: 640px) {
-  .container {
-    overscroll-behavior-x: none;
+  /* Summary → 2 per row always on mobile */
+  .summary-item { min-width: calc(50% - 5px); flex: 1 1 calc(50% - 5px); }
+  .summary-grid, .summary-grid-row { gap: 8px; }
+
+  /* Table font */
+  table { font-size: 0.8rem; }
+  th, td { padding: 6px 6px; }
+
+  /* Chart heights */
+  .chart-card-eq { min-height: 180px; }
+
+  /* Modal nearly full-screen */
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px 12px 0 0;
+    max-height: 90vh;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
   }
 
-  /* Fix #2.3: Use JS-computed viewport height for iOS */
-  .container {
-    height: calc(var(--app-vh, 100vh) - var(--header-height, 52px) - var(--tab-height, 48px));
-  }
+  /* Buttons */
+  .add-btn, .save-btn, .cancel-btn, .btn-secondary { font-size: 0.85rem; padding: 10px 14px; width: 100%; }
+  .modal-buttons { flex-direction: column; }
+  .modal-buttons button { flex: none; }
 
-  /* Pull indicator inside each panel, not fixed */
-  .pull-indicator {
-    display: none;
-    text-align: center;
-    padding: 12px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    transition: opacity 0.2s;
-  }
-  .pull-indicator.visible { display: block; }
-}
+  /* Header tighter */
+  .app-header { padding: 8px 10px; }
+  .header-actions { gap: 4px; }
+  .header-btn { padding: 5px 8px; font-size: 0.7rem; }
 
-/* === Fix #3.7: Reduce chart height on small screens === */
-@media (max-height: 700px) {
-  .chart-wrapper-monthly { height: 200px; }
-  .chart-wrapper-compact { min-height: 130px; }
-  .dashboard-top > .card { height: auto; min-height: 200px; }
-}
-
-/* === Fix #3.4: Horizontal scroll fade indicator on tables === */
-.table-wrap {
-  position: relative;
-}
-.table-wrap::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 24px;
-  background: linear-gradient(to right, transparent, var(--surface));
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.table-wrap.has-scroll::after {
-  opacity: 1;
-}
-
-/* === Fix #5.2: Loading skeleton === */
-.skeleton-item {
-  animation: skeleton-pulse 1.2s ease-in-out infinite;
-}
-.skeleton-line {
-  height: 14px;
-  background: var(--border);
-  border-radius: 4px;
-  margin-bottom: 8px;
-}
-.skeleton-line.short {
-  width: 60%;
-}
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-/* === Fix #5.3: Visually hidden text for screen readers === */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
+  /* Range selectors wrap */
+  .range-selector, .range-selector-trend { flex-wrap: wrap; }
 }

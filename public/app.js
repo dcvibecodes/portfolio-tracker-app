@@ -35,12 +35,10 @@
     else if (tabName === "settings") loadSettings();
   }
 
-  // Desktop click handler (mobile overrides with scroll behavior)
-  if (!window.matchMedia("(max-width: 640px)").matches) {
-    tabBtns.forEach(btn => {
-      btn.addEventListener("click", () => switchToTab(btn.dataset.tab));
-    });
-  }
+  // Tab click handlers
+  tabBtns.forEach(btn => {
+    btn.addEventListener("click", () => switchToTab(btn.dataset.tab));
+  });
 
   //--- State Variables ---
   let assetClasses = [];
@@ -420,16 +418,21 @@
     if (classPieChart) classPieChart.destroy();
     const classPieCanvas = document.getElementById("class-pie");
     classPieChart = new Chart(classPieCanvas, {
-      type: "doughnut",
+      type: "bar",
       data: {
-        labels: classLabels.map((l, i) => `${l} (${totalVal ? (classValues[i] / totalVal * 100).toFixed(1) : 0}%)`),
-        datasets: [{ data: classValues.map(v => toDisplayCurrency(v)), backgroundColor: classColors.slice(0, classLabels.length) }]
+        labels: classLabels,
+        datasets: [{ data: classValues.map(v => toDisplayCurrency(v)), backgroundColor: classColors.slice(0, classLabels.length), borderRadius: 4 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
+        indexAxis: "y",
         plugins: {
-          legend: { position: "bottom", labels: { font: { size: 10 }, padding: 6, boxWidth: 10 } },
-          tooltip: { callbacks: { label: (ctx) => curSym + fmtCompact(ctx.raw) } }
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => curSym + fmtCompact(ctx.raw) + ` (${totalVal ? (classValues[ctx.dataIndex] / totalVal * 100).toFixed(1) : 0}%)` } }
+        },
+        scales: {
+          x: { display: false },
+          y: { grid: { display: false }, ticks: { font: { size: 10 } } }
         }
       }
     });
@@ -1485,6 +1488,10 @@
       document.getElementById("lock-setup-section").style.display = locked ? "none" : "block";
       document.getElementById("lock-disable-section").style.display = locked ? "block" : "none";
       document.getElementById("lock-recovery-alert-section").style.display = "none";
+      document.getElementById("settings-pin").value = "";
+      document.getElementById("settings-pin-confirm").value = "";
+      document.getElementById("settings-lock-message").textContent = "";
+      document.getElementById("settings-lock-message").className = "form-msg";
     } catch(e) {}
   }
 
@@ -1572,194 +1579,7 @@
   loadLockSettings();
 
 
-  //--- Mobile: Swipe sync with bottom nav + collapsible header ---
-  if (window.matchMedia("(max-width: 640px)").matches) {
-    const container = document.getElementById("main-container");
-    const tabs = Array.from(document.querySelectorAll(".bottom-nav-btn"));
-    const panels = Array.from(document.querySelectorAll(".tab-content"));
-    const appHeader = document.querySelector(".app-header");
-    const bottomNav = document.querySelector(".bottom-nav");
-
-    function setLayoutVars() {
-      const headerH = appHeader.offsetHeight;
-      const bottomNavH = bottomNav.offsetHeight;
-      document.documentElement.style.setProperty("--header-height", headerH + "px");
-      document.documentElement.style.setProperty("--bottom-nav-height", bottomNavH + "px");
-    }
-    setLayoutVars();
-    window.addEventListener("resize", setLayoutVars);
-
-    // iOS viewport height fix (fix #2.3)
-    function setViewportHeight() {
-      const vh = window.innerHeight;
-      document.documentElement.style.setProperty("--app-vh", vh + "px");
-    }
-    setViewportHeight();
-    window.addEventListener("resize", setViewportHeight);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", setViewportHeight);
-    }
-
-    // Header hide/show on vertical scroll within panels
-    let headerHidden = false;
-    let lastScrollTops = new Map();
-    const SCROLL_DOWN_THRESHOLD = 10;
-    const SCROLL_UP_THRESHOLD = 5;
-
-    function hideHeader() {
-      if (headerHidden) return;
-      headerHidden = true;
-      appHeader.classList.add("header-hidden");
-      const nav = document.querySelector(".bottom-nav");
-      if (nav) nav.classList.add("nav-hidden");
-      document.body.classList.add("header-collapsed");
-    }
-
-    function showHeader() {
-      if (!headerHidden) return;
-      headerHidden = false;
-      appHeader.classList.remove("header-hidden");
-      const nav = document.querySelector(".bottom-nav");
-      if (nav) nav.classList.remove("nav-hidden");
-      document.body.classList.remove("header-collapsed");
-    }
-
-    panels.forEach(panel => {
-      lastScrollTops.set(panel, 0);
-      panel.addEventListener("scroll", () => {
-        const scrollTop = panel.scrollTop;
-        const lastScrollTop = lastScrollTops.get(panel) || 0;
-        const delta = scrollTop - lastScrollTop;
-        if (scrollTop <= 5) {
-          showHeader();
-        } else if (delta > SCROLL_DOWN_THRESHOLD) {
-          hideHeader();
-        } else if (delta < -SCROLL_UP_THRESHOLD) {
-          showHeader();
-        }
-        lastScrollTops.set(panel, scrollTop);
-      }, { passive: true });
-    });
-
-    // Sync bottom nav highlight on horizontal scroll AND load data (fix #1.8)
-    let scrollTimeout;
-    let lastSyncedIdx = 0;
-    container.addEventListener("scroll", () => {
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        const idx = Math.round(container.scrollLeft / container.offsetWidth);
-        if (idx === lastSyncedIdx) return;
-        lastSyncedIdx = idx;
-        const tabName = tabs[idx] ? tabs[idx].dataset.tab : null;
-        if (tabName) {
-          currentTab = tabName;
-          tabs.forEach((t, i) => t.classList.toggle("active", i === idx));
-          loadTabData(tabName);
-        }
-      }, 80);
-    }, { passive: true });
-
-    // Bottom nav click scrolls to panel
-    tabs.forEach((btn, i) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        tabs.forEach(t => t.classList.remove("active"));
-        btn.classList.add("active");
-        container.scrollTo({ left: i * container.offsetWidth, behavior: "smooth" });
-      });
-    });
-
-    // Pull to refresh — indicator inside each panel (matches expense tracker)
-    panels.forEach(panel => {
-      const indicator = document.createElement("div");
-      indicator.className = "pull-indicator";
-      panel.insertBefore(indicator, panel.firstChild);
-    });
-
-    function getActiveIndicator() {
-      const idx = Math.round(container.scrollLeft / container.offsetWidth);
-      const activePanel = panels[idx];
-      return activePanel ? activePanel.querySelector(".pull-indicator") : null;
-    }
-
-    let pullStartY = 0;
-    let pullMoveY = 0;
-    let isPulling = false;
-    const PULL_THRESHOLD = 80;
-
-    function isAtTopOfScroll() {
-      const idx = Math.round(container.scrollLeft / container.offsetWidth);
-      const activePanel = panels[idx];
-      if (activePanel) return activePanel.scrollTop <= 10;
-      return true;
-    }
-
-    document.addEventListener("touchstart", (e) => {
-      if (!isAtTopOfScroll()) return;
-      if (e.target.closest(".modal-overlay")) return;
-      pullStartY = e.touches[0].clientY;
-      pullMoveY = pullStartY;
-      isPulling = true;
-    }, { passive: true });
-
-    document.addEventListener("touchmove", (e) => {
-      if (!isPulling) return;
-      pullMoveY = e.touches[0].clientY;
-      const dist = pullMoveY - pullStartY;
-      if (dist < 0) { isPulling = false; const ind = getActiveIndicator(); if (ind) ind.classList.remove("visible"); return; }
-
-      const indicator = getActiveIndicator();
-      if (indicator && dist > 20) {
-        indicator.innerHTML = dist > PULL_THRESHOLD
-          ? '<span class="spinner"></span>Release to refresh...'
-          : '<span class="spinner"></span>Pull down to refresh...';
-        indicator.classList.add("visible");
-      }
-    }, { passive: true });
-
-    document.addEventListener("touchend", async () => {
-      if (!isPulling) return;
-      isPulling = false;
-      const dist = pullMoveY - pullStartY;
-      const indicator = getActiveIndicator();
-
-      if (dist > PULL_THRESHOLD) {
-        if (indicator) indicator.innerHTML = '<span class="spinner"></span>Refreshing...';
-        try {
-          const idx = Math.round(container.scrollLeft / container.offsetWidth);
-          const tabName = tabs[idx]?.dataset.tab;
-          cachedRateData = null;
-          if (tabName === "dashboard") await loadDashboard();
-          else if (tabName === "holdings") await loadHoldings();
-          else if (tabName === "watchlist") await loadWatchlist();
-          else if (tabName === "settings") await loadSettings();
-          if (indicator) indicator.innerHTML = '✓ Updated';
-        } catch {
-          if (indicator) indicator.innerHTML = '✗ Failed';
-        }
-        setTimeout(() => { if (indicator) { indicator.classList.remove("visible"); indicator.innerHTML = ""; } }, 1500);
-      } else {
-        if (indicator) { indicator.classList.remove("visible"); indicator.innerHTML = ""; }
-      }
-    }, { passive: true });
-
-    // Handle virtual keyboard resizing modals (fix #3.8)
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", () => {
-        const openModal = document.querySelector(".modal-overlay.open .modal-content");
-        if (openModal) {
-          openModal.style.maxHeight = (window.visualViewport.height - 40) + "px";
-        }
-      });
-      window.visualViewport.addEventListener("scroll", () => {
-        const openModal = document.querySelector(".modal-overlay.open .modal-content");
-        if (openModal) {
-          openModal.style.maxHeight = (window.visualViewport.height - 40) + "px";
-        }
-      });
-    }
-  }
-
+  
   // --- Chart tooltip dismiss on tap outside (mobile fix) ---
   let lastTapChartKey = null;
   document.addEventListener("click", (e) => {
