@@ -1,54 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Background -->
-  <rect width="512" height="512" rx="92" fill="#2563eb"/>
-
-  <!-- Chart area -->
-  <rect x="96" y="96" width="320" height="320" rx="20" fill="#1e40af"/>
-  <rect x="96" y="96" width="320" height="320" rx="20"
-        fill="none" stroke="#60a5fa" stroke-width="4"/>
-
-  <!-- Grid lines -->
-  <line x1="120" y1="176" x2="392" y2="176"
-        stroke="#93c5fd" stroke-width="1" opacity="0.35"/>
-  <line x1="120" y1="256" x2="392" y2="256"
-        stroke="#93c5fd" stroke-width="1" opacity="0.35"/>
-  <line x1="120" y1="336" x2="392" y2="336"
-        stroke="#93c5fd" stroke-width="1" opacity="0.35"/>
-
-  <!-- Growth line -->
-  <polyline
-    points="130,360 175,320 225,335 275,265 330,220 385,150"
-    fill="none"
-    stroke="#bfdbfe"
-    stroke-width="8"
-    stroke-linecap="round"
-    stroke-linejoin="round"/>
-
-  <!-- Fill under line -->
-  <polygon
-    points="130,360 175,320 225,335 275,265 330,220 385,150 385,390 130,390"
-    fill="#93c5fd"
-    opacity="0.25"/>
-
-  <!-- Data points -->
-  <circle cx="130" cy="360" r="6" fill="#bfdbfe"/>
-  <circle cx="175" cy="320" r="6" fill="#bfdbfe"/>
-  <circle cx="225" cy="335" r="6" fill="#bfdbfe"/>
-  <circle cx="275" cy="265" r="6" fill="#bfdbfe"/>
-  <circle cx="330" cy="220" r="6" fill="#bfdbfe"/>
-  <circle cx="385" cy="150" r="8" fill="#ffffff"
-          stroke="#bfdbfe" stroke-width="3"/>
-
-  <!-- Plus badge -->
-  <circle cx="400" cy="400" r="52" fill="#60a5fa"/>
-  <circle cx="400" cy="400" r="52"
-          fill="none" stroke="#2563eb" stroke-width="8"/>
-
-  <line x1="400" y1="375" x2="400" y2="425"
-        stroke="#ffffff" stroke-width="10"
-        stroke-linecap="round"/>
-
-  <line x1="375" y1="400" x2="425" y2="400"
-        stroke="#ffffff" stroke-width="10"
-        stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <rect width="512" height="512" rx="112" fill="#0a0f1d"/>
+  
+  <g transform="translate(0, 0)">
+    <rect x="94" y="94" width="324" height="324" rx="40" fill="#1e293b" stroke="#3b82f6" stroke-width="6" opacity="0.9"/>
+    <path d="M120 170h272M120 256h272M120 340h272" stroke="#334155" stroke-width="3"/>
+    <path d="M130 360l45-45 50 25 50-60 55-40 55-75" fill="none" stroke="#60a5fa" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M130 360l45-45 50 25 50-60 55-40 55-75v95H130z" fill="#3b82f6" fill-opacity="0.15"/>
+    <circle cx="130" cy="360" r="7" fill="#93c5fd"/>
+    <circle cx="175" cy="315" r="7" fill="#93c5fd"/>
+    <circle cx="225" cy="340" r="7" fill="#93c5fd"/>
+    <circle cx="275" cy="280" r="7" fill="#93c5fd"/>
+    <circle cx="330" cy="240" r="7" fill="#93c5fd"/>
+    <circle cx="385" cy="165" r="9" fill="#ffffff"/>
+    <circle cx="396" cy="396" r="52" fill="#3b82f6"/>
+    <path d="M396 374v44M374 396h44" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  </g>
 </svg>
