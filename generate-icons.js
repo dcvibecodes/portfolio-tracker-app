@@ -4,20 +4,17 @@
 const fs = require('fs');
 const path = require('path');
 
-// We'll create a simple PNG using canvas-like approach
-// Since we want to avoid heavy dependencies, let's use the 'sharp' package if available,
-// otherwise create a standalone HTML file that can be opened in a browser to generate the icons.
-
 try {
   const sharp = require('sharp');
   
   const svgPath = path.join(__dirname, 'public', 'favicon.svg');
   const svg = fs.readFileSync(svgPath);
 
+  // Fixed names to match your app structure exactly
   const sizes = [
     { name: 'apple-touch-icon.png', size: 180 },
-    { name: 'favicon-32x32.png', size: 32 },
-    { name: 'favicon-16x16.png', size: 16 },
+    { name: 'favicon-32.png', size: 32 },
+    { name: 'favicon-16.png', size: 16 },
     { name: 'icon-192.png', size: 192 },
     { name: 'icon-512.png', size: 512 },
   ];
