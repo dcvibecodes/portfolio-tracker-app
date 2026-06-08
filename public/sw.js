@@ -1,9 +1,6 @@
-const CACHE_NAME = "portfolio-plus-v2.1.1";
+const CACHE_NAME = "portfolio-plus-v2.2.0";
 const STATIC_ASSETS = [
   "/",
-  "/index.html",
-  "/style.css",
-  "/app.js",
   "/favicon.svg",
   "/favicon-32x32.png",
   "/favicon-16x16.png",
@@ -11,7 +8,6 @@ const STATIC_ASSETS = [
   "/icon-192.png",
   "/icon-512.png",
   "/manifest.json",
-  "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"
 ];
 
 // Install: cache static assets
@@ -53,24 +49,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache-first, then network
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // Cache successful GET responses for same-origin
-        if (response.ok && event.request.method === "GET" && url.origin === self.location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      });
-    }).catch(() => {
-      // Fallback for navigation requests
-      if (event.request.mode === "navigate") {
-        return caches.match("/index.html");
+  // Static assets: network-first
+event.respondWith(
+  fetch(event.request)
+    .then((response) => {
+      if (
+        response.ok &&
+        event.request.method === "GET" &&
+        url.origin === self.location.origin
+      ) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) =>
+          cache.put(event.request, clone)
+        );
       }
-      return new Response("Offline", { status: 503 });
+
+      return response;
     })
-  );
+    .catch(() => caches.match(event.request))
+);
 });
