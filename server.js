@@ -855,7 +855,27 @@ app.get("/api/summary", asyncHandler(async (req, res) => {
   const rows = db.prepare("SELECT * FROM holdings").all();
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
-  const summary = { by_class: {}, by_type: {}, total: { invested: 0, current_value: 0, gain_loss: 0, units: 0 }, default_currency: defaultCur, rates: rateData.rates };
+  const summary = {
+  by_class: {},
+  by_type: {},
+  total: { invested: 0, current_value: 0, gain_loss: 0, units: 0 },
+  default_currency: defaultCur,
+  rates: rateData.rates
+};
+
+const classesArr = db.prepare(
+  "SELECT name FROM asset_classes ORDER BY sort_order, id"
+).all();
+
+classesArr.forEach(({ name }) => {
+  summary.by_class[name] = {
+    invested: 0,
+    current_value: 0,
+    gain_loss: 0,
+    count: 0,
+    units: 0
+  };
+});
 
   const rateDisplay = db.prepare("SELECT value FROM settings WHERE key = 'rate_display'").get();
   const displayCur = (rateDisplay && rateDisplay.value) || "";
@@ -869,8 +889,14 @@ app.get("/api/summary", asyncHandler(async (req, res) => {
   for (const h of rows) {
     const cls = h.asset_class || "Other";
     if (!summary.by_class[cls]) {
-      summary.by_class[cls] = { invested: 0, current_value: 0, gain_loss: 0, count: 0, units: 0 };
-    }
+  summary.by_class[cls] = {
+    invested: 0,
+    current_value: 0,
+    gain_loss: 0,
+    count: 0,
+    units: 0
+  };
+}
     const typ = h.asset_type || "Other";
     if (!summary.by_type[typ]) {
       summary.by_type[typ] = { invested: 0, current_value: 0, count: 0 };
