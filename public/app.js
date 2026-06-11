@@ -57,6 +57,29 @@
 
   let classPieChart = null, valueTrendChart = null, monthlyChart = null;
 
+  const CATEGORY_COLORS = {
+  "India": "#3b82f6",
+  "US": "#10b981",
+  "Gold": "#f59e0b",
+  "Crypto": "#8b5cf6"
+};
+
+const FALLBACK_COLORS = [
+  "#ef4444",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
+  "#a855f7",
+  "#eab308"
+];
+
+function getCategoryColor(category, index = 0) {
+  return CATEGORY_COLORS[category] ||
+         FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+}
+
   //--- Locale & Formatting Helpers ---
   function getLocaleForCurrency(cur) {
     const map = {
@@ -412,7 +435,9 @@
     // --- Render Category Doughnut ---
     const classLabels = Object.keys(summary.by_class);
     const classValues = classLabels.map(k => summary.by_class[k].current_value);
-    const classColors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4"];
+    const classColors = classLabels.map((label, index) =>
+  getCategoryColor(label, index)
+);
     const totalVal = classValues.reduce((s, v) => s + v, 0);
 
     if (classPieChart) classPieChart.destroy();
@@ -500,13 +525,11 @@
       return new Date(y, mo - 1).toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
     });
 
-    const classColorMap = { "India": "#3b82f6", "US": "#10b981", "Gold": "#f59e0b", "Crypto": "#8b5cf6" };
-    const defaultColors = ["#ef4444", "#06b6d4", "#ec4899", "#84cc16", "#f97316"];
-
+  
     const barDatasets = (data.classes || []).map((cls, i) => ({
       label: cls,
       data: data.months.map(m => toDisplayCurrency(m.by_class[cls] || 0)),
-      backgroundColor: classColorMap[cls] || defaultColors[i % defaultColors.length],
+      backgroundColor: getCategoryColor(cls, i),
       borderRadius: i === (data.classes.length - 1) ? 4 : 0,
       stack: "invested"
     }));
