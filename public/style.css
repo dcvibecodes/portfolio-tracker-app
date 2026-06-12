@@ -234,7 +234,10 @@ button, a, input, select, textarea, [tabindex] {
 .pivot-table tfoot td { font-weight: 700; border-top: 2px solid var(--border); background: var(--bg); }
 
 .pivot-parent { background: var(--bg); font-weight: 600; cursor: default; }
-.pivot-parent-cell { display: flex; align-items: center; gap: 8px; }
+.pivot-parent-cell {
+  display: flex;
+  align-items: center;
+}
 .pivot-toggle {
   background: none; border: none; cursor: pointer; font-size: 0.7rem;
   color: var(--text-secondary); padding: 2px 4px; border-radius: 4px; width: 20px; text-align: center;

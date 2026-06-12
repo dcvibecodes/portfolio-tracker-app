@@ -635,8 +635,7 @@ function getCategoryColor(category, index = 0) {
       parentTr.dataset.class = cls.asset_class;
       parentTr.innerHTML = `
         <td class="pivot-parent-cell">
-          <button class="pivot-toggle" aria-expanded="false" aria-label="Expand ${cls.asset_class}">▶</button>
-          <span class="badge badge-${cls.asset_class.toLowerCase().replace(/\s+/g, '-')}">${cls.asset_class}</span>
+          ${cls.asset_class}
         </td>
         <td class="col-amount">-</td>
         <td class="col-amount">${curSym}${fmtCompact(dInvested)}</td>
@@ -657,7 +656,7 @@ function getCategoryColor(category, index = 0) {
         const curPriceStr = adPrice ? curSym + fmtCompact(adPrice) : "-";
 
         const childTr = document.createElement("tr");
-        childTr.className = "pivot-child pivot-child-hidden";
+        childTr.className = "pivot-child";
         childTr.dataset.parentClass = cls.asset_class;
         childTr.innerHTML = `
           <td class="pivot-child-cell">${asset.name} <span class="pivot-asset-type">${asset.asset_type || ""}</span></td>
@@ -671,13 +670,6 @@ function getCategoryColor(category, index = 0) {
         pivotBody.appendChild(childTr);
       }
 
-      parentTr.querySelector(".pivot-toggle").addEventListener("click", function() {
-        const expanded = this.getAttribute("aria-expanded") === "true";
-        this.setAttribute("aria-expanded", String(!expanded));
-        this.textContent = expanded ? "▶" : "▼";
-        const children = pivotBody.querySelectorAll(`tr[data-parent-class="${cls.asset_class}"]`);
-        children.forEach(c => c.classList.toggle("pivot-child-hidden", expanded));
-      });
     }
 
     const grandPl = grandValue - grandInvested;
@@ -696,18 +688,6 @@ function getCategoryColor(category, index = 0) {
       </tr>
     `;
   }
-
-  document.getElementById("expand-all-btn").onclick = () => {
-    const pivotBody = document.getElementById("pivot-rows");
-    pivotBody.querySelectorAll(".pivot-toggle").forEach(btn => { btn.setAttribute("aria-expanded", "true"); btn.textContent = "▼"; });
-    pivotBody.querySelectorAll(".pivot-child").forEach(c => c.classList.remove("pivot-child-hidden"));
-  };
-
-  document.getElementById("collapse-all-btn").onclick = () => {
-    const pivotBody = document.getElementById("pivot-rows");
-    pivotBody.querySelectorAll(".pivot-toggle").forEach(btn => { btn.setAttribute("aria-expanded", "false"); btn.textContent = "▶"; });
-    pivotBody.querySelectorAll(".pivot-child").forEach(c => c.classList.add("pivot-child-hidden"));
-  };
 
   //--- Holdings Data Management ---
   function updateBatchBar() {
