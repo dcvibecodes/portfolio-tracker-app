@@ -55,6 +55,13 @@
   let notesCurrentId = null;
   let cachedRateData = null; // Cached exchange rate for holdings tab
 
+  const DASHBOARD_CACHE_KEY = "portfolio_dashboard_cache";
+  const DASHBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  function invalidateDashboardCache() {
+    localStorage.removeItem(DASHBOARD_CACHE_KEY);
+  }
+
   let classPieChart = null, valueTrendChart = null, monthlyChart = null;
 
   const CATEGORY_COLORS = {
@@ -375,27 +382,25 @@ function getCategoryColor(category, index = 0) {
   }
 
   //--- Dashboard Data Loader ---
-  async function loadDashboard() {
-    const grid = document.getElementById("summary-grid");
-    // Show loading skeleton (fix #5.2)
-    grid.innerHTML = `
-      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
-      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
-      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
-      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
-    `;
 
-    let summary, breakdown;
+  function getDashboardCache() {
     try {
-      [summary, breakdown] = await Promise.all([
-        apiFetch("/api/summary"),
-        apiFetch("/api/breakdown")
-      ]);
-    } catch (e) {
-      grid.innerHTML = '<div class="summary-item"><div class="label">Error</div><div class="value">Failed to load dashboard</div></div>';
-      return;
-    }
+      const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+      if (!raw) return null;
+      const cached = JSON.parse(raw);
+      if (Date.now() - cached.timestamp < DASHBOARD_CACHE_TTL) return cached.data;
+    } catch(e) {}
+    return null;
+  }
 
+  function setDashboardCache(summary, breakdown) {
+    try {
+      localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ data: { summary, breakdown }, timestamp: Date.now() }));
+    } catch(e) {}
+  }
+
+  function renderDashboard(summary, breakdown) {
+    const grid = document.getElementById("summary-grid");
     grid.innerHTML = "";
 
     altCurrency = summary.display_rate_currency;
@@ -424,6 +429,16 @@ function getCategoryColor(category, index = 0) {
       { label: "Total P&L", value: toDisplayCurrency(summary.total.gain_loss), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested) }
     ];
 
+    // Day change card (only show if data is available)
+    if (summary.total.day_change != null && summary.total.day_change !== 0) {
+      totalItems.push({ label: "Day Change", value: toDisplayCurrency(summary.total.day_change), isDayChange: true, dayPct: summary.total.day_change_pct });
+    }
+
+    // Top gainer today card
+    if (summary.top_gainer) {
+      totalItems.push({ label: "Top Gainer Today", isTopGainer: true, assetName: summary.top_gainer.name, pct: summary.top_gainer.pct });
+    }
+
     if (currencyConfigured && altRate && altCurrency && altCurrency !== baseCurrency) {
       totalItems.push({ label: `${altCurrency}/${baseCurrency}`, value: altRate, isRate: true });
     }
@@ -438,6 +453,19 @@ function getCategoryColor(category, index = 0) {
         div.innerHTML = `<div class="label">${item.label}</div>
                          <div class="value ${cls}">${curSym}${fmtWhole(Math.abs(item.value))}</div>
                          <div class="change ${cls}">${arrow} ${pct}</div>`;
+      } else if (item.isDayChange) {
+        const cls = item.value >= 0 ? "positive" : "negative";
+        const arrow = item.value >= 0 ? "▲" : "▼";
+        const pct = item.dayPct != null ? Math.abs(item.dayPct).toFixed(2) + "%" : "";
+        div.innerHTML = `<div class="label">${item.label}</div>
+                         <div class="value ${cls}">${arrow} ${curSym}${fmtWhole(Math.abs(item.value))}</div>
+                         <div class="change ${cls}">${pct}</div>`;
+      } else if (item.isTopGainer) {
+        const cls = item.pct >= 0 ? "positive" : "negative";
+        const arrow = item.pct >= 0 ? "▲" : "▼";
+        div.innerHTML = `<div class="label">${item.label}</div>
+                         <div class="value summary-truncate">${item.assetName}</div>
+                         <div class="change ${cls}">${arrow} ${Math.abs(item.pct).toFixed(2)}%</div>`;
       } else if (item.isRate) {
         div.innerHTML = `<div class="label">${item.label}</div>
                          <div class="value">${currencyConfigured ? getCurrencySymbol(baseCurrency) : ""}${Number(item.value).toFixed(2)}</div>`;
@@ -482,6 +510,45 @@ function getCategoryColor(category, index = 0) {
     loadValueTrend(currentTrendMonths);
     loadMonthlyChart(currentBarMonths);
     renderPivotTable(breakdown);
+  }
+
+  async function loadDashboard() {
+    const grid = document.getElementById("summary-grid");
+
+    // Try instant render from cache
+    const cached = getDashboardCache();
+    if (cached) {
+      renderDashboard(cached.summary, cached.breakdown);
+      // Background refresh
+      Promise.all([apiFetch("/api/summary"), apiFetch("/api/breakdown")])
+        .then(([summary, breakdown]) => {
+          setDashboardCache(summary, breakdown);
+          renderDashboard(summary, breakdown);
+        }).catch(() => {});
+      return;
+    }
+
+    // No cache — show skeleton, fetch, render
+    grid.innerHTML = `
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+      <div class="summary-item skeleton-item"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+    `;
+
+    let summary, breakdown;
+    try {
+      [summary, breakdown] = await Promise.all([
+        apiFetch("/api/summary"),
+        apiFetch("/api/breakdown")
+      ]);
+    } catch (e) {
+      grid.innerHTML = '<div class="summary-item"><div class="label">Error</div><div class="value">Failed to load dashboard</div></div>';
+      return;
+    }
+
+    setDashboardCache(summary, breakdown);
+    renderDashboard(summary, breakdown);
   }
 
   //--- Value Trend Chart ---
@@ -641,6 +708,7 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount">${curSym}${fmtCompact(dInvested)}</td>
         <td class="col-amount">-</td>
         <td class="col-amount">${curSym}${fmtCompact(dValue)}</td>
+        <td class="col-amount">-</td>
         <td class="col-amount ${plClass}">${curSym}${fmtCompact(dGain)}</td>
         <td class="col-amount ${plClass}">${plPct}%</td>
       `;
@@ -655,6 +723,15 @@ function getCategoryColor(category, index = 0) {
         const aPlClass = asset.gain_loss >= 0 ? "positive" : "negative";
         const curPriceStr = adPrice ? curSym + fmtCompact(adPrice) : "-";
 
+        // Day change %
+        let dayChgStr = "-";
+        if (asset.day_change_pct != null) {
+          const dayPct = Number(asset.day_change_pct).toFixed(2);
+          const dayClass = asset.day_change_pct >= 0 ? "positive" : "negative";
+          const dayArrow = asset.day_change_pct >= 0 ? "▲" : "▼";
+          dayChgStr = `<span class="${dayClass}">${dayArrow} ${Math.abs(dayPct)}%</span>`;
+        }
+
         const childTr = document.createElement("tr");
         childTr.className = "pivot-child";
         childTr.dataset.parentClass = cls.asset_class;
@@ -664,6 +741,7 @@ function getCategoryColor(category, index = 0) {
           <td class="col-amount">${curSym}${fmtCompact(adInvested)}</td>
           <td class="col-amount">${curPriceStr}</td>
           <td class="col-amount">${curSym}${fmtCompact(adValue)}</td>
+          <td class="col-amount">${dayChgStr}</td>
           <td class="col-amount ${aPlClass}">${curSym}${fmtCompact(adGain)}</td>
           <td class="col-amount ${aPlClass}">${aPlPct}%</td>
         `;
@@ -683,6 +761,7 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount"><strong>${curSym}${fmtCompact(toDisplayCurrency(grandInvested))}</strong></td>
         <td class="col-amount">-</td>
         <td class="col-amount"><strong>${curSym}${fmtCompact(toDisplayCurrency(grandValue))}</strong></td>
+        <td class="col-amount">-</td>
         <td class="col-amount ${grandPlClass}"><strong>${curSym}${fmtCompact(toDisplayCurrency(grandPl))}</strong></td>
         <td class="col-amount ${grandPlClass}"><strong>${grandPct}%</strong></td>
       </tr>
@@ -938,6 +1017,7 @@ function getCategoryColor(category, index = 0) {
       if (currencyConfigured) document.getElementById("add-currency").value = baseCurrency;
       document.getElementById("add-invested-base-label").style.display = "none";
       cachedRateData = null; // Invalidate cached rate
+      invalidateDashboardCache();
       loadHoldings();
     } catch(e) {
       showMsg(document.getElementById("add-msg"), e.message || "Error", "error");
@@ -1084,6 +1164,7 @@ function getCategoryColor(category, index = 0) {
       await apiFetch(`/api/holdings/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       editModal.classList.remove("open");
       cachedRateData = null;
+      invalidateDashboardCache();
       loadHoldings();
     } catch(e) { toast(e.message || "Error saving", "error"); }
   });
@@ -1106,6 +1187,7 @@ function getCategoryColor(category, index = 0) {
     updateCurrencyToggleBtn();
     loadDashboard();
     cachedRateData = null;
+    invalidateDashboardCache();
     loadHoldings();
   });
 
@@ -1117,6 +1199,8 @@ function getCategoryColor(category, index = 0) {
       btn.textContent = `✅ ${data.updated} updated`;
       setTimeout(() => { btn.textContent = "🔄 Prices"; btn.disabled = false; }, 3000);
       cachedRateData = null;
+      invalidateDashboardCache();
+      localStorage.removeItem(WATCHLIST_CACHE_KEY);
       loadHoldings(); loadDashboard();
       if (currentTab === "watchlist") loadWatchlist();
     } catch (e) {
@@ -1295,7 +1379,7 @@ function getCategoryColor(category, index = 0) {
 
     try {
       await apiFetch("/api/settings/currency", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      toast("Currency settings saved", "success"); await loadDefaultCurrency(); cachedRateData = null; loadDashboard(); loadHoldings();
+      toast("Currency settings saved", "success"); await loadDefaultCurrency(); cachedRateData = null; invalidateDashboardCache(); loadDashboard(); loadHoldings();
     } catch(e) { toast("Error saving currency", "error"); }
     btnLoading(btn, false);
   });
@@ -1304,7 +1388,7 @@ function getCategoryColor(category, index = 0) {
     const btn = this; btnLoading(btn, true);
     try {
       await apiFetch("/api/settings/currency/restore", { method: "POST" });
-      toast("Currency configuration restored", "success"); await loadDefaultCurrency(); cachedRateData = null; loadDashboard(); loadHoldings();
+      toast("Currency configuration restored", "success"); await loadDefaultCurrency(); cachedRateData = null; invalidateDashboardCache(); loadDashboard(); loadHoldings();
     } catch(e) { toast(e.message || "Error restoring", "error"); }
     btnLoading(btn, false);
   });
@@ -1395,47 +1479,93 @@ function getCategoryColor(category, index = 0) {
   });
 
   //--- Watchlist Management ---
+  const WATCHLIST_CACHE_KEY = "portfolio_watchlist_cache";
+  const WATCHLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  function getWatchlistCache() {
+    try {
+      const raw = localStorage.getItem(WATCHLIST_CACHE_KEY);
+      if (!raw) return null;
+      const cached = JSON.parse(raw);
+      if (Date.now() - cached.timestamp < WATCHLIST_CACHE_TTL) {
+        return cached.items;
+      }
+    } catch(e) {}
+    return null;
+  }
+
+  function setWatchlistCache(items) {
+    try {
+      localStorage.setItem(WATCHLIST_CACHE_KEY, JSON.stringify({ items, timestamp: Date.now() }));
+    } catch(e) {}
+  }
+
+  function renderWatchlistRows(items) {
+    const tbody = document.getElementById("watchlist-rows");
+    const emptyMsg = document.getElementById("watchlist-empty");
+    tbody.innerHTML = "";
+    if (items.length === 0) { emptyMsg.style.display = "block"; return; }
+    emptyMsg.style.display = "none";
+
+    for (const item of items) {
+      const tr = document.createElement("tr");
+      const priceStr = item.current_price != null ? getCurrencySymbol(item.currency) + Number(item.current_price).toLocaleString(getLocaleForCurrency(item.currency), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+
+      const sourceBadge = item.is_portfolio ? '<span class="watchlist-badge watchlist-badge-portfolio">Portfolio</span>' : '<span class="watchlist-badge watchlist-badge-manual">Manual</span>';
+      const editBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>⚙️</button>' : `<button class="action-btn watchlist-edit-btn" data-id="${item.id}" data-name="${item.name.replace(/"/g, '&quot;')}" data-ticker="${item.ticker}" title="Edit">✏️</button>`;
+      const deleteBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>🗑️</button>' : `<button class="action-btn delete watchlist-remove-btn" data-id="${item.id}" title="Remove">🗑️</button>`;
+
+      tr.innerHTML = `<td>${item.name}</td><td class="watchlist-ticker-cell">${item.ticker}</td><td class="col-amount watchlist-price">${priceStr}</td><td>${sourceBadge}</td><td class="col-actions">${editBtn} ${deleteBtn}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    tbody.querySelectorAll(".watchlist-remove-btn").forEach(btn => {
+      btn.addEventListener("click", async function() {
+        const id = this.dataset.id;
+        if (!await showConfirm("Remove from watchlist?", "This ticker will be removed.")) return;
+        btnLoading(this, true);
+        try {
+          await apiFetch(`/api/watchlist/${id}`, { method: "DELETE" });
+          localStorage.removeItem(WATCHLIST_CACHE_KEY);
+          toast("Removed from watchlist", "success"); loadWatchlist();
+        } catch(e) { toast(e.message || "Error", "error"); btnLoading(this, false); }
+      });
+    });
+
+    // Watchlist edit using custom modal instead of prompt() (fix #5.5)
+    tbody.querySelectorAll(".watchlist-edit-btn").forEach(btn => {
+      btn.addEventListener("click", function() {
+        const id = this.dataset.id; const name = this.dataset.name; const ticker = this.dataset.ticker;
+        openWatchlistEditModal(id, name, ticker);
+      });
+    });
+  }
+
   async function loadWatchlist() {
     const tbody = document.getElementById("watchlist-rows");
     const emptyMsg = document.getElementById("watchlist-empty");
     const loadingMsg = document.getElementById("watchlist-loading");
-    tbody.innerHTML = ""; emptyMsg.style.display = "none"; loadingMsg.style.display = "block";
-    try {
-      const items = await apiFetch("/api/watchlist");
+    tbody.innerHTML = ""; emptyMsg.style.display = "none";
+
+    // Instant render from cache if available
+    const cached = getWatchlistCache();
+    if (cached) {
       loadingMsg.style.display = "none";
-      if (items.length === 0) { emptyMsg.style.display = "block"; return; }
-
-      for (const item of items) {
-        const tr = document.createElement("tr");
-        const priceStr = item.current_price != null ? getCurrencySymbol(item.currency) + Number(item.current_price).toLocaleString(getLocaleForCurrency(item.currency), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
-        const sourceBadge = item.is_portfolio ? '<span class="watchlist-badge watchlist-badge-portfolio">Portfolio</span>' : '<span class="watchlist-badge watchlist-badge-manual">Manual</span>';
-        const editBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>⚙️</button>' : `<button class="action-btn watchlist-edit-btn" data-id="${item.id}" data-name="${item.name.replace(/"/g, '&quot;')}" data-ticker="${item.ticker}" title="Edit">✏️</button>`;
-        const deleteBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>🗑️</button>' : `<button class="action-btn delete watchlist-remove-btn" data-id="${item.id}" title="Remove">🗑️</button>`;
-
-        tr.innerHTML = `<td>${item.name}</td><td class="watchlist-ticker-cell">${item.ticker}</td><td class="col-amount watchlist-price">${priceStr}</td><td>${sourceBadge}</td><td class="col-actions">${editBtn} ${deleteBtn}</td>`;
-        tbody.appendChild(tr);
-      }
-
-      tbody.querySelectorAll(".watchlist-remove-btn").forEach(btn => {
-        btn.addEventListener("click", async function() {
-          const id = this.dataset.id;
-          if (!await showConfirm("Remove from watchlist?", "This ticker will be removed.")) return;
-          btnLoading(this, true);
-          try {
-            await apiFetch(`/api/watchlist/${id}`, { method: "DELETE" });
-            toast("Removed from watchlist", "success"); loadWatchlist();
-          } catch(e) { toast(e.message || "Error", "error"); btnLoading(this, false); }
-        });
-      });
-
-      // Watchlist edit using custom modal instead of prompt() (fix #5.5)
-      tbody.querySelectorAll(".watchlist-edit-btn").forEach(btn => {
-        btn.addEventListener("click", function() {
-          const id = this.dataset.id; const name = this.dataset.name; const ticker = this.dataset.ticker;
-          openWatchlistEditModal(id, name, ticker);
-        });
-      });
-    } catch(e) { loadingMsg.style.display = "none"; emptyMsg.style.display = "block"; console.error("Failed to load watchlist:", e); }
+      renderWatchlistRows(cached);
+      // Fetch fresh data in background, update silently
+      apiFetch("/api/watchlist").then(items => {
+        setWatchlistCache(items);
+        renderWatchlistRows(items);
+      }).catch(() => {});
+    } else {
+      loadingMsg.style.display = "block";
+      try {
+        const items = await apiFetch("/api/watchlist");
+        loadingMsg.style.display = "none";
+        setWatchlistCache(items);
+        renderWatchlistRows(items);
+      } catch(e) { loadingMsg.style.display = "none"; emptyMsg.style.display = "block"; console.error("Failed to load watchlist:", e); }
+    }
   }
 
   // Watchlist edit modal (fix #5.5)
@@ -1461,6 +1591,7 @@ function getCategoryColor(category, index = 0) {
       await apiFetch(`/api/watchlist/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name || ticker, ticker }) });
       toast("Watchlist item updated", "success");
       document.getElementById("watchlist-edit-modal").classList.remove("open");
+      localStorage.removeItem(WATCHLIST_CACHE_KEY);
       loadWatchlist();
     } catch(e) { toast(e.message || "Error updating", "error"); }
     btnLoading(btn, false);
@@ -1475,7 +1606,7 @@ function getCategoryColor(category, index = 0) {
     btnLoading(btn, true);
     try {
       const data = await apiFetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticker, name }) });
-      tickerInput.value = ""; nameInput.value = ""; toast(`Added ${data.name || data.ticker} to watchlist`, "success"); loadWatchlist();
+      tickerInput.value = ""; nameInput.value = ""; localStorage.removeItem(WATCHLIST_CACHE_KEY); toast(`Added ${data.name || data.ticker} to watchlist`, "success"); loadWatchlist();
     } catch(e) { toast(e.message || "Error adding ticker", "error"); }
     btnLoading(btn, false);
   });
@@ -1576,12 +1707,27 @@ function getCategoryColor(category, index = 0) {
 
   //--- App Initialization Routines ---
   async function initApp() {
-    await loadDropdowns();
+    // Load dropdowns and currency config (DB reads - fast) in parallel
+    const [, ] = await Promise.all([
+      loadDropdowns(),
+      loadDefaultCurrency()
+    ]);
     populateYearFilter();
-    await loadDefaultCurrency();
-    // Refresh prices only if TTL allows (server-side check)
-    try { await apiFetch("/api/refresh-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }); } catch(e) {}
+
+    // Render dashboard immediately (uses cached prices from DB)
     loadDashboard();
+
+    // Background price refresh — don't block UI rendering
+    apiFetch("/api/refresh-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
+      .then(() => {
+        // Silently re-render dashboard with updated prices
+        cachedRateData = null;
+        invalidateDashboardCache();
+        loadDashboard();
+        if (currentTab === "holdings") loadHoldings();
+      })
+      .catch(() => {});
+
     setupAutocomplete("add-name", "add-name-suggestions");
     setupTxnTypeToggle();
     setupCurrencyToggleForInvestedBase();

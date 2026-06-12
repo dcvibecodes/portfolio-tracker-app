@@ -1,36 +1,32 @@
-# Portfolio+ v3.1.0
+# Portfolio+ v3.2.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
 
-## What's New in v3.1.0
+## What's New in v3.2.0
 
-### Mobile Compatibility
-- **Fixed bottom tab bar** — navigation pinned to screen bottom on phones (icon + label, native app feel)
-- **No zoom on input focus** — viewport locked with `maximum-scale=1.0`, all inputs at 16px font
-- **Single-column layouts** — forms, filters, charts, and settings reflow to one column on mobile
-- **Tables scroll internally** — holdings, pivot, watchlist, and ticker tables side-scroll within their container (no page-level horizontal scroll)
-- **No text overlap** — ticker table uses auto layout, min-widths enforce spacing
-- **Summary cards: 2-per-row** — portfolio totals always show in a 2-column grid on mobile
-- **Tab navigation fixed** — click handlers now work on all screen sizes (removed 640px gate)
-- **Safe area support** — bottom nav respects iPhone home indicator via `env(safe-area-inset-bottom)`
-- **Bottom-sheet modals** — modals slide up from bottom on small screens
+### Performance — Multi-Layer Caching
+- **Client-side localStorage caching** — Dashboard, watchlist render instantly from cache on repeat visits (5 min TTL)
+- **Server-side price cache** — Watchlist and quote data cached in-memory, avoids redundant Yahoo Finance calls
+- **Server-side exchange rate TTL** — Rates cached for 5 minutes, shared across all endpoints
+- **Non-blocking price refresh** — `initApp()` no longer waits for Yahoo price fetch; UI renders immediately, prices update in background
+- **Parallel init** — Dropdowns and currency config load concurrently instead of sequentially
 
-### Design Unification (with Expenses+)
-- **Focus-visible** — added `:focus-visible` outline rule (was missing, Expenses+ already had it)
-- **Autocomplete z-index** — unified to 1100 (was 50)
-- **By Category chart** — changed from doughnut/pie to horizontal bar chart for better readability
+### Dashboard Enhancements
+- **Day Change card** — Shows total portfolio day change value and percentage (color-coded green/red)
+- **Top Gainer Today card** — Highlights the asset with the highest intraday gain % (with ellipsis for long names)
+- **Day Chg% column in breakdown table** — Each asset row shows its intraday change percentage with colored arrows
 
-### Dashboard
-- **By Category** — now a horizontal bar chart (replaced doughnut) showing category values with colored bars and percentage in tooltip
+### Watchlist
+- **Cached quote data** — Server caches full Yahoo quote (price + day change) per ticker, reducing API calls
 
 ## Features
 
 ### Dashboard
-- Portfolio summary strip (Total Invested, Current Value, P&L, exchange rate)
+- Portfolio summary strip (Total Invested, Current Value, P&L, Day Change, Top Gainer Today, exchange rate)
 - By Category bar chart
 - Portfolio Value trend line chart (invested vs value, 1Y/2Y/3Y/5Y/All)
 - Monthly Investments stacked bar chart (by category, 1Y/2Y/3Y/5Y/All)
-- Category Breakdown pivot table (expand/collapse)
+- Category Breakdown pivot table with day change % per asset
 - Currency toggle (switch display between base and alt currency)
 
 ### Holdings

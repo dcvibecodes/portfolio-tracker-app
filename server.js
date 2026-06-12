@@ -163,8 +163,36 @@ if (fs.existsSync(secretPath)) {
 let lastPriceRefreshTime = 0;
 const PRICE_REFRESH_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// --- Watchlist price cache (in-memory with TTL) ---
+const WATCHLIST_PRICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const watchlistPriceCache = {}; // { ticker: { data, timestamp } }
+
+function getCachedQuote(ticker) {
+  const entry = watchlistPriceCache[ticker.toUpperCase()];
+  if (entry && (Date.now() - entry.timestamp < WATCHLIST_PRICE_CACHE_TTL_MS)) {
+    return entry.data;
+  }
+  return null;
+}
+
+function setCachedQuote(ticker, data) {
+  watchlistPriceCache[ticker.toUpperCase()] = { data, timestamp: Date.now() };
+}
+
+// Legacy helper for non-watchlist use (just returns price)
+function getCachedPrice(ticker) {
+  const quote = getCachedQuote(ticker);
+  return quote ? quote.price : null;
+}
+
+function setCachedPrice(ticker, price) {
+  setCachedQuote(ticker, { price, day_change: 0, day_change_pct: 0 });
+}
+
 let yfInstance = null;
 let ratesSessionCache = {};
+const RATES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+let ratesCacheTimestamp = 0;
 
 function getDefaultCurrency() {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'default_currency'").get();
@@ -195,14 +223,18 @@ async function getYF() {
 async function fetchExchangeRate(fromCurrency, toCurrency) {
   if (fromCurrency === toCurrency) return 1;
   const key = `${fromCurrency}${toCurrency}`;
-  if (ratesSessionCache[key]) return ratesSessionCache[key];
+  // Return cached rate if still fresh
+  if (ratesSessionCache[key] && (Date.now() - ratesCacheTimestamp < RATES_CACHE_TTL_MS)) {
+    return ratesSessionCache[key];
+  }
   try {
     const yf = await getYF();
-    if (!yf) return 1;
+    if (!yf) return ratesSessionCache[key] || 1;
     const ticker = `${fromCurrency}${toCurrency}=X`;
     const result = await yf.quote(ticker);
     if (result && result.regularMarketPrice) {
       ratesSessionCache[key] = result.regularMarketPrice;
+      ratesCacheTimestamp = Date.now();
       return result.regularMarketPrice;
     }
   } catch (e) {
@@ -238,6 +270,26 @@ async function fetchPrice(ticker) {
     }
   } catch (e) {
     console.error(`Failed to fetch price for ${ticker}:`, e.message);
+  }
+  return null;
+}
+
+// Fetch full quote data including day change for watchlist
+async function fetchQuoteData(ticker) {
+  if (!ticker) return null;
+  try {
+    const yf = await getYF();
+    if (!yf) return null;
+    const result = await yf.quote(ticker);
+    if (result && result.regularMarketPrice) {
+      return {
+        price: result.regularMarketPrice,
+        day_change: result.regularMarketChange || 0,
+        day_change_pct: result.regularMarketChangePercent || 0
+      };
+    }
+  } catch (e) {
+    console.error(`Failed to fetch quote for ${ticker}:`, e.message);
   }
   return null;
 }
@@ -746,16 +798,18 @@ app.post("/api/refresh-prices", asyncHandler(async (req, res) => {
   const holdings = db.prepare("SELECT DISTINCT name, ticker FROM holdings WHERE ticker != '' AND ticker IS NOT NULL").all();
   const results = { updated: 0, failed: 0, details: [] };
 
-  // Fetch prices in parallel batches of 5
+  // Fetch prices in parallel batches of 5, also caches day change data
   const batchSize = 5;
   for (let i = 0; i < holdings.length; i += batchSize) {
     const batch = holdings.slice(i, i + batchSize);
-    const priceResults = await Promise.allSettled(batch.map(h => fetchPrice(h.ticker)));
+    const quoteResults = await Promise.allSettled(batch.map(h => fetchQuoteData(h.ticker)));
     for (let j = 0; j < batch.length; j++) {
       const h = batch[j];
-      const result = priceResults[j];
-      const price = result.status === "fulfilled" ? result.value : null;
+      const result = quoteResults[j];
+      const quoteData = result.status === "fulfilled" ? result.value : null;
+      const price = quoteData ? quoteData.price : null;
       if (price != null) {
+        setCachedQuote(h.ticker, quoteData);
         db.prepare("UPDATE holdings SET current_price = ? WHERE name = ? AND ticker = ?").run(price, h.name, h.ticker);
         results.updated++;
         results.details.push({ name: h.name, ticker: h.ticker, price });
@@ -940,6 +994,42 @@ classesArr.forEach(({ name }) => {
     summary.total.units += (h.quantity || 0);
   }
   summary.total.gain_loss = summary.total.current_value - summary.total.invested;
+
+  // Calculate best performer (highest day change %) from cached quote data
+  const assetDayChange = {};
+  for (const h of rows) {
+    if (h.txn_type === "sell" || !h.ticker) continue;
+    const cached = getCachedQuote(h.ticker);
+    if (!cached || cached.day_change_pct == null) continue;
+    const key = h.name;
+    if (!assetDayChange[key]) assetDayChange[key] = { name: key, day_change_pct: cached.day_change_pct };
+  }
+  let topGainer = null;
+  let topGainPct = -Infinity;
+  for (const a of Object.values(assetDayChange)) {
+    if (a.day_change_pct > topGainPct) {
+      topGainPct = a.day_change_pct;
+      topGainer = { name: a.name, pct: a.day_change_pct };
+    }
+  }
+  summary.top_gainer = topGainer;
+
+  // Calculate total day change from cached quote data
+  let totalDayChange = 0;
+  const seenTickers = new Set();
+  for (const h of rows) {
+    if (!h.ticker || h.txn_type === "sell") continue;
+    const cached = getCachedQuote(h.ticker);
+    if (cached && cached.day_change != null) {
+      const fx = h.currency === defaultCur ? 1 : (rateData.rates[h.currency] || 1);
+      totalDayChange += cached.day_change * h.quantity * fx;
+    }
+  }
+  summary.total.day_change = totalDayChange;
+  summary.total.day_change_pct = summary.total.current_value > 0
+    ? (totalDayChange / (summary.total.current_value - totalDayChange)) * 100
+    : 0;
+
   res.json(summary);
 }));
 
@@ -980,7 +1070,7 @@ app.get("/api/breakdown", asyncHandler(async (req, res) => {
 
     const assetKey = h.name;
     if (!classes[cls].assets[assetKey]) {
-      classes[cls].assets[assetKey] = { name: assetKey, asset_type: h.asset_type, invested: 0, current_value: 0, units: 0, count: 0, current_price: null, currency: h.currency };
+      classes[cls].assets[assetKey] = { name: assetKey, asset_type: h.asset_type, invested: 0, current_value: 0, units: 0, count: 0, current_price: null, currency: h.currency, ticker: h.ticker || "" };
     }
     classes[cls].assets[assetKey].invested += invested;
     classes[cls].assets[assetKey].current_value += curval;
@@ -989,15 +1079,29 @@ app.get("/api/breakdown", asyncHandler(async (req, res) => {
     if (h.current_price) {
       classes[cls].assets[assetKey].current_price = h.current_price * fx;
     }
+    if (h.ticker) {
+      classes[cls].assets[assetKey].ticker = h.ticker;
+    }
   }
 
+  // Attach day_change_pct from cached quote data (no extra API calls)
   const result = Object.values(classes).map(c => ({
     ...c,
     gain_loss: c.current_value - c.invested,
-    assets: Object.values(c.assets).sort((a, b) => b.invested - a.invested).map(a => ({
-      ...a,
-      gain_loss: a.current_value - a.invested
-    }))
+    assets: Object.values(c.assets).sort((a, b) => b.invested - a.invested).map(a => {
+      let day_change_pct = null;
+      if (a.ticker) {
+        const cached = getCachedQuote(a.ticker);
+        if (cached && cached.day_change_pct != null) {
+          day_change_pct = cached.day_change_pct;
+        }
+      }
+      return {
+        ...a,
+        gain_loss: a.current_value - a.invested,
+        day_change_pct
+      };
+    })
   })).sort((a, b) => b.current_value - a.current_value);
 
   res.json({ classes: result, default_currency: defaultCur });
@@ -1067,12 +1171,12 @@ app.get("/api/watchlist", asyncHandler(async (req, res) => {
   for (const pt of portfolioTickers) {
     seenTickers.add(pt.ticker.toUpperCase());
     const holding = db.prepare("SELECT currency FROM holdings WHERE ticker = ? LIMIT 1").get(pt.ticker);
-    items.push({ id: null, ticker: pt.ticker, name: pt.asset_name, currency: holding ? holding.currency : "", is_portfolio: true, current_price: null });
+    items.push({ id: null, ticker: pt.ticker, name: pt.asset_name, currency: holding ? holding.currency : "", is_portfolio: true, current_price: null, day_change: null, day_change_pct: null });
   }
 
   for (const mi of manualItems) {
     if (!seenTickers.has(mi.ticker.toUpperCase())) {
-      items.push({ id: mi.id, ticker: mi.ticker, name: mi.name, currency: mi.currency || "", is_portfolio: false, current_price: null });
+      items.push({ id: mi.id, ticker: mi.ticker, name: mi.name, currency: mi.currency || "", is_portfolio: false, current_price: null, day_change: null, day_change_pct: null });
       seenTickers.add(mi.ticker.toUpperCase());
     }
   }
@@ -1094,15 +1198,24 @@ app.get("/api/watchlist", asyncHandler(async (req, res) => {
     } catch(e) {}
   }
 
-  // Fetch prices in parallel batches of 5 (fix #1.2)
+  // Fetch prices — use cache where available, only call Yahoo for stale/missing (fix #1.2)
   const batchSize = 5;
   for (let i = 0; i < orderedItems.length; i += batchSize) {
     const batch = orderedItems.slice(i, i + batchSize);
-    const priceResults = await Promise.allSettled(batch.map(item => fetchPrice(item.ticker)));
+    const quoteResults = await Promise.allSettled(batch.map(item => {
+      const cached = getCachedQuote(item.ticker);
+      if (cached != null) return Promise.resolve(cached);
+      return fetchQuoteData(item.ticker).then(data => {
+        if (data != null) setCachedQuote(item.ticker, data);
+        return data;
+      });
+    }));
     for (let j = 0; j < batch.length; j++) {
-      const result = priceResults[j];
+      const result = quoteResults[j];
       if (result.status === "fulfilled" && result.value != null) {
-        batch[j].current_price = result.value;
+        batch[j].current_price = result.value.price;
+        batch[j].day_change = result.value.day_change;
+        batch[j].day_change_pct = result.value.day_change_pct;
       }
     }
   }

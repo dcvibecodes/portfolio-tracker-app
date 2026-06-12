@@ -194,6 +194,7 @@ button, a, input, select, textarea, [tabindex] {
 }
 .summary-item .label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
 .summary-item .value { font-size: 1.2rem; font-weight: 700; margin-top: 2px; }
+.summary-item .value.summary-truncate { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .summary-item .change { font-size: 0.8rem; margin-top: 2px; }
 
 .change.positive, .value.positive { color: var(--green); }
@@ -333,6 +334,8 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var
 .col-check { width: 32px; text-align: center; }
 td.positive { color: var(--green); font-weight: 600; }
 td.negative { color: var(--red); font-weight: 600; }
+span.positive { color: var(--green); font-weight: 600; }
+span.negative { color: var(--red); font-weight: 600; }
 .table-footer { margin-top: 12px; font-size: 0.85rem; color: var(--text-secondary); }
 
 /* Batch Processing Element Actions */
