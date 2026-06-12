@@ -254,6 +254,22 @@ function getCategoryColor(category, index = 0) {
     }
   }
 
+  function populateYearFilter() {
+  const sel = document.getElementById("filter-year");
+  if (!sel) return;
+
+  const currentYear = new Date().getFullYear();
+
+  sel.innerHTML = '<option value="">All</option>';
+
+  for (let y = 2032; y >= 2020; y--) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    sel.appendChild(opt);
+  }
+}
+
   //--- Autocomplete Setup ---
   function setupAutocomplete(inputId, listId) {
     const input = document.getElementById(inputId);
@@ -716,13 +732,18 @@ function getCategoryColor(category, index = 0) {
   }
 
   async function loadHoldings() {
-    const params = new URLSearchParams();
     const search = document.getElementById("filter-search").value.trim();
+    const year = document.getElementById("filter-year").value;
+    const month = document.getElementById("filter-month").value;
     const assetClass = document.getElementById("filter-class").value;
     const broker = document.getElementById("filter-broker").value;
     const currency = document.getElementById("filter-currency").value;
 
+    const params = new URLSearchParams();
+
     if (search) params.set("name", search);
+    if (year) params.set("year", year);
+    if (month) params.set("month", month);
     if (assetClass) params.set("asset_class", assetClass);
     if (broker) params.set("broker", broker);
     if (currency) params.set("currency", currency);
@@ -953,11 +974,15 @@ function getCategoryColor(category, index = 0) {
 
   //--- Filters Event Handling ---
   document.getElementById("filter-search").addEventListener("input", debounce(loadHoldings, 300));
+  document.getElementById("filter-year").addEventListener("change", loadHoldings);
+  document.getElementById("filter-month").addEventListener("change", loadHoldings);
   document.getElementById("filter-class").addEventListener("change", loadHoldings);
   document.getElementById("filter-broker").addEventListener("change", loadHoldings);
   document.getElementById("filter-currency").addEventListener("change", loadHoldings);
   document.getElementById("filter-reset-btn").addEventListener("click", () => {
     document.getElementById("filter-search").value = "";
+    document.getElementById("filter-year").value = "";
+    document.getElementById("filter-month").value = "";
     document.getElementById("filter-class").value = "";
     document.getElementById("filter-broker").value = "";
     document.getElementById("filter-currency").value = "";
@@ -1572,6 +1597,7 @@ function getCategoryColor(category, index = 0) {
   //--- App Initialization Routines ---
   async function initApp() {
     await loadDropdowns();
+    populateYearFilter();
     await loadDefaultCurrency();
     // Refresh prices only if TTL allows (server-side check)
     try { await apiFetch("/api/refresh-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }); } catch(e) {}

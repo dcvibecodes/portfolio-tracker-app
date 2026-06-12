@@ -529,8 +529,27 @@ app.get("/api/holdings/:id", (req, res) => {
 
 app.get("/api/holdings", (req, res) => {
   let rows = db.prepare("SELECT * FROM holdings ORDER BY date DESC, id DESC").all();
-  const { name, asset_class, asset_type, broker, currency } = req.query;
+
+  const {
+    name,
+    year,
+    month,
+    asset_class,
+    asset_type,
+    broker,
+    currency
+  } = req.query;
+
   if (name) rows = rows.filter(r => r.name.toLowerCase().includes(name.toLowerCase()));
+
+  if (year) {
+    rows = rows.filter(r => r.date && r.date.substring(0, 4) === year);
+  }
+
+  if (month) {
+    rows = rows.filter(r => r.date && r.date.substring(5, 7) === month);
+  }
+
   if (asset_class) rows = rows.filter(r => r.asset_class === asset_class);
   if (asset_type) rows = rows.filter(r => r.asset_type === asset_type);
   if (broker) rows = rows.filter(r => r.broker === broker);

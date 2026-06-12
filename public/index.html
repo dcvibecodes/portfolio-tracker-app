@@ -201,9 +201,35 @@
       <section class="card">
         <h2>All Holdings</h2>
         <div class="filters">
-          <label>Search <input type="text" id="filter-search" placeholder="Asset name..." /></label>
-          <label>Category <select id="filter-class"><option value="">All</option></select></label>
-          <label>Broker <select id="filter-broker"><option value="">All</option></select></label>
+        <label>Search <input type="text" id="filter-search" placeholder="Asset name..." /></label>
+
+        <label>Year
+          <select id="filter-year">
+            <option value="">All</option>
+          </select>
+        </label>
+
+        <label>Month
+          <select id="filter-month">
+            <option value="">All</option>
+            <option value="01">Jan</option>
+            <option value="02">Feb</option>
+            <option value="03">Mar</option>
+            <option value="04">Apr</option>
+            <option value="05">May</option>
+            <option value="06">Jun</option>
+            <option value="07">Jul</option>
+            <option value="08">Aug</option>
+            <option value="09">Sep</option>
+            <option value="10">Oct</option>
+            <option value="11">Nov</option>
+            <option value="12">Dec</option>
+          </select>
+        </label>
+
+        <label>Category <select id="filter-class"><option value="">All</option></select></label>
+
+        <label>Broker <select id="filter-broker"><option value="">All</option></select></label>
           <label>Currency
             <select id="filter-currency">
               <option value="">All</option>
