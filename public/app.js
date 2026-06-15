@@ -486,18 +486,25 @@ function getCategoryColor(category, index = 0) {
 
     if (classPieChart) classPieChart.destroy();
     const classPieCanvas = document.getElementById("class-pie");
+    const classInvested = classLabels.map(k => toDisplayCurrency(summary.by_class[k].invested));
     classPieChart = new Chart(classPieCanvas, {
       type: "bar",
       data: {
         labels: classLabels,
-        datasets: [{ data: classValues.map(v => toDisplayCurrency(v)), backgroundColor: classColors.slice(0, classLabels.length), borderRadius: 4 }]
+        datasets: [
+          { label: "Current Value", data: classValues.map(v => toDisplayCurrency(v)), backgroundColor: classColors.slice(0, classLabels.length), borderRadius: 4, order: 2 },
+          { label: "Invested", data: classInvested, type: "line", borderColor: "rgba(150,150,150,0.7)", backgroundColor: "rgba(150,150,150,0.3)", pointBackgroundColor: "rgba(150,150,150,0.9)", pointRadius: 4, borderWidth: 2, fill: false, indexAxis: "y", order: 1 }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         indexAxis: "y",
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (ctx) => curSym + fmtCompact(ctx.raw) + ` (${totalVal ? (classValues[ctx.dataIndex] / totalVal * 100).toFixed(1) : 0}%)` } }
+          legend: { display: true, position: "bottom", labels: { boxWidth: 12, font: { size: 10 } } },
+          tooltip: { callbacks: { label: (ctx) => {
+            if (ctx.datasetIndex === 0) return " Value: " + curSym + fmtCompact(ctx.raw) + ` (${totalVal ? (classValues[ctx.dataIndex] / totalVal * 100).toFixed(1) : 0}%)`;
+            return " Invested: " + curSym + fmtCompact(ctx.raw);
+          } } }
         },
         scales: {
           x: { display: false },

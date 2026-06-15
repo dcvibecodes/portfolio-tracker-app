@@ -1,6 +1,14 @@
-# Portfolio+ v3.2.0
+# Portfolio+ v3.3.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.3.0
+
+### Holdings Tab
+- **Summary bar moved above table** — The entries/invested/value/P&L summary now displays above the holdings table in a subtle, compact style (matching the Expenses+ reports tab)
+
+### Dashboard — By Category Chart
+- **Invested line overlay** — The horizontal bar chart now shows a gray line with dots representing invested amounts per category, alongside the colored current-value bars. Legend and tooltips distinguish both datasets.
 
 ## What's New in v3.2.0
 
