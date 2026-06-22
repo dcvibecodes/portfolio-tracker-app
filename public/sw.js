@@ -1,6 +1,8 @@
-const CACHE_NAME = "portfolio-plus-v3.3.0";
+const CACHE_NAME = "portfolio-plus-v3.3.1";
 const STATIC_ASSETS = [
   "/",
+  "/style.css",
+  "/app.js",
   "/favicon.svg",
   "/favicon-32x32.png",
   "/favicon-16x16.png",

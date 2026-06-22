@@ -3,6 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");
+const compression = require("compression");
 const Database = require("better-sqlite3");
 const bcrypt = require("bcrypt");
 
@@ -392,7 +393,12 @@ function getLoginPage() {
 }
 
 app.use(authMiddleware);
-app.use(express.static(path.join(__dirname, "public")));
+app.use(compression());
+app.use(express.static(path.join(__dirname, "public"), {
+  maxAge: "1d",
+  immutable: false,
+  etag: true
+}));
 
 // --- SETTINGS APIS ---
 app.get("/api/settings/asset-classes", (req, res) => {
