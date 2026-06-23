@@ -1,19 +1,13 @@
 (function () {
   "use strict";
 
-  //--- Theme Management ---
-  const themeToggle = document.getElementById("theme-toggle");
-  function applyTheme(theme) {
-    document.documentElement.setAttribute("data-theme", theme);
-    themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+  //--- Theme Management (auto-detect system preference) ---
+  function applySystemTheme() {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
   }
-  applyTheme(localStorage.getItem("theme") || "light");
-
-  themeToggle.addEventListener("click", () => {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    localStorage.setItem("theme", next);
-    applyTheme(next);
-  });
+  applySystemTheme();
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applySystemTheme);
 
   //--- Tab Navigation ---
   const tabBtns = document.querySelectorAll(".bottom-nav-btn");

@@ -65,11 +65,7 @@ button, a, input, select, textarea, [tabindex] {
 }
 .currency-toggle-btn:hover { background: var(--border); }
 
-.theme-toggle-btn {
-  background: none; border: none; font-size: 1.3rem; cursor: pointer;
-  padding: 4px 8px; border-radius: 6px; color: inherit;
-}
-.theme-toggle-btn:hover { background: var(--border); }
+
 
 /* Navigation — Bottom Nav (mobile) / Top Nav (desktop) */
 .bottom-nav {
