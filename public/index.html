@@ -104,6 +104,20 @@
           </div>
           <div class="chart-wrapper-compact"><canvas id="monthly-chart" role="img" aria-label="Monthly investments bar chart"></canvas></div>
         </section>
+        <section class="card chart-card-eq">
+          <div class="chart-header-compact">
+            <h3 class="allocation-title">Investment Vintage</h3>
+            <div class="range-selector range-selector-vintage">
+              <button class="range-btn-vintage" data-months="12">1Y</button>
+              <button class="range-btn-vintage" data-months="24">2Y</button>
+              <button class="range-btn-vintage" data-months="36">3Y</button>
+              <button class="range-btn-vintage" data-months="60">5Y</button>
+              <button class="range-btn-vintage active" data-months="0">All</button>
+            </div>
+          </div>
+          <div class="vintage-filter-row" id="vintage-filter-row"></div>
+          <div class="chart-wrapper-compact"><canvas id="vintage-chart" role="img" aria-label="Return percentage by purchase month chart"></canvas></div>
+        </section>
       </div>
 
       <section class="card">

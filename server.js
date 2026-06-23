@@ -1167,6 +1167,52 @@ app.get("/api/monthly-investments", asyncHandler(async (req, res) => {
   res.json({ months: sliced, classes: classesArr, total_current_value: totalCurrentValue, default_currency: defaultCur });
 }));
 
+//--- Vintage / Cohort Return Analysis ---
+app.get("/api/vintage-returns", asyncHandler(async (req, res) => {
+  const rows = db.prepare("SELECT date, invested_amount, invested_base, currency, current_price, quantity, txn_type, asset_class FROM holdings ORDER BY date").all();
+  const defaultCur = getDefaultCurrency();
+  const rateData = await getAllRates();
+
+  // Group by purchase month: for each month, sum invested and current value (total + per category)
+  const monthMap = {};
+  const categoriesSet = new Set();
+
+  for (const h of rows) {
+    if (h.txn_type === "sell") continue;
+    const month = h.date.substring(0, 7);
+    const cls = h.asset_class || "Other";
+    categoriesSet.add(cls);
+
+    if (!monthMap[month]) monthMap[month] = { invested: 0, current_value: 0, by_class: {} };
+    if (!monthMap[month].by_class[cls]) monthMap[month].by_class[cls] = { invested: 0, current_value: 0 };
+
+    const fx = h.currency === defaultCur ? 1 : (rateData.rates[h.currency] || 1);
+    const invested = (h.invested_base != null) ? h.invested_base : (h.invested_amount || 0) * fx;
+    const curval = h.current_price ? (h.current_price * h.quantity * fx) : invested;
+
+    monthMap[month].invested += invested;
+    monthMap[month].current_value += curval;
+    monthMap[month].by_class[cls].invested += invested;
+    monthMap[month].by_class[cls].current_value += curval;
+  }
+
+  const months = Object.keys(monthMap).sort();
+  const result = months.map(month => {
+    const d = monthMap[month];
+    const pnl_pct = d.invested > 0 ? ((d.current_value - d.invested) / d.invested) * 100 : 0;
+    const by_class = {};
+    for (const cls of categoriesSet) {
+      const cd = d.by_class[cls];
+      if (cd && cd.invested > 0) {
+        by_class[cls] = { invested: cd.invested, current_value: cd.current_value, pnl_pct: ((cd.current_value - cd.invested) / cd.invested) * 100 };
+      }
+    }
+    return { month, invested: d.invested, current_value: d.current_value, pnl_pct: Math.round(pnl_pct * 100) / 100, by_class };
+  });
+
+  res.json({ months: result, categories: Array.from(categoriesSet).sort(), default_currency: defaultCur });
+}));
+
 // --- WATCHLIST APIS ---
 app.get("/api/watchlist", asyncHandler(async (req, res) => {
   const portfolioTickers = db.prepare("SELECT asset_name, ticker FROM ticker_map ORDER BY asset_name").all();

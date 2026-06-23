@@ -62,7 +62,7 @@
     localStorage.removeItem(DASHBOARD_CACHE_KEY);
   }
 
-  let classPieChart = null, valueTrendChart = null, monthlyChart = null;
+  let classPieChart = null, valueTrendChart = null, monthlyChart = null, vintageChart = null;
 
   const CATEGORY_COLORS = {
   "India": "#3b82f6",
@@ -513,9 +513,10 @@ function getCategoryColor(category, index = 0) {
       }
     });
 
-    // --- Load value trend + monthly chart ---
+    // --- Load value trend + monthly chart + vintage ---
     loadValueTrend(currentTrendMonths);
     loadMonthlyChart(currentBarMonths);
+    loadVintageChart(currentVintageMonths);
     renderPivotTable(breakdown);
   }
 
@@ -644,9 +645,158 @@ function getCategoryColor(category, index = 0) {
     });
   }
 
+  //--- Vintage / Cohort Return Chart ---
+  let vintageData = null;
+  let currentVintageCategory = ""; // empty = All
+
+  async function loadVintageChart(months) {
+    try {
+      vintageData = await apiFetch("/api/vintage-returns");
+    } catch(e) { return; }
+
+    if (!vintageData.months || vintageData.months.length === 0) return;
+
+    // Render category filter buttons
+    renderVintageFilters(vintageData.categories);
+    renderVintageChartData(months);
+  }
+
+  function renderVintageFilters(categories) {
+    const row = document.getElementById("vintage-filter-row");
+    row.innerHTML = "";
+
+    const allBtn = document.createElement("button");
+    allBtn.className = "vintage-filter-btn" + (currentVintageCategory === "" ? " active" : "");
+    allBtn.textContent = "All";
+    allBtn.addEventListener("click", () => {
+      currentVintageCategory = "";
+      row.querySelectorAll(".vintage-filter-btn").forEach(b => b.classList.remove("active"));
+      allBtn.classList.add("active");
+      renderVintageChartData(currentVintageMonths);
+    });
+    row.appendChild(allBtn);
+
+    for (const cls of categories) {
+      const btn = document.createElement("button");
+      btn.className = "vintage-filter-btn" + (currentVintageCategory === cls ? " active" : "");
+      btn.textContent = cls;
+      btn.addEventListener("click", () => {
+        currentVintageCategory = cls;
+        row.querySelectorAll(".vintage-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderVintageChartData(currentVintageMonths);
+      });
+      row.appendChild(btn);
+    }
+  }
+
+  function renderVintageChartData(months) {
+    if (!vintageData || !vintageData.months) return;
+
+    const allMonths = vintageData.months;
+    let filtered;
+
+    if (currentVintageCategory) {
+      // Only include months that have data for this category
+      filtered = allMonths
+        .filter(m => m.by_class[currentVintageCategory] && m.by_class[currentVintageCategory].invested > 0)
+        .map(m => ({
+          month: m.month,
+          invested: m.by_class[currentVintageCategory].invested,
+          current_value: m.by_class[currentVintageCategory].current_value,
+          pnl_pct: Math.round(m.by_class[currentVintageCategory].pnl_pct * 100) / 100
+        }));
+    } else {
+      filtered = allMonths;
+    }
+
+    // Slice to requested range
+    const sliced = (months && months > 0) ? filtered.slice(-months) : filtered;
+
+    if (sliced.length === 0) {
+      if (vintageChart) vintageChart.destroy();
+      vintageChart = null;
+      return;
+    }
+
+    const labels = sliced.map(m => {
+      const [y, mo] = m.month.split("-");
+      return new Date(y, mo - 1).toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+    });
+    const pnlValues = sliced.map(m => m.pnl_pct);
+
+    const pointColors = pnlValues.map(v => v >= 0 ? "rgba(16, 185, 129, 0.8)" : "rgba(239, 68, 68, 0.8)");
+
+    // Pick line color based on category
+    const categoryIdx = currentVintageCategory ? vintageData.categories.indexOf(currentVintageCategory) : -1;
+    const lineColor = currentVintageCategory ? getCategoryColor(currentVintageCategory, categoryIdx) : "#8b5cf6";
+
+    if (vintageChart) vintageChart.destroy();
+    const canvas = document.getElementById("vintage-chart");
+    vintageChart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: currentVintageCategory || "All",
+          data: pnlValues,
+          borderColor: lineColor,
+          backgroundColor: function(context) {
+            const chart = context.chart;
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return "rgba(139, 92, 246, 0.1)";
+            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            gradient.addColorStop(0, lineColor + "4D"); // 30% opacity
+            gradient.addColorStop(1, lineColor + "05"); // ~2% opacity
+            return gradient;
+          },
+          borderWidth: 2.5,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          pointBackgroundColor: pointColors,
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => items[0].label,
+              label: (ctx) => {
+                const m = sliced[ctx.dataIndex];
+                const curSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
+                return [
+                  `P&L: ${ctx.raw >= 0 ? "+" : ""}${ctx.raw.toFixed(2)}%`,
+                  `Invested: ${curSym}${fmtCompact(toDisplayCurrency(m.invested))}`,
+                  `Value: ${curSym}${fmtCompact(toDisplayCurrency(m.current_value))}`
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            ticks: { callback: (v) => v.toFixed(0) + "%", font: { size: 9 } },
+            grid: { color: "rgba(0,0,0,0.05)" }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 8 }, maxRotation: 45, maxTicksLimit: 10 }
+          }
+        }
+      }
+    });
+  }
+
   //--- Range Buttons Setup ---
   let currentBarMonths = 12;
   let currentTrendMonths = 12;
+  let currentVintageMonths = 0; // default All
 
   document.querySelectorAll(".range-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -663,6 +813,15 @@ function getCategoryColor(category, index = 0) {
       btn.classList.add("active");
       currentTrendMonths = Number(btn.dataset.months);
       loadValueTrend(currentTrendMonths);
+    });
+  });
+
+  document.querySelectorAll(".range-btn-vintage").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".range-btn-vintage").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentVintageMonths = Number(btn.dataset.months);
+      loadVintageChart(currentVintageMonths);
     });
   });
 

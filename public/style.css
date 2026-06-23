@@ -160,7 +160,7 @@ button, a, input, select, textarea, [tabindex] {
 /* Three equal chart cards */
 .dashboard-charts-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-bottom: 20px;
 }
@@ -170,6 +170,7 @@ button, a, input, select, textarea, [tabindex] {
   padding: 14px;
   display: flex;
   flex-direction: column;
+  margin-bottom: 0;
 }
 .chart-card-eq .chart-wrapper-compact {
   flex: 1;
@@ -219,6 +220,27 @@ button, a, input, select, textarea, [tabindex] {
   padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-weight: 500; color: var(--text-secondary);
 }
 .range-selector-trend { display: flex; gap: 4px; }
+.range-btn-vintage {
+  border-radius: 6px; background: var(--bg); border: 1px solid var(--border);
+  padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-weight: 500; color: var(--text-secondary);
+}
+.range-btn-vintage:hover { background: var(--border); color: var(--text); }
+.range-btn-vintage.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.range-selector-vintage { display: flex; gap: 4px; }
+
+.vintage-filter-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.vintage-filter-btn {
+  border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
+  padding: 2px 10px; font-size: 0.65rem; cursor: pointer; font-weight: 600;
+  color: var(--text-secondary); transition: all 0.15s; font-family: inherit;
+}
+.vintage-filter-btn:hover { border-color: var(--text); color: var(--text); }
+.vintage-filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* Expandable pivot tables layout */
 .pivot-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
@@ -563,7 +585,7 @@ margin-right: 6px;
 
 /* Responsive / Screen width definitions breakpoint actions rules */
 @media (max-width: 900px) {
-  .dashboard-charts-row { grid-template-columns: 1fr 1fr; }
+  .dashboard-charts-row { grid-template-columns: 1fr; }
   .chart-card-eq { height: auto; min-height: 220px; }
 }
 

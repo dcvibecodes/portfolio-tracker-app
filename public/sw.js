@@ -1,4 +1,4 @@
-const CACHE_NAME = "portfolio-plus-v3.3.1";
+const CACHE_NAME = "portfolio-plus-v3.4.0";
 const STATIC_ASSETS = [
   "/",
   "/style.css",

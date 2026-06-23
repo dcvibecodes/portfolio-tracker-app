@@ -1,6 +1,25 @@
-# Portfolio+ v3.3.0
+# Portfolio+ v3.4.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.4.0
+
+### Dashboard — Investment Vintage Chart
+- **New chart: Investment Vintage** — Shows P&L% for each month's purchases (cohort analysis). Answers "which month's investments have performed best?"
+- **Category filter** — Toggle between All or any individual category to isolate that category's vintage performance
+- **Range selector** — 1Y/2Y/3Y/5Y/All (defaults to All to show full investment history)
+- **2x2 chart layout** — Dashboard charts now arranged in a balanced 2-column grid (By Category + Portfolio Value | Monthly Investments + Investment Vintage)
+
+### Performance
+- **Gzip compression** — All responses compressed via `compression` middleware (~76% bandwidth reduction)
+- **Deferred script loading** — Chart.js and app.js load with `defer`, unblocking first paint
+- **CDN preconnect** — DNS prefetch + preconnect to jsdelivr CDN eliminates cold-start latency
+- **Static asset caching** — `Cache-Control: max-age=1d` on all static files
+- **Service worker pre-caching** — `style.css` and `app.js` now pre-cached for instant repeat visits
+
+### Safari Favicon Fix
+- **PNG favicons prioritized over SVG** — Safari now correctly displays the favicon (Safari doesn't support SVG favicons)
+- **Mask icon added** — Pinned tab icon for Safari desktop
 
 ## What's New in v3.3.0
 
@@ -34,6 +53,7 @@ Self-hosted investment portfolio tracker for any asset class, currency, and brok
 - By Category bar chart
 - Portfolio Value trend line chart (invested vs value, 1Y/2Y/3Y/5Y/All)
 - Monthly Investments stacked bar chart (by category, 1Y/2Y/3Y/5Y/All)
+- Investment Vintage chart (P&L% by purchase month, category filter, 1Y/2Y/3Y/5Y/All)
 - Category Breakdown pivot table with day change % per asset
 - Currency toggle (switch display between base and alt currency)
 
