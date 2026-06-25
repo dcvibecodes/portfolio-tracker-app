@@ -1836,34 +1836,15 @@ function getCategoryColor(category, index = 0) {
     const pin = document.getElementById("settings-disable-pin").value; const msg = document.getElementById("settings-disable-message");
     try {
       await apiFetch("/api/lock/disable", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
-      localStorage.removeItem("lock-remembered"); msg.textContent = "Lock disabled."; msg.className = "form-msg success"; document.getElementById("settings-disable-pin").value = ""; loadLockSettings();
+      msg.textContent = "Lock disabled."; msg.className = "form-msg success"; document.getElementById("settings-disable-pin").value = ""; loadLockSettings();
     } catch(e) { msg.textContent = e.message || "Incorrect PIN"; msg.className = "form-msg error"; }
   });
 
-  document.querySelectorAll('#settings-pin, #settings-pin-confirm, #settings-disable-pin, #lock-pin-input').forEach(input => { input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); }); });
+  document.querySelectorAll('#settings-pin, #settings-pin-confirm, #settings-disable-pin').forEach(input => { input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); }); });
   document.getElementById("settings-pin-confirm").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("settings-lock-enable").click(); } });
   document.getElementById("settings-disable-pin").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("settings-lock-disable").click(); } });
 
-  //--- Main Unlock Screen Handling ---
-  const lockOverlay = document.getElementById("lock-overlay");
-  document.getElementById("lock-unlock-btn").addEventListener("click", async() => {
-    const pin = document.getElementById("lock-pin-input").value; const err = document.getElementById("lock-error"); const remember = document.getElementById("lock-remember").checked;
-    try {
-      await apiFetch("/api/lock/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
-      if (remember) localStorage.setItem("lock-remembered", new Date().toISOString().slice(0, 10));
-      lockOverlay.style.display = "none"; initApp();
-    } catch(e) { err.textContent = e.message || "Incorrect PIN."; err.style.display = "block"; }
-  });
-  document.getElementById("lock-pin-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("lock-unlock-btn").click(); } });
-  document.getElementById("show-recovery-btn").addEventListener("click", e => { e.preventDefault(); document.getElementById("lock-recovery-section").style.display = "block"; });
-  document.getElementById("lock-recovery-submit").addEventListener("click", async () => {
-    const code = document.getElementById("lock-recovery-input").value; const err = document.getElementById("lock-error");
-    try {
-      await apiFetch("/api/lock/recovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
-      lockOverlay.style.display = "none"; initApp();
-    } catch(e) { err.textContent = e.message || "Invalid recovery code."; err.style.display = "block"; }
-  });
-  document.getElementById("lock-recovery-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("lock-recovery-submit").click(); } });
+
 
   //--- App Initialization Routines ---
   async function initApp() {
@@ -1900,17 +1881,7 @@ function getCategoryColor(category, index = 0) {
     document.getElementById("add-date").value = new Date().toISOString().slice(0, 10); // fix #2.5: use .value not .valueAsDate
   }
 
-  async function checkLockAndInit() {
-    try {
-      const { locked } = await apiFetch("/api/lock/status");
-      if (locked) {
-        const remembered = localStorage.getItem("lock-remembered"); const today = new Date().toISOString().slice(0, 10);
-        if (remembered === today) { lockOverlay.style.display = "none"; initApp(); }
-        else { if (remembered) localStorage.removeItem("lock-remembered"); lockOverlay.style.display = "flex"; }
-      } else { lockOverlay.style.display = "none"; initApp(); }
-    } catch { lockOverlay.style.display = "none"; initApp(); }
-  }
-  checkLockAndInit();
+  initApp();
   loadLockSettings();
 
 

@@ -22,22 +22,6 @@
   <!-- Chart.js loaded at end of body with pinned version and SRI -->
 </head>
 <body>
-  <div id="lock-overlay" class="lock-overlay">
-    <div class="lock-modal">
-      <h2>Portfolio+ Locked</h2>
-      <p class="lock-subtitle">Enter your 6-digit PIN to access the app.</p>
-      <input type="password" id="lock-pin-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="......" />
-      <label class="checkbox-label"><input type="checkbox" id="lock-remember" /> Remember for today</label>
-      <button id="lock-unlock-btn" type="button" class="lock-btn">Unlock</button>
-      <p id="lock-error" class="lock-error"></p>
-      <p class="lock-recovery-link"><a href="#" id="show-recovery-btn">Forgot PIN? Use recovery code</a></p>
-      <div id="lock-recovery-section" class="lock-recovery-section">
-        <input type="text" id="lock-recovery-input" placeholder="Recovery code" />
-        <button id="lock-recovery-submit" type="button" class="lock-btn">Recover</button>
-      </div>
-    </div>
-  </div>
-
   <header class="app-header">
     <span class="app-title">Portfolio+</span>
     <div class="header-actions">
