@@ -313,7 +313,7 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, secure: false, sameSite: "lax", maxAge: 24 * 60 * 60 * 1000 }
+  cookie: { httpOnly: true, secure: false, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
 function authMiddleware(req, res, next) {
@@ -729,6 +729,36 @@ app.delete("/api/holdings/:id", (req, res) => {
   if (!existing) return res.status(404).json({ error: "Not found." });
   db.prepare("DELETE FROM holdings WHERE id = ?").run(id);
   res.json({ success: true });
+});
+
+// --- Copy Transaction (duplicate with today's date) ---
+app.post("/api/holdings/:id/copy", (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare("SELECT * FROM holdings WHERE id = ?").get(id);
+  if (!existing) return res.status(404).json({ error: "Not found." });
+
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  const result = db.prepare(`
+    INSERT INTO holdings (date, name, asset_class, asset_type, broker, txn_type, buy_price, quantity, invested_amount, currency, notes, ticker, invested_base)
+    VALUES (@date, @name, @asset_class, @asset_type, @broker, @txn_type, @buy_price, @quantity, @invested_amount, @currency, @notes, @ticker, @invested_base)
+  `).run({
+    date: today,
+    name: existing.name,
+    asset_class: existing.asset_class,
+    asset_type: existing.asset_type || "",
+    broker: existing.broker || "",
+    txn_type: existing.txn_type || "buy",
+    buy_price: existing.buy_price || 0,
+    quantity: existing.quantity || 0,
+    invested_amount: existing.invested_amount || 0,
+    currency: existing.currency || "INR",
+    notes: existing.notes || "",
+    ticker: existing.ticker || "",
+    invested_base: existing.invested_base
+  });
+
+  res.json({ id: result.lastInsertRowid });
 });
 
 //--- Batch Operations ---

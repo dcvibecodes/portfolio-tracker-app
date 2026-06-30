@@ -1,6 +1,16 @@
-# Portfolio+ v3.4.0
+# Portfolio+ v3.5.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.5.0
+
+### Holdings — Copy Transaction
+- **One-click copy** — Each transaction row now has a 📋 copy button that duplicates the transaction with today's date
+- **Instant feedback** — Toast notification confirms "Transaction copied"
+- **No UI disruption** — The copied transaction appears at the top of the list (sorted by date) and can be edited in place if needed
+
+### Session
+- **Extended session duration** — Authenticated session now lasts 7 days (previously 24 hours)
 
 ## What's New in v3.4.0
 

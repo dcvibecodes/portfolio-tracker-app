@@ -1013,6 +1013,7 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount ${plClass}">${fmtPct(r.gain_loss_pct)}</td>
         <td class="col-actions">
           ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">📝</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">🗒️</button>`}
+          <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">📋</button>
           <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">✏️</button>
           <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">🗑️</button>
         </td>
@@ -1043,6 +1044,7 @@ function getCategoryColor(category, index = 0) {
     const id = Number(btn.dataset.id);
     if (btn.classList.contains("edit-btn")) editHolding(id);
     else if (btn.classList.contains("delete-btn")) deleteHolding(id);
+    else if (btn.classList.contains("copy-btn")) copyHolding(id);
     else if (btn.classList.contains("notes-btn")) viewNotes(id);
   });
 
@@ -1335,6 +1337,15 @@ function getCategoryColor(category, index = 0) {
       await apiFetch(`/api/holdings/${id}`, { method: "DELETE" });
       loadHoldings();
     } catch(e) { toast("Error deleting", "error"); }
+  }
+
+  async function copyHolding(id) {
+    try {
+      await apiFetch(`/api/holdings/${id}/copy`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      toast("Transaction copied", "success");
+      invalidateDashboardCache();
+      loadHoldings();
+    } catch(e) { toast(e.message || "Error copying transaction", "error"); }
   }
 
   //--- Currency Header Toggle Actions ---
