@@ -2,6 +2,7 @@
 node_modules/
 
 # SQLite database files
+data/
 data/*.db
 data/*.db-shm
 data/*.db-wal
