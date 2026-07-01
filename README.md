@@ -1,6 +1,28 @@
-# Portfolio+ v3.6.0
+# Portfolio+ v3.7.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.7.0
+
+### Holdings — Mobile Search & Filters
+- **Inline search + filter chip** — replaced the filter FAB with a compact search bar and "Filters" pill above the table; search is always visible, filters open as a bottom sheet
+- **Table-first view** — holdings data immediately visible on mobile without scrolling past UI
+
+### Swipe to Dismiss
+- **All bottom sheets** — swipe down to dismiss the New Transaction and Filters sheets; drag handle shown at top
+- **Instant dismiss** — no visual snap-back; sheet disappears immediately on threshold
+
+### Font & Style Consistency (with Expenses+)
+- **Summary card values** — `1.1rem` (was `1.2rem`)
+- **Chart headings (h3)** — `0.75rem`, uppercase, letter-spacing (was `0.9rem`, normal case)
+- **Toast weight** — `font-weight: 600` added
+- **`.btn-secondary`** — rule added with `font-size: 0.85rem; font-weight: 500`
+
+### FAB Position Fix
+- **PWA safe area** — FAB at `bottom: 110px` to clear nav bar in Safari and PWA standalone mode
+
+### Bug Fix
+- **Duplicate "New Transaction" heading** — removed duplicate when form card is inside the mobile bottom sheet
 
 ## What's New in v3.6.0
 

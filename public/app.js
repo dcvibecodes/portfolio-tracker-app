@@ -2134,3 +2134,103 @@ function getCategoryColor(category, index = 0) {
     }
   });
 })();
+
+
+// ===== SWIPE TO DISMISS BOTTOM SHEETS =====
+(function() {
+  const DISMISS_THRESHOLD = 80;
+
+  function setupSwipeDismiss(overlay, sheet, onDismiss) {
+    if (!overlay || !sheet) return;
+
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+
+    sheet.addEventListener("touchstart", function(e) {
+      const header = sheet.querySelector(".mobile-form-header");
+      const touchedHeader = header && header.contains(e.target);
+      const scrolledToTop = sheet.scrollTop <= 0;
+
+      if (!touchedHeader && !scrolledToTop) return;
+      if (e.target.closest("button, input, select, textarea, a")) return;
+
+      startY = e.touches[0].clientY;
+      isDragging = false;
+    }, { passive: true });
+
+    sheet.addEventListener("touchmove", function(e) {
+      if (startY === 0) return;
+      currentY = e.touches[0].clientY;
+      const deltaY = currentY - startY;
+
+      if (deltaY < 0) {
+        if (isDragging) {
+          sheet.style.transform = "";
+          sheet.classList.remove("dragging");
+          isDragging = false;
+        }
+        return;
+      }
+
+      if (deltaY > 10) {
+        isDragging = true;
+        sheet.classList.add("dragging");
+        sheet.style.transform = "translateY(" + deltaY + "px)";
+      }
+    }, { passive: true });
+
+    sheet.addEventListener("touchend", function() {
+      if (!isDragging) {
+        startY = 0;
+        return;
+      }
+
+      const deltaY = currentY - startY;
+      sheet.classList.remove("dragging");
+
+      if (deltaY > DISMISS_THRESHOLD) {
+        // Dismiss immediately — keep sheet at current position, hide overlay
+        onDismiss();
+        // Reset transform after overlay is hidden
+        setTimeout(function() {
+          sheet.style.transform = "";
+          sheet.style.transition = "";
+        }, 50);
+      } else {
+        // Snap back
+        sheet.style.transition = "transform 0.15s ease";
+        sheet.style.transform = "";
+        setTimeout(function() {
+          sheet.style.transition = "";
+        }, 150);
+      }
+
+      startY = 0;
+      currentY = 0;
+      isDragging = false;
+    }, { passive: true });
+  }
+
+  // Setup for New Transaction sheet
+  var formOverlay = document.getElementById("mobile-form-overlay");
+  var formSheet = document.getElementById("mobile-form-sheet");
+  if (formOverlay && formSheet) {
+    setupSwipeDismiss(formOverlay, formSheet, function() {
+      var closeBtn = document.getElementById("mobile-form-close");
+      if (closeBtn) closeBtn.click();
+    });
+  }
+
+  // Setup for Filter sheet
+  var filterOverlay = document.getElementById("mobile-filter-overlay");
+  if (filterOverlay) {
+    var filterSheet = filterOverlay.querySelector(".mobile-form-sheet");
+    if (filterSheet) {
+      setupSwipeDismiss(filterOverlay, filterSheet, function() {
+        var closeBtn = document.getElementById("mobile-filter-close");
+        if (closeBtn) closeBtn.click();
+      });
+    }
+  }
+})();
