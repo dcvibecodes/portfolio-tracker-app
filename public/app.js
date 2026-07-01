@@ -1964,6 +1964,8 @@ function getCategoryColor(category, index = 0) {
     document.body.style.left = "0";
     document.body.style.right = "0";
     document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overscrollBehavior = "none";
 
     // Move form card content into the bottom sheet
     body.appendChild(formCard);
@@ -1988,6 +1990,8 @@ function getCategoryColor(category, index = 0) {
     document.body.style.left = "";
     document.body.style.right = "";
     document.body.style.overflow = "";
+    document.body.style.overscrollBehavior = "";
+    document.documentElement.style.overscrollBehavior = "";
     window.scrollTo(0, scrollY);
 
     // Restore toggle/content state
@@ -2092,6 +2096,8 @@ function getCategoryColor(category, index = 0) {
     document.body.style.left = "0";
     document.body.style.right = "0";
     document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overscrollBehavior = "none";
 
     // Move filters into the sheet
     filterBody.appendChild(filtersDiv);
@@ -2109,6 +2115,8 @@ function getCategoryColor(category, index = 0) {
     document.body.style.left = "";
     document.body.style.right = "";
     document.body.style.overflow = "";
+    document.body.style.overscrollBehavior = "";
+    document.documentElement.style.overscrollBehavior = "";
     window.scrollTo(0, scrollY);
 
     // Move filters back to original position
