@@ -771,7 +771,7 @@ html, body { max-width: 100vw; overflow-x: hidden; }
 .mobile-add-fab {
   display: none;
   position: fixed;
-  bottom: 96px;
+  bottom: 110px;
   right: 20px;
   width: 44px;
   height: 44px;
