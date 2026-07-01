@@ -1,6 +1,21 @@
-# Portfolio+ v3.5.0
+# Portfolio+ v3.6.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.6.0
+
+### Holdings — Mobile Redesign
+- **FAB for new transactions** — on mobile, the "New Transaction" form is hidden; a floating "+" button opens it as a bottom sheet
+- **Inline search + filter chip** — compact search bar always visible above the table on mobile; "Filters" chip opens year/month/category/broker/currency in a bottom sheet
+- **Table-first view** — holdings table is immediately visible on mobile without scrolling past form or filter UI
+- **Scroll lock** — background page locked while any bottom sheet is open
+- **Desktop form always visible** — "New Transaction" heading added, form fields shown by default (no toggle)
+
+### Copy Transaction — Confirmation
+- **Confirm before copying** — clicking the 📋 copy button now shows a confirmation dialog explaining what will happen (duplicate with today's date) before creating the copy
+
+### App Lock
+- **Auto-focus PIN field** — cursor is now in the PIN input with keyboard open when the lock screen appears
 
 ## What's New in v3.5.0
 

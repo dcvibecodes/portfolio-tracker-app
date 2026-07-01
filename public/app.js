@@ -1340,6 +1340,7 @@ function getCategoryColor(category, index = 0) {
   }
 
   async function copyHolding(id) {
+    if (!await showConfirm("Copy Transaction?", "This will create a duplicate of this transaction with today's date. All other details (name, price, quantity, etc.) will remain the same.")) return;
     try {
       await apiFetch(`/api/holdings/${id}/copy`, { method: "POST", headers: { "Content-Type": "application/json" } });
       toast("Transaction copied", "success");
@@ -1936,4 +1937,200 @@ function getCategoryColor(category, index = 0) {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
+})();
+
+// ===== MOBILE FORM (Bottom Sheet for Holdings) =====
+(function() {
+  const fab = document.getElementById("mobile-add-fab");
+  const overlay = document.getElementById("mobile-form-overlay");
+  const sheet = document.getElementById("mobile-form-sheet");
+  const body = document.getElementById("mobile-form-body");
+  const closeBtn = document.getElementById("mobile-form-close");
+  const formCard = document.getElementById("holdings-form-card");
+
+  if (!fab || !overlay || !sheet || !body || !formCard) return;
+
+  let scrollY = 0;
+
+  function isMobile() {
+    return window.matchMedia("(max-width: 768px)").matches;
+  }
+
+  function openMobileForm() {
+    // Lock background scroll
+    scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.overflow = "hidden";
+
+    // Move form card content into the bottom sheet
+    body.appendChild(formCard);
+    formCard.style.display = "block";
+
+    // Force form visible (override inline style="display:none")
+    const toggle = formCard.querySelector(".new-txn-toggle-btn");
+    const content = formCard.querySelector(".new-txn-content");
+    if (toggle) toggle.style.display = "none";
+    if (content) content.style.display = "block";
+
+    overlay.classList.add("open");
+    fab.style.display = "none";
+  }
+
+  function closeMobileForm() {
+    overlay.classList.remove("open");
+
+    // Restore background scroll
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.overflow = "";
+    window.scrollTo(0, scrollY);
+
+    // Restore toggle/content state
+    const toggle = formCard.querySelector(".new-txn-toggle-btn");
+    const content = formCard.querySelector(".new-txn-content");
+    if (toggle) toggle.style.display = "";
+    if (content) content.style.display = "";
+
+    // Move form card back to its original location
+    const holdingsTab = document.getElementById("tab-holdings");
+    holdingsTab.insertBefore(formCard, holdingsTab.firstChild);
+
+    // On mobile, hide it again (CSS hides .holdings-form-card)
+    if (isMobile()) {
+      formCard.style.display = "";
+      fab.style.display = "flex";
+    }
+  }
+
+  fab.addEventListener("click", openMobileForm);
+  closeBtn.addEventListener("click", closeMobileForm);
+  overlay.addEventListener("click", function(e) {
+    if (e.target === overlay) closeMobileForm();
+  });
+
+  // Close bottom sheet after successful form submit
+  const form = document.getElementById("add-form");
+  if (form) {
+    form.addEventListener("submit", function() {
+      setTimeout(() => {
+        if (isMobile() && overlay.classList.contains("open")) {
+          closeMobileForm();
+        }
+      }, 400);
+    });
+  }
+
+  // Handle resize: if goes desktop while sheet is open, close it
+  window.addEventListener("resize", function() {
+    if (!isMobile() && overlay.classList.contains("open")) {
+      closeMobileForm();
+    }
+    // Toggle FAB visibility based on screen and active tab
+    const holdingsActive = document.getElementById("tab-holdings").classList.contains("active");
+    if (isMobile() && holdingsActive && !overlay.classList.contains("open")) {
+      fab.style.display = "flex";
+    } else if (!isMobile()) {
+      fab.style.display = "none";
+    }
+  });
+
+  // Only show FAB when on Holdings tab
+  const tabBtnsAll = document.querySelectorAll(".bottom-nav-btn");
+  tabBtnsAll.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (isMobile()) {
+        fab.style.display = btn.dataset.tab === "holdings" ? "flex" : "none";
+      }
+    });
+  });
+
+  // Initial state: show FAB if already on holdings tab
+  const holdingsActive = document.getElementById("tab-holdings").classList.contains("active");
+  if (isMobile() && holdingsActive) {
+    fab.style.display = "flex";
+  }
+})();
+
+// ===== MOBILE FILTER (Inline Search + Filter Chip → Bottom Sheet) =====
+(function() {
+  const filterOverlay = document.getElementById("mobile-filter-overlay");
+  const filterSheet = document.getElementById("mobile-filter-sheet");
+  const filterBody = document.getElementById("mobile-filter-body");
+  const filterCloseBtn = document.getElementById("mobile-filter-close");
+  const filtersDiv = document.getElementById("holdings-filters");
+  const filterChip = document.getElementById("mobile-filter-chip");
+  const mobileSearch = document.getElementById("mobile-filter-search");
+  const desktopSearch = document.getElementById("filter-search");
+
+  if (!filterOverlay || !filterSheet || !filterBody || !filtersDiv || !filterChip) return;
+
+  let scrollY = 0;
+  const filtersParent = filtersDiv.parentElement;
+  const filtersNextSibling = filtersDiv.nextSibling;
+
+  function isMobile() {
+    return window.matchMedia("(max-width: 768px)").matches;
+  }
+
+  // Sync mobile search input with the desktop search input
+  if (mobileSearch && desktopSearch) {
+    mobileSearch.addEventListener("input", function() {
+      desktopSearch.value = mobileSearch.value;
+      desktopSearch.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
+  function openFilterSheet() {
+    scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.overflow = "hidden";
+
+    // Move filters into the sheet
+    filterBody.appendChild(filtersDiv);
+    filtersDiv.style.display = "flex";
+    filtersDiv.style.flexDirection = "column";
+
+    filterOverlay.classList.add("open");
+  }
+
+  function closeFilterSheet() {
+    filterOverlay.classList.remove("open");
+
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.overflow = "";
+    window.scrollTo(0, scrollY);
+
+    // Move filters back to original position
+    if (filtersNextSibling) {
+      filtersParent.insertBefore(filtersDiv, filtersNextSibling);
+    } else {
+      filtersParent.appendChild(filtersDiv);
+    }
+    filtersDiv.style.display = "";
+    filtersDiv.style.flexDirection = "";
+  }
+
+  filterChip.addEventListener("click", openFilterSheet);
+  filterCloseBtn.addEventListener("click", closeFilterSheet);
+  filterOverlay.addEventListener("click", function(e) {
+    if (e.target === filterOverlay) closeFilterSheet();
+  });
+
+  // Handle resize
+  window.addEventListener("resize", function() {
+    if (!isMobile() && filterOverlay.classList.contains("open")) {
+      closeFilterSheet();
+    }
+  });
 })();

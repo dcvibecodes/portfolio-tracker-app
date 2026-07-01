@@ -131,9 +131,10 @@
     </div>
 
     <div id="tab-holdings" class="tab-content" role="tabpanel" aria-labelledby="tab-holdings-btn">
-      <section class="card">
-        <button id="new-txn-toggle" type="button" class="new-txn-toggle-btn">+ New Transaction</button>
-        <div id="new-txn-content" class="new-txn-content" style="display:none;">
+      <section class="card holdings-form-card" id="holdings-form-card">
+        <h2>New Transaction</h2>
+        <button id="new-txn-toggle" type="button" class="new-txn-toggle-btn">✕ Close</button>
+        <div id="new-txn-content" class="new-txn-content">
           <form id="add-form" class="grid add-grid">
             <label>Date <input type="date" id="add-date" required /></label>
             <label>Buy/Sell
@@ -198,7 +199,15 @@
 
       <section class="card">
         <h2>All Holdings</h2>
-        <div class="filters">
+        <!-- Mobile compact search + filter chip -->
+        <div class="mobile-search-bar" id="mobile-search-bar">
+          <input type="search" id="mobile-filter-search" placeholder="Search assets..." autocomplete="off" />
+          <button type="button" id="mobile-filter-chip" class="mobile-filter-chip">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            Filters
+          </button>
+        </div>
+        <div class="filters" id="holdings-filters">
         <label>Search <input type="text" id="filter-search" placeholder="Asset name..." /></label>
 
         <label>Year
@@ -298,6 +307,35 @@
           </table>
         </div>
       </section>
+
+      <!-- Mobile FAB to open form -->
+      <button type="button" id="mobile-add-fab" class="mobile-add-fab" aria-label="New transaction">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+
+      <!-- Mobile form overlay (bottom sheet) -->
+      <div id="mobile-form-overlay" class="mobile-form-overlay">
+        <div class="mobile-form-sheet" id="mobile-form-sheet">
+          <div class="mobile-form-header">
+            <span class="mobile-form-title">New Transaction</span>
+            <button type="button" id="mobile-form-close" class="mobile-form-close" aria-label="Close">✕</button>
+          </div>
+          <div class="mobile-form-body" id="mobile-form-body"></div>
+        </div>
+      </div>
+
+      <!-- Mobile filter FAB — removed, replaced by inline search bar -->
+
+      <!-- Mobile filter overlay (bottom sheet) -->
+      <div id="mobile-filter-overlay" class="mobile-form-overlay">
+        <div class="mobile-form-sheet" id="mobile-filter-sheet">
+          <div class="mobile-form-header">
+            <span class="mobile-form-title">Filters</span>
+            <button type="button" id="mobile-filter-close" class="mobile-form-close" aria-label="Close">✕</button>
+          </div>
+          <div class="mobile-filter-body" id="mobile-filter-body"></div>
+        </div>
+      </div>
     </div>
 
     <div id="tab-watchlist" class="tab-content" role="tabpanel" aria-labelledby="tab-watchlist-btn">
