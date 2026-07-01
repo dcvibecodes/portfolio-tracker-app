@@ -771,7 +771,7 @@ html, body { max-width: 100vw; overflow-x: hidden; }
 .mobile-add-fab {
   display: none;
   position: fixed;
-  bottom: 80px;
+  bottom: 96px;
   right: 20px;
   width: 44px;
   height: 44px;
@@ -785,10 +785,6 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   align-items: center;
   justify-content: center;
   transition: transform 0.2s, box-shadow 0.2s;
-}
-
-@media (display-mode: standalone) {
-    .mobile-add-fab { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 }
 
 .mobile-add-fab:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(59, 130, 246, 0.45); }
