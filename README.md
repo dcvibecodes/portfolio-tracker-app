@@ -1,6 +1,16 @@
-# Portfolio+ v3.7.0
+# Portfolio+ v3.8.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.8.0
+
+### Caching & Deploy
+- **No-cache static headers** — HTML/JS/CSS now served with `no-cache, no-store, must-revalidate`; browser always fetches fresh files on refresh, eliminating stale-cache issues after deploys
+- **Data TTL extended to 6 hours** — price cache, watchlist cache, exchange rate cache, and dashboard localStorage cache all set to 6-hour TTL (was 5 minutes); reduces Yahoo Finance API calls; manual "🔄 Prices" button still forces immediate refresh
+
+### Scroll Fix (Chromium)
+- **`overflow-x: clip` replaces `overflow-x: hidden`** — fixes vertical scrolling blocked on Chrome/Edge
+- **Pull-to-refresh disabled** — `overscroll-behavior-y: contain` prevents browser pull-to-refresh; eliminates conflict with swipe-to-dismiss
 
 ## What's New in v3.7.0
 

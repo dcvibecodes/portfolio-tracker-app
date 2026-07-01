@@ -50,7 +50,7 @@
   let cachedRateData = null; // Cached exchange rate for holdings tab
 
   const DASHBOARD_CACHE_KEY = "portfolio_dashboard_cache";
-  const DASHBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const DASHBOARD_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
   function invalidateDashboardCache() {
     localStorage.removeItem(DASHBOARD_CACHE_KEY);

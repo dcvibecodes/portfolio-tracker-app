@@ -162,10 +162,10 @@ if (fs.existsSync(secretPath)) {
 
 // --- Price refresh TTL ---
 let lastPriceRefreshTime = 0;
-const PRICE_REFRESH_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const PRICE_REFRESH_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // --- Watchlist price cache (in-memory with TTL) ---
-const WATCHLIST_PRICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const WATCHLIST_PRICE_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const watchlistPriceCache = {}; // { ticker: { data, timestamp } }
 
 function getCachedQuote(ticker) {
@@ -192,7 +192,7 @@ function setCachedPrice(ticker, price) {
 
 let yfInstance = null;
 let ratesSessionCache = {};
-const RATES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const RATES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 let ratesCacheTimestamp = 0;
 
 function getDefaultCurrency() {
@@ -395,9 +395,12 @@ function getLoginPage() {
 app.use(authMiddleware);
 app.use(compression());
 app.use(express.static(path.join(__dirname, "public"), {
-  maxAge: "1d",
-  immutable: false,
-  etag: true
+  etag: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html") || filePath.endsWith(".js") || filePath.endsWith(".css")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  }
 }));
 
 // --- SETTINGS APIS ---

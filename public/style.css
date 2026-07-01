@@ -581,9 +581,7 @@ margin-right: 6px;
 /* ===== MOBILE RESPONSIVE ===== */
 
 /* Prevent horizontal scroll on page */
-body {
-    overflow-x: clip;
-}
+body { overflow-x: clip; }
 
 @media (max-width: 768px) {
   /* Nav → fixed bottom tab bar */
