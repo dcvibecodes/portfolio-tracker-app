@@ -1977,11 +1977,6 @@ function getCategoryColor(category, index = 0) {
     if (toggle) toggle.style.display = "none";
     if (content) content.style.display = "block";
 
-    // Force-restart slide-up animation (Safari/iOS doesn't re-trigger on display change)
-    sheet.style.animation = "none";
-    void sheet.offsetHeight;
-    sheet.style.animation = "";
-
     overlay.classList.add("open");
     fab.style.display = "none";
   }
