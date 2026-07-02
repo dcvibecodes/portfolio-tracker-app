@@ -1,6 +1,11 @@
-# Portfolio+ v3.8.0
+# Portfolio+ v3.8.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.8.1
+
+### Bug Fix — Safari/iOS Bottom Sheet
+- **Swipe-to-dismiss fix on Safari/iOS** — after swiping down to close a bottom sheet, tapping the FAB now opens the sheet on the first tap (previously required two taps on Safari and PWA); root cause was Safari not registering the transform reset before the CSS class change; fixed with a forced reflow between operations
 
 ## What's New in v3.8.0
 

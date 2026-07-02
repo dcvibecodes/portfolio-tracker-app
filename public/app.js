@@ -2198,13 +2198,12 @@ function getCategoryColor(category, index = 0) {
       sheet.classList.remove("dragging");
 
       if (deltaY > DISMISS_THRESHOLD) {
-        // Dismiss immediately — keep sheet at current position, hide overlay
+        // Reset inline transform before dismissing (fixes Safari/iOS not re-animating on next open)
+        sheet.style.transition = "none";
+        sheet.style.transform = "";
+        void sheet.offsetHeight; // Force reflow so Safari registers the clean state
+        sheet.style.transition = "";
         onDismiss();
-        // Reset transform after overlay is hidden
-        setTimeout(function() {
-          sheet.style.transform = "";
-          sheet.style.transition = "";
-        }, 50);
       } else {
         // Snap back
         sheet.style.transition = "transform 0.15s ease";
