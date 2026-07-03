@@ -4,45 +4,24 @@ const sharp = require('sharp');
 
 const OUTPUT_DIR = path.join(__dirname, 'public');
 
-function svg({ dark = false, adaptive = false } = {}) {
-  const bg = dark ? '#0a0a0a' : '#ffffff';
-  const fg = dark ? '#f5f5f5' : '#1a1a1a';
-  const faint = dark ? '#5c5c5c' : '#c8c8c8';
-  const style = adaptive ? `
-  <style>
-    .bg { fill: #fff; }
-    .fg { stroke: #1a1a1a; fill: none; }
-    .dot { fill: #1a1a1a; }
-    .faint { stroke: #c8c8c8; }
-    @media (prefers-color-scheme: dark) {
-      .bg { fill: #0a0a0a; }
-      .fg { stroke: #f5f5f5; }
-      .dot { fill: #f5f5f5; }
-      .faint { stroke: #5c5c5c; }
-    }
-  </style>` : '';
-
+function svg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  ${style}
-  <rect class="bg" width="512" height="512" fill="${bg}"/>
+  <rect width="512" height="512" fill="#0a0a0a"/>
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path class="faint" d="M144 330H368M144 256H368M144 182H368" stroke="${faint}" stroke-width="10" opacity="0.52"/>
-    <path class="fg" d="M144 344L194 294L244 318L296 252L346 218L392 154" stroke="${fg}" stroke-width="24"/>
-    <path class="fg" d="M128 374H392" stroke="${fg}" stroke-width="18"/>
-    <path class="fg" d="M128 138V374" stroke="${fg}" stroke-width="18"/>
+    <path d="M144 330H368M144 256H368M144 182H368" stroke="#3f3f46" stroke-width="10" opacity="0.7"/>
+    <path d="M144 344L194 294L244 318L296 252L346 218L392 154" stroke="#60a5fa" stroke-width="24"/>
+    <path d="M128 374H392" stroke="#f5f5f5" stroke-width="18"/>
+    <path d="M128 138V374" stroke="#f5f5f5" stroke-width="18"/>
   </g>
-  <circle class="dot" cx="392" cy="154" r="16" fill="${fg}"/>
+  <circle cx="392" cy="154" r="16" fill="#93c5fd"/>
 </svg>`;
 }
 
 const outputs = [
-  ['favicon.svg', svg({ adaptive: true })],
+  ['favicon.svg', svg()],
   ['icon-192.png', svg(), 192],
   ['icon-512.png', svg(), 512],
   ['apple-touch-icon.png', svg(), 180],
-  ['icon-dark-192.png', svg({ dark: true }), 192],
-  ['icon-dark-512.png', svg({ dark: true }), 512],
-  ['apple-touch-icon-dark.png', svg({ dark: true }), 180],
   ['favicon-16.png', svg(), 16],
   ['favicon-32.png', svg(), 32],
   ['favicon-16x16.png', svg(), 16],
