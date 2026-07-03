@@ -1,18 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <rect width="512" height="512" rx="112" fill="#0a0f1d"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   
-  <g transform="translate(0, 0)">
-    <rect x="94" y="94" width="324" height="324" rx="40" fill="#1e293b" stroke="#3b82f6" stroke-width="6" opacity="0.9"/>
-    <path d="M120 170h272M120 256h272M120 340h272" stroke="#334155" stroke-width="3"/>
-    <path d="M130 360l45-45 50 25 50-60 55-40 55-75" fill="none" stroke="#60a5fa" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M130 360l45-45 50 25 50-60 55-40 55-75v95H130z" fill="#3b82f6" fill-opacity="0.15"/>
-    <circle cx="130" cy="360" r="7" fill="#93c5fd"/>
-    <circle cx="175" cy="315" r="7" fill="#93c5fd"/>
-    <circle cx="225" cy="340" r="7" fill="#93c5fd"/>
-    <circle cx="275" cy="280" r="7" fill="#93c5fd"/>
-    <circle cx="330" cy="240" r="7" fill="#93c5fd"/>
-    <circle cx="385" cy="165" r="9" fill="#ffffff"/>
-    <circle cx="396" cy="396" r="52" fill="#3b82f6"/>
-    <path d="M396 374v44M374 396h44" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <style>
+    .bg { fill: #fff; }
+    .fg { stroke: #1a1a1a; fill: none; }
+    .dot { fill: #1a1a1a; }
+    .faint { stroke: #c8c8c8; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0a0a0a; }
+      .fg { stroke: #f5f5f5; }
+      .dot { fill: #f5f5f5; }
+      .faint { stroke: #5c5c5c; }
+    }
+  </style>
+  <rect class="bg" width="512" height="512" fill="#ffffff"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path class="faint" d="M144 330H368M144 256H368M144 182H368" stroke="#c8c8c8" stroke-width="10" opacity="0.52"/>
+    <path class="fg" d="M144 344L194 294L244 318L296 252L346 218L392 154" stroke="#1a1a1a" stroke-width="24"/>
+    <path class="fg" d="M128 374H392" stroke="#1a1a1a" stroke-width="18"/>
+    <path class="fg" d="M128 138V374" stroke="#1a1a1a" stroke-width="18"/>
   </g>
+  <circle class="dot" cx="392" cy="154" r="16" fill="#1a1a1a"/>
 </svg>

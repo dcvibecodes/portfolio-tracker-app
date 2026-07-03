@@ -1,48 +1,68 @@
-// Generate PNG icons from the SVG favicon for Apple touch icon and favicons
-// Run: node generate-icons.js
-
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp');
 
-try {
-  const sharp = require('sharp');
-  
-  const svgPath = path.join(__dirname, 'public', 'favicon.svg');
-  const svg = fs.readFileSync(svgPath);
+const OUTPUT_DIR = path.join(__dirname, 'public');
 
-  // Fixed names to match your app structure exactly
-  const sizes = [
-    { name: 'apple-touch-icon.png', size: 180 },
-    { name: 'favicon-32.png', size: 32 },
-    { name: 'favicon-16.png', size: 16 },
-    { name: 'icon-192.png', size: 192 },
-    { name: 'icon-512.png', size: 512 },
-  ];
+function svg({ dark = false, adaptive = false } = {}) {
+  const bg = dark ? '#0a0a0a' : '#ffffff';
+  const fg = dark ? '#f5f5f5' : '#1a1a1a';
+  const faint = dark ? '#5c5c5c' : '#c8c8c8';
+  const style = adaptive ? `
+  <style>
+    .bg { fill: #fff; }
+    .fg { stroke: #1a1a1a; fill: none; }
+    .dot { fill: #1a1a1a; }
+    .faint { stroke: #c8c8c8; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0a0a0a; }
+      .fg { stroke: #f5f5f5; }
+      .dot { fill: #f5f5f5; }
+      .faint { stroke: #5c5c5c; }
+    }
+  </style>` : '';
 
-  async function generate() {
-    for (const { name, size } of sizes) {
-      await sharp(svg)
-        .resize(size, size)
-        .png()
-        .toFile(path.join(__dirname, 'public', name));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  ${style}
+  <rect class="bg" width="512" height="512" fill="${bg}"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path class="faint" d="M144 330H368M144 256H368M144 182H368" stroke="${faint}" stroke-width="10" opacity="0.52"/>
+    <path class="fg" d="M144 344L194 294L244 318L296 252L346 218L392 154" stroke="${fg}" stroke-width="24"/>
+    <path class="fg" d="M128 374H392" stroke="${fg}" stroke-width="18"/>
+    <path class="fg" d="M128 138V374" stroke="${fg}" stroke-width="18"/>
+  </g>
+  <circle class="dot" cx="392" cy="154" r="16" fill="${fg}"/>
+</svg>`;
+}
+
+const outputs = [
+  ['favicon.svg', svg({ adaptive: true })],
+  ['icon-192.png', svg(), 192],
+  ['icon-512.png', svg(), 512],
+  ['apple-touch-icon.png', svg(), 180],
+  ['icon-dark-192.png', svg({ dark: true }), 192],
+  ['icon-dark-512.png', svg({ dark: true }), 512],
+  ['apple-touch-icon-dark.png', svg({ dark: true }), 180],
+  ['favicon-16.png', svg(), 16],
+  ['favicon-32.png', svg(), 32],
+  ['favicon-16x16.png', svg(), 16],
+  ['favicon-32x32.png', svg(), 32],
+];
+
+async function generate() {
+  for (const [name, source, size] of outputs) {
+    const outPath = path.join(OUTPUT_DIR, name);
+    if (!size) {
+      fs.writeFileSync(outPath, source);
+      console.log(`Generated ${name}`);
+    } else {
+      await sharp(Buffer.from(source)).resize(size, size).png().toFile(outPath);
       console.log(`Generated ${name} (${size}x${size})`);
     }
-    console.log('\nAll icons generated successfully!');
-  }
-
-  generate().catch(err => {
-    console.error('Error generating icons:', err.message);
-    console.log('\nFallback: Open public/generate-icons.html in a browser to generate icons manually.');
-  });
-
-} catch (e) {
-  console.log('sharp not installed. Installing...');
-  const { execSync } = require('child_process');
-  try {
-    execSync('npm install sharp --save-dev', { cwd: __dirname, stdio: 'inherit' });
-    console.log('sharp installed. Run this script again: node generate-icons.js');
-  } catch (installErr) {
-    console.error('Could not install sharp. Creating browser-based generator instead...');
-    console.log('Open public/generate-icons.html in a browser to generate icons manually.');
   }
 }
+
+generate().catch(err => {
+  console.error('Error generating icons:', err.message);
+  process.exit(1);
+});
