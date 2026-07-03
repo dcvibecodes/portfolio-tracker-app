@@ -317,7 +317,21 @@ app.use(session({
 }));
 
 function authMiddleware(req, res, next) {
-  const openPaths = ["/api/lock/status", "/api/lock/unlock", "/api/lock/recovery", "/api/lock/setup", "/api/lock/disable"];
+  const openPaths = [
+  "/api/lock/status",
+  "/api/lock/unlock",
+  "/api/lock/recovery",
+  "/api/lock/setup",
+  "/api/lock/disable",
+  "/manifest.json",
+  "/sw.js",
+  "/favicon.svg",
+  "/favicon-32.png",
+  "/favicon-16.png",
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+  "/icon-512.png"
+];
   if (openPaths.includes(req.path)) {
     return next();
   }

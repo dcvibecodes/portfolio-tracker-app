@@ -1,6 +1,7 @@
 {
   "name": "Portfolio+",
   "short_name": "Portfolio+",
+  "description": "Investment portfolio tracking app",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a2e",
