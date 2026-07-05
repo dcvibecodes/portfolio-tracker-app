@@ -1,8 +1,23 @@
-# Portfolio+ v3.8.1
+# Portfolio+ v3.9.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
 
-## What's New in v3.8.1
+## What's New in v3.9.0
+
+### XIRR Column in Category Breakdown
+- **XIRR (annualized return)** — new column in the pivot table showing XIRR at asset, category, and portfolio levels
+- **Newton-Raphson solver** with bisection fallback for robustness
+- **Handles multiple buys per asset** — accounts for SIP timing and amounts correctly
+- **Sell-aware** — sell transactions contribute as positive cash inflows
+- **CAGR fallback** — single-transaction assets compute direct CAGR (no iteration needed)
+- **Category-level XIRR** — combines all cash flows within a category, including zero-cost assets (RSUs/gifted shares)
+
+### FAQs Section
+- **11 accordion-style FAQs** added to the Settings tab covering dashboard, transactions, filters, watchlist, currency, tickers, XIRR, export, and app lock
+- **Pure CSS accordion** — no JavaScript needed, works on all devices including dark mode
+
+### Layout
+- **Tighter pivot table cells** — reduced padding and font size to fit 9 columns without side-scrolling on desktop
 
 ### Bug Fix — Safari/iOS Bottom Sheet
 - **Swipe-to-dismiss fix on Safari/iOS** — after swiping down to close a bottom sheet, tapping the FAB now opens the sheet on the first tap (previously required two taps on Safari and PWA); root cause was Safari not registering the transform reset before the CSS class change; fixed with a forced reflow between operations

@@ -1123,12 +1123,19 @@ app.get("/api/breakdown", asyncHandler(async (req, res) => {
 
     const assetKey = h.name;
     if (!classes[cls].assets[assetKey]) {
-      classes[cls].assets[assetKey] = { name: assetKey, asset_type: h.asset_type, invested: 0, current_value: 0, units: 0, count: 0, current_price: null, currency: h.currency, ticker: h.ticker || "" };
+      classes[cls].assets[assetKey] = { name: assetKey, asset_type: h.asset_type, invested: 0, current_value: 0, units: 0, count: 0, current_price: null, currency: h.currency, ticker: h.ticker || "", transactions: [] };
     }
     classes[cls].assets[assetKey].invested += invested;
     classes[cls].assets[assetKey].current_value += curval;
     classes[cls].assets[assetKey].units += qty;
     classes[cls].assets[assetKey].count++;
+    // Collect raw transaction data for XIRR calculation
+    // Buys: invested is positive, so -invested = negative (outflow)
+    // Sells: invested is negative (server stores sells with negative amounts), so -invested = positive (inflow)
+    classes[cls].assets[assetKey].transactions.push({
+      date: h.date,
+      amount: -invested
+    });
     if (h.current_price) {
       classes[cls].assets[assetKey].current_price = h.current_price * fx;
     }

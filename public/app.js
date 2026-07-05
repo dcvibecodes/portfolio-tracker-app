@@ -820,6 +820,187 @@ function getCategoryColor(category, index = 0) {
   });
 
 
+  //--- XIRR Calculation (annualized return accounting for cash flow timing) ---
+  /**
+   * Calculate XIRR (Extended Internal Rate of Return) using Newton-Raphson method
+   * with bisection fallback for robustness.
+   *
+   * Concept: XIRR finds the rate r where the net present value (NPV) of all cash flows
+   * equals zero. Each cash flow is discounted to today using (1+r)^(days/365).
+   *
+   * @param {Array<{date: Date, amount: number}>} cashFlows - Array of cash flows.
+   *   Negative amounts = money invested (outflow). Positive = money received (inflow).
+   *   The final cash flow should be today's portfolio value (positive).
+   * @param {Object} [options]
+   * @param {number} [options.guess=0.1] - Initial guess for the rate (10%).
+   * @param {number} [options.maxIterations=100] - Max Newton-Raphson iterations.
+   * @param {number} [options.tolerance=1e-7] - Convergence tolerance.
+   * @returns {number|null} Annualized rate as a decimal (e.g. 0.12 = 12%), or null if cannot compute.
+   */
+  function calculateXIRR(cashFlows, options = {}) {
+    const { guess = 0.1, maxIterations = 100, tolerance = 1e-7 } = options;
+
+    // --- Edge case: invalid or insufficient data ---
+    if (!cashFlows || cashFlows.length === 0) return null;
+
+    const today = new Date();
+    const TODAY_MS = today.getTime();
+
+    // Filter out zero-amount cash flows (they contribute nothing)
+    const flows = cashFlows.filter(cf => cf && cf.amount !== 0);
+    if (flows.length === 0) return null;
+
+    // Check there's at least one positive and one negative cash flow
+    const hasPositive = flows.some(cf => cf.amount > 0);
+    const hasNegative = flows.some(cf => cf.amount < 0);
+    if (!hasPositive || !hasNegative) return null;
+
+    // Sort by date ascending (oldest first) to ensure proper time weighting
+    flows.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Convert dates to fractional years from first cash flow
+    // Use actual days / 365.25 for accurate fractional year calculation
+    const firstDateMs = flows[0].date.getTime();
+
+    /** Convert a Date to fractional years since the first cash flow */
+    function yearsFromStart(date) {
+      return (date.getTime() - firstDateMs) / (365.25 * 24 * 60 * 60 * 1000);
+    }
+
+    // Precompute year offsets for each cash flow
+    const yearOffsets = flows.map(cf => yearsFromStart(cf.date));
+    const amounts = flows.map(cf => cf.amount);
+
+    // --- Newton-Raphson solver ---
+    function npv(rate) {
+      // NPV = sum(amount_i / (1 + rate)^yearOffset_i)
+      let result = 0;
+      for (let i = 0; i < amounts.length; i++) {
+        result += amounts[i] / Math.pow(1 + rate, yearOffsets[i]);
+      }
+      return result;
+    }
+
+    function npvDerivative(rate) {
+      // dNPV/drate = sum(-yearOffset_i * amount_i / (1+rate)^(yearOffset_i+1))
+      let result = 0;
+      for (let i = 0; i < amounts.length; i++) {
+        result -= yearOffsets[i] * amounts[i] / Math.pow(1 + rate, yearOffsets[i] + 1);
+      }
+      return result;
+    }
+
+    // --- Single transaction: fallback to simple CAGR ---
+    // If there's only one buy and we have its current value, compute CAGR directly
+    // This happens when an asset has only one buy transaction
+    const buyFlows = flows.filter(cf => cf.amount < 0);
+    const positiveFlows = flows.filter(cf => cf.amount > 0);
+    if (buyFlows.length === 1 && positiveFlows.length === 1) {
+      const buyAmount = -buyFlows[0].amount; // positive invested amount
+      const currentValue = positiveFlows[0].amount;
+      if (buyAmount <= 0 || currentValue <= 0) return null;
+      const yearsHeld = yearsFromStart(positiveFlows[0].date);
+      if (yearsHeld <= 0) return null; // too recent, can't annualize
+      // CAGR = (currentValue / invested)^(1/years) - 1
+      return Math.pow(currentValue / buyAmount, 1 / yearsHeld) - 1;
+    }
+
+    // --- Newton-Raphson iteration ---
+    let rate = guess;
+    for (let iter = 0; iter < maxIterations; iter++) {
+      const f = npv(rate);
+      // Check convergence
+      if (Math.abs(f) < tolerance) {
+        return rate;
+      }
+
+      const fPrime = npvDerivative(rate);
+
+      // If derivative is near zero, Newton-Raphson may diverge; fall back to bisection
+      if (Math.abs(fPrime) < 1e-12) {
+        break;
+      }
+
+      // Newton step
+      const newRate = rate - f / fPrime;
+
+      // If rate goes out of realistic bounds (-99% to 1000%), switch to bisection
+      if (newRate < -0.99 || newRate > 10) {
+        break;
+      }
+
+      rate = newRate;
+    }
+
+    // --- Bisection method fallback (more robust for difficult cases) ---
+    // XIRR should be between -99% and 1000% for realistic investments
+    let low = -0.99;
+    let high = 10.0;
+    let fLow = npv(low);
+    let fHigh = npv(high);
+
+    // Ensure we bracket the root (fLow and fHigh have opposite signs)
+    if (fLow * fHigh > 0) {
+      // If both same sign, try expanding the search
+      // Try a narrower range first (more common for reasonable returns)
+      low = -0.5;
+      high = 2.0;
+      fLow = npv(low);
+      fHigh = npv(high);
+      if (fLow * fHigh > 0) {
+        // Still can't bracket — return null
+        return null;
+      }
+    }
+
+    // Bisection
+    for (let iter = 0; iter < 200; iter++) {
+      const mid = (low + high) / 2;
+      const fMid = npv(mid);
+
+      if (Math.abs(fMid) < tolerance || (high - low) / 2 < tolerance) {
+        return mid;
+      }
+
+      if (fMid * fLow < 0) {
+        high = mid;
+        fHigh = fMid;
+      } else {
+        low = mid;
+        fLow = fMid;
+      }
+    }
+
+    // Return best estimate after iterations
+    return (low + high) / 2;
+  }
+
+  /** Build cash flows for an asset and compute its XIRR.
+   *  @param {Array<{date: string, amount: number}>} transactions - Buy transactions (amount is negative = outflow)
+   *  @param {number} currentValue - Current total value of this asset (positive = inflow)
+   *  @returns {number|null} XIRR as decimal, or null if not computable
+   */
+  function computeAssetXIRR(transactions, currentValue) {
+    if (!transactions || transactions.length === 0) return null;
+    if (currentValue <= 0) return null;
+
+    const today = new Date();
+
+    // Build cash flow array: buys are outflows (negative already), plus today's value (positive)
+    const cashFlows = transactions.map(tx => ({
+      date: new Date(tx.date + 'T00:00:00'),   // parse YYYY-MM-DD as local date
+      amount: tx.amount                          // already negative from server
+    }));
+
+    // Add today's current value as the final positive cash flow
+    cashFlows.push({
+      date: today,
+      amount: currentValue
+    });
+
+    return calculateXIRR(cashFlows);
+  }
+
   //--- Pivot Table Breakdown ---
   function renderPivotTable(breakdown) {
     const pivotBody = document.getElementById("pivot-rows");
@@ -847,6 +1028,23 @@ function getCategoryColor(category, index = 0) {
       }
     }
 
+    // Pre-compute XIRR for each asset and collect category-level transactions
+    const categoryTransactions = {}; // { categoryName: [transactions] }
+    const assetXirrCache = {};       // { assetName: xirrValue }
+
+    for (const cls of breakdown.classes) {
+      categoryTransactions[cls.asset_class] = [];
+      for (const asset of cls.assets) {
+        // Compute asset-level XIRR
+        const xirr = computeAssetXIRR(asset.transactions, asset.current_value);
+        assetXirrCache[asset.name] = xirr;
+        // Collect transactions for category-level XIRR
+        if (asset.transactions && asset.transactions.length > 0) {
+          categoryTransactions[cls.asset_class].push(...asset.transactions);
+        }
+      }
+    }
+
     for (const cls of breakdown.classes) {
       grandInvested += cls.invested;
       grandValue += cls.current_value;
@@ -856,6 +1054,11 @@ function getCategoryColor(category, index = 0) {
       const dGain = toDisplayCurrency(cls.gain_loss);
       const plPct = cls.invested > 0 ? ((cls.gain_loss / cls.invested) * 100).toFixed(2) : "0.00";
       const plClass = cls.gain_loss >= 0 ? "positive" : "negative";
+
+      // Compute category-level XIRR
+      const catXirr = computeAssetXIRR(categoryTransactions[cls.asset_class], cls.current_value);
+      const catXirrStr = catXirr != null ? fmtPct(catXirr * 100) : "-";
+      const catXirrClass = catXirr != null ? (catXirr >= 0 ? "positive" : "negative") : "";
 
       const parentTr = document.createElement("tr");
       parentTr.className = "pivot-parent";
@@ -871,6 +1074,7 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount">-</td>
         <td class="col-amount ${plClass}">${curSym}${fmtCompact(dGain)}</td>
         <td class="col-amount ${plClass}">${plPct}%</td>
+        <td class="col-amount ${catXirrClass}">${catXirrStr}</td>
       `;
       pivotBody.appendChild(parentTr);
 
@@ -892,6 +1096,11 @@ function getCategoryColor(category, index = 0) {
           dayChgStr = `<span class="${dayClass}">${dayArrow} ${Math.abs(dayPct)}%</span>`;
         }
 
+        // Asset-level XIRR
+        const assetXirr = assetXirrCache[asset.name];
+        const assetXirrStr = assetXirr != null ? fmtPct(assetXirr * 100) : "-";
+        const assetXirrClass = assetXirr != null ? (assetXirr >= 0 ? "positive" : "negative") : "";
+
         const childTr = document.createElement("tr");
         childTr.className = "pivot-child";
         childTr.dataset.parentClass = cls.asset_class;
@@ -904,6 +1113,7 @@ function getCategoryColor(category, index = 0) {
           <td class="col-amount">${dayChgStr}</td>
           <td class="col-amount ${aPlClass}">${curSym}${fmtCompact(adGain)}</td>
           <td class="col-amount ${aPlClass}">${aPlPct}%</td>
+          <td class="col-amount ${assetXirrClass}">${assetXirrStr}</td>
         `;
         pivotBody.appendChild(childTr);
       }
@@ -913,6 +1123,19 @@ function getCategoryColor(category, index = 0) {
     const grandPl = grandValue - grandInvested;
     const grandPct = grandInvested > 0 ? ((grandPl / grandInvested) * 100).toFixed(2) : "0.00";
     const grandPlClass = grandPl >= 0 ? "positive" : "negative";
+
+    // Compute portfolio-level XIRR: collect all transactions across all categories
+    const allTransactions = [];
+    for (const cls of breakdown.classes) {
+      for (const asset of cls.assets) {
+        if (asset.transactions && asset.transactions.length > 0) {
+          allTransactions.push(...asset.transactions);
+        }
+      }
+    }
+    const totalXirr = computeAssetXIRR(allTransactions, grandValue);
+    const totalXirrStr = totalXirr != null ? fmtPct(totalXirr * 100) : "-";
+    const totalXirrClass = totalXirr != null ? (totalXirr >= 0 ? "positive" : "negative") : "";
 
     pivotFooter.innerHTML = `
       <tr>
@@ -924,6 +1147,7 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount">-</td>
         <td class="col-amount ${grandPlClass}"><strong>${curSym}${fmtCompact(toDisplayCurrency(grandPl))}</strong></td>
         <td class="col-amount ${grandPlClass}"><strong>${grandPct}%</strong></td>
+        <td class="col-amount ${totalXirrClass}"><strong>${totalXirrStr}</strong></td>
       </tr>
     `;
   }

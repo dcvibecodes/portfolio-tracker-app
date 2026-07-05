@@ -248,9 +248,9 @@ button, a, input, select, textarea, [tabindex] {
   background: var(--bg); color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; font-weight: 500;
 }
 .pivot-btn:hover { background: var(--border); color: var(--text); }
-.pivot-table { font-size: 0.9rem; }
-.pivot-table th { font-size: 0.8rem; padding: 10px 12px; }
-.pivot-table td { padding: 10px 12px; }
+.pivot-table { font-size: 0.8rem; }
+.pivot-table th { font-size: 0.75rem; padding: 8px 8px; }
+.pivot-table td { padding: 8px 8px; }
 .pivot-table tfoot td { font-weight: 700; border-top: 2px solid var(--border); background: var(--bg); }
 
 .pivot-parent { background: var(--bg); font-weight: 600; cursor: default; }
@@ -923,3 +923,71 @@ body { overflow-x: clip; }
   border-color: var(--accent);
 }
 .mobile-filter-chip.has-filters svg { stroke: #fff; }
+
+/* --- FAQ Accordion --- */
+.settings-faq-card {
+  margin-top: 8px;
+}
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.faq-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.faq-question {
+  padding: 14px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  transition: background 0.15s;
+}
+.faq-question:hover {
+  background: var(--bg);
+}
+.faq-question::-webkit-details-marker {
+  display: none;
+}
+.faq-question::before {
+  content: "▶";
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.faq-item[open] .faq-question::before {
+  transform: rotate(90deg);
+}
+.faq-answer {
+  padding: 0 16px 14px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.faq-answer p {
+  margin-bottom: 8px;
+}
+.faq-answer ul, .faq-answer ol {
+  margin: 6px 0 8px 18px;
+  padding: 0;
+}
+.faq-answer li {
+  margin-bottom: 4px;
+}
+.faq-answer code {
+  font-size: 0.8rem;
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
