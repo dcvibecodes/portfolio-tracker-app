@@ -969,7 +969,7 @@ body { overflow-x: clip; }
   transform: rotate(90deg);
 }
 .faq-answer {
-  padding: 0 16px 14px;
+  padding: 8px 16px 14px;
   font-size: 0.85rem;
   line-height: 1.6;
   color: var(--text-secondary);
