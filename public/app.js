@@ -982,21 +982,23 @@ function getCategoryColor(category, index = 0) {
    */
   function computeAssetXIRR(transactions, currentValue) {
     if (!transactions || transactions.length === 0) return null;
-    if (currentValue <= 0) return null;
 
     const today = new Date();
 
-    // Build cash flow array: buys are outflows (negative already), plus today's value (positive)
+    // Build cash flow array from all transactions (buys = negative, sells = positive)
     const cashFlows = transactions.map(tx => ({
       date: new Date(tx.date + 'T00:00:00'),   // parse YYYY-MM-DD as local date
-      amount: tx.amount                          // already negative from server
+      amount: tx.amount                          // buys negative, sells positive from server
     }));
 
-    // Add today's current value as the final positive cash flow
-    cashFlows.push({
-      date: today,
-      amount: currentValue
-    });
+    // If position is still held (currentValue > 0), add today's value as the terminal cash flow
+    // If fully exited (currentValue <= 0), XIRR is computed purely from buy/sell cash flows
+    if (currentValue > 0) {
+      cashFlows.push({
+        date: today,
+        amount: currentValue
+      });
+    }
 
     return calculateXIRR(cashFlows);
   }

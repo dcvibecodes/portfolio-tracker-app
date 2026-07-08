@@ -1,6 +1,12 @@
-# Portfolio+ v3.9.0
+# Portfolio+ v3.9.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.9.1
+
+### XIRR Fix — Fully Exited Positions
+- **XIRR now shows for fully sold positions** — previously displayed "-" for assets with zero remaining units; now computes the realized annualized return from buy/sell cash flows alone
+- **No terminal valuation needed** — when all units are sold, XIRR is calculated purely from the historical buy outflows and sell inflows without requiring a current market value
 
 ## What's New in v3.9.0
 
