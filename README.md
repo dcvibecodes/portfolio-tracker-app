@@ -1,6 +1,11 @@
-# Portfolio+ v3.10.0
+# Portfolio+ v3.10.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.10.1
+
+### Bug Fixes
+- **FAB position** — floating action button moved higher to avoid touching the bottom nav bar on iPhone PWA
 
 ## What's New in v3.10.0
 

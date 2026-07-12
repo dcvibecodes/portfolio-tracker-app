@@ -744,7 +744,7 @@ body { overflow-x: clip; }
 .mobile-add-fab {
   display: none;
   position: fixed;
-  bottom: 90px;
+  bottom: 100px;
   right: 16px;
   width: 40px;
   height: 40px;
