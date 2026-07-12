@@ -1,12 +1,37 @@
-# Portfolio+ v3.9.1
+# Portfolio+ v3.10.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
 
-## What's New in v3.9.1
+## What's New in v3.10.0
 
-### XIRR Fix — Fully Exited Positions
-- **XIRR now shows for fully sold positions** — previously displayed "-" for assets with zero remaining units; now computes the realized annualized return from buy/sell cash flows alone
-- **No terminal valuation needed** — when all units are sold, XIRR is calculated purely from the historical buy outflows and sell inflows without requiring a current market value
+### Design Overhaul — Monochrome Design Language
+- **Complete visual redesign** — unified design language shared with Expenses+ and other suite apps (Dictation Tool, DocuChat AI)
+- **Inter font** — switched from system fonts to Inter via Google Fonts
+- **Monochrome accent** — replaced blue (#3b82f6) with near-black (#111) in light mode, near-white (#f5f5f5) in dark mode
+- **No shadows** — surfaces rely on subtle borders instead of box-shadow
+- **Compact spacing** — smaller buttons (34px height), tighter card padding, reduced font sizes
+- **Segmented navigation** — tab bar as glassmorphic segmented control (desktop) / bottom tab bar (mobile)
+- **Lock screen redesigned** — monochrome design with prefers-color-scheme dark mode support
+
+### Theme Toggle
+- **Settings → Theme** — segmented control (Auto / Light / Dark) at the top of the Settings tab
+- **Auto** follows device theme (default); Light/Dark force a specific mode
+- **Persisted in localStorage**
+
+### Category Colors
+- **Color picker per category** — each category in Settings now has a clickable color dot; click to open native color picker
+- **Colors stored in database** — `color` column added to `asset_classes` table
+- **Propagated to all charts** — By Category chart, Monthly Investments, Investment Vintage all use the custom colors
+- **Fallback palette** — categories without a custom color use a muted default palette
+
+### Refresh Prices Button
+- **SVG icon** — replaced the 🔄 emoji with a clean SVG refresh icon (circular arrows)
+- **Icon-only button** — no text label, just the icon in a properly centered 28×28px button matching the header design language
+- **Loading states** — shows "…" while fetching, "✓ N" on success, "✗" on error
+
+### FAQ Updates
+- Added category colors FAQ
+- Added theme toggle FAQ
 
 ## What's New in v3.9.0
 
@@ -155,8 +180,9 @@ Self-hosted investment portfolio tracker for any asset class, currency, and brok
 
 ### Settings
 - Base currency + exchange rate display
-- Categories, Types, Brokers (rename propagates)
+- Categories with custom colors (propagated to all charts), Types, Brokers (rename propagates)
 - Ticker mapping (asset name → Yahoo Finance symbol)
+- Theme toggle (Auto / Light / Dark)
 - Date format (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD)
 - App Lock (6-digit PIN, bcrypt, recovery code, remember-for-today)
 

@@ -16,8 +16,11 @@
 <link rel="manifest" href="/manifest.json" />
 
 <meta name="apple-mobile-web-app-title" content="Portfolio+" />
-<meta name="theme-color" content="#1a1a2e" />
+<meta name="theme-color" content="#fafafa" />
   <title>Portfolio+</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;550;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css" />
   <!-- Chart.js loaded at end of body with pinned version and SRI -->
 </head>
@@ -26,7 +29,9 @@
     <span class="app-title">Portfolio+</span>
     <div class="header-actions">
       <button id="currency-toggle" class="header-btn currency-toggle-btn" title="Toggle display currency">INR</button>
-      <button id="refresh-prices-btn" class="header-btn" title="Refresh all prices">🔄 Prices</button>
+      <button id="refresh-prices-btn" class="header-icon-btn" title="Refresh all prices">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"/><path d="M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"/></svg>
+      </button>
 
     </div>
   </header>
@@ -371,6 +376,16 @@
 
     <div id="tab-settings" class="tab-content" role="tabpanel" aria-labelledby="tab-settings-btn">
       <section class="card">
+        <h2>Theme</h2>
+        <p class="settings-desc">Choose between light, dark, or automatic (follows your device setting).</p>
+        <div class="theme-toggle-row">
+          <button type="button" class="theme-option-btn active" data-theme-choice="auto">Auto</button>
+          <button type="button" class="theme-option-btn" data-theme-choice="light">Light</button>
+          <button type="button" class="theme-option-btn" data-theme-choice="dark">Dark</button>
+        </div>
+      </section>
+
+      <section class="card">
         <h2>Display & Currency</h2>
         <p class="settings-desc">Configure date format, base currency, and exchange rate display.</p>
         <div id="currency-config-info" class="currency-config-info" style="display:none;">
@@ -449,7 +464,7 @@
       <div class="settings-grid">
         <section class="card">
           <h2>Categories</h2>
-          <p class="settings-desc">Configure the categories. Renaming propagates to all holdings.</p>
+          <p class="settings-desc">Configure the categories. Click the color dot to assign a chart color. Renaming propagates to all holdings.</p>
           <ul class="settings-list" id="settings-classes-list"></ul>
           <div class="settings-add">
             <input type="text" id="settings-class-input" placeholder="New category..." />
@@ -662,6 +677,32 @@
                 <li><strong>POST /api/import</strong> — restores from a previously exported JSON backup (replaces all current data).</li>
               </ul>
               <p>You can also use the <strong>↓ CSV</strong> button on the Holdings tab to download your transaction list as a CSV file.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary class="faq-question">How do I assign colors to categories?</summary>
+            <div class="faq-answer">
+              <p>In <strong>Settings → Categories</strong>, each category has a colored dot next to its name. Click the dot to open a color picker and choose any color. The color is saved automatically and immediately used in:</p>
+              <ul>
+                <li>The <strong>By Category</strong> bar chart on the Dashboard</li>
+                <li>The <strong>Monthly Investments</strong> stacked bar chart</li>
+                <li>The <strong>Investment Vintage</strong> chart</li>
+              </ul>
+              <p>Categories without a custom color use a default muted palette.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary class="faq-question">How do I switch between light and dark mode?</summary>
+            <div class="faq-answer">
+              <p>In <strong>Settings → Theme</strong>, use the toggle at the top:</p>
+              <ul>
+                <li><strong>Auto</strong> — follows your device/OS theme setting (default)</li>
+                <li><strong>Light</strong> — forces light mode regardless of device</li>
+                <li><strong>Dark</strong> — forces dark mode regardless of device</li>
+              </ul>
+              <p>Your choice is saved locally and persists across sessions.</p>
             </div>
           </details>
 

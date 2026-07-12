@@ -91,6 +91,7 @@ db.exec(`
 try { db.exec("ALTER TABLE holdings ADD COLUMN ticker TEXT DEFAULT '';"); } catch (e) {}
 try { db.exec("ALTER TABLE holdings ADD COLUMN txn_type TEXT DEFAULT 'buy';"); } catch (e) {}
 try { db.exec("ALTER TABLE holdings ADD COLUMN invested_base REAL;"); } catch (e) {}
+try { db.exec("ALTER TABLE asset_classes ADD COLUMN color TEXT DEFAULT '';"); } catch (e) {}
 
 // Seed default settings
 const defaultCurrSetting = db.prepare("SELECT value FROM settings WHERE key = 'default_currency'").get();
@@ -355,19 +356,25 @@ function getLoginPage() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portfolio+ Locked</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *{ margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .lock-modal { background: #fff; border-radius: 16px; padding: 48px 40px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-  h2 { margin-bottom: 8px; font-size: 20px; color: #1a1a2e; }
-  .subtitle { color: #666; font-size: 13px; margin: 0 0 20px; }
-  input[type="password"], input[type="text"] { display: block; width: 100%; text-align: center; font-family: monospace; font-size: 1.4rem; letter-spacing: 0.3em; margin-bottom: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
-  button { width: 100%; padding: 12px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
-  button:hover { background: #2563eb; }
-  .error { color: #e74c3c; font-size: 13px; display: none; margin: 8px 0; }
-  .recovery-link { font-size: 13px; margin-top: 8px; }
-  .recovery-link a { color: #3b82f6; font-weight: 600; text-decoration: none; cursor: pointer; }
-  .recovery-section { display: none; margin-top: 12px; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  @media (prefers-color-scheme: dark) { body { background: #0a0a0a; } .lock-modal { background: #141414; border-color: #2e2e2e; } h2 { color: #e4e4e4; } .subtitle { color: #6a6a6a; } input[type="password"], input[type="text"] { background: #0f0f0f; border-color: #2e2e2e; color: #e4e4e4; } input:focus { border-color: #f5f5f5; box-shadow: 0 0 0 2px rgba(255,255,255,0.14); } button { background: #f5f5f5; color: #0a0a0a; } button:hover { opacity: 0.85; background: #f5f5f5; } .error { color: #f87171; } .recovery-link a { color: #f5f5f5; } }
+  .lock-modal { background: #fff; border: 1px solid #e2e2e2; border-radius: 12px; padding: 36px 32px; width: 100%; max-width: 340px; text-align: center; }
+  h2 { margin-bottom: 6px; font-size: 0.92rem; font-weight: 700; color: #1a1a1a; }
+  .subtitle { color: #aaa; font-size: 0.72rem; margin: 0 0 18px; }
+  input[type="password"], input[type="text"] { display: block; width: 100%; text-align: center; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 1.2rem; letter-spacing: 0.3em; margin-bottom: 10px; padding: 8px; border: 1px solid #e2e2e2; border-radius: 5px; background: #fafafa; color: #1a1a1a; outline: none; transition: border-color 0.15s; }
+  input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
+  button { width: 100%; padding: 8px 16px; background: #111; color: #fff; border: none; border-radius: 5px; font-size: 0.76rem; font-weight: 550; cursor: pointer; margin-bottom: 8px; min-height: 34px; font-family: inherit; transition: opacity 0.15s; }
+  button:hover { opacity: 0.85; }
+  .error { color: #c53030; font-size: 0.72rem; display: none; margin: 6px 0; }
+  .recovery-link { font-size: 0.72rem; margin-top: 6px; }
+  .recovery-link a { color: #111; font-weight: 600; text-decoration: none; cursor: pointer; }
+  .recovery-link a:hover { text-decoration: underline; }
+  .recovery-section { display: none; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -423,12 +430,12 @@ app.get("/api/settings/asset-classes", (req, res) => {
 });
 
 app.post("/api/settings/asset-classes", (req, res) => {
-  const { name } = req.body;
+  const { name, color } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: "Name is required." });
   const count = db.prepare("SELECT COUNT(*) as c FROM asset_classes").get().c;
   if (count >= 10) return res.status(400).json({ error: "Maximum 10 categories allowed." });
   try {
-    const result = db.prepare("INSERT INTO asset_classes (name, sort_order) VALUES (?, (SELECT COALESCE(MAX(sort_order),0)+1 FROM asset_classes))").run(name.trim());
+    const result = db.prepare("INSERT INTO asset_classes (name, color, sort_order) VALUES (?, ?, (SELECT COALESCE(MAX(sort_order),0)+1 FROM asset_classes))").run(name.trim(), color || '');
     res.json({ id: result.lastInsertRowid });
   } catch (e) {
     res.status(400).json({ error: "Already exists." });
@@ -437,13 +444,13 @@ app.post("/api/settings/asset-classes", (req, res) => {
 
 app.put("/api/settings/asset-classes/:id", (req, res) => {
   const id = Number(req.params.id);
-  const { name } = req.body;
+  const { name, color } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: "Name is required." });
   const old = db.prepare("SELECT name FROM asset_classes WHERE id = ?").get(id);
   if (!old) return res.status(404).json({ error: "Not found." });
 
   db.transaction(() => {
-    db.prepare("UPDATE asset_classes SET name = ? WHERE id = ?").run(name.trim(), id);
+    db.prepare("UPDATE asset_classes SET name = ?, color = ? WHERE id = ?").run(name.trim(), color || '', id);
     db.prepare("UPDATE holdings SET asset_class = ? WHERE asset_class = ?").run(name.trim(), old.name);
   })();
   res.json({ success: true });

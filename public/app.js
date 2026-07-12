@@ -1,13 +1,41 @@
 (function () {
   "use strict";
 
-  //--- Theme Management (auto-detect system preference) ---
-  function applySystemTheme() {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+  //--- Theme Management (auto-detect system preference, with user override) ---
+  function applyTheme() {
+    const saved = localStorage.getItem("theme-preference");
+    if (saved === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else if (saved === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    } else {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+    }
   }
-  applySystemTheme();
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applySystemTheme);
+  applyTheme();
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (!localStorage.getItem("theme-preference") || localStorage.getItem("theme-preference") === "auto") applyTheme();
+  });
+
+  // Theme toggle buttons
+  const themeBtns = document.querySelectorAll(".theme-option-btn");
+  const savedTheme = localStorage.getItem("theme-preference") || "auto";
+  themeBtns.forEach(btn => {
+    if (btn.dataset.themeChoice === savedTheme) btn.classList.add("active");
+    else btn.classList.remove("active");
+    btn.addEventListener("click", () => {
+      themeBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const choice = btn.dataset.themeChoice;
+      if (choice === "auto") {
+        localStorage.removeItem("theme-preference");
+      } else {
+        localStorage.setItem("theme-preference", choice);
+      }
+      applyTheme();
+    });
+  });
 
   //--- Tab Navigation ---
   const tabBtns = document.querySelectorAll(".bottom-nav-btn");
@@ -58,22 +86,19 @@
 
   let classPieChart = null, valueTrendChart = null, monthlyChart = null, vintageChart = null;
 
-  const CATEGORY_COLORS = {
-  "India": "#3b82f6",
-  "US": "#10b981",
-  "Gold": "#f59e0b",
-  "Crypto": "#8b5cf6"
-};
+  const CATEGORY_COLORS = {};
 
 const FALLBACK_COLORS = [
-  "#ef4444",
-  "#06b6d4",
-  "#ec4899",
-  "#84cc16",
-  "#f97316",
-  "#14b8a6",
-  "#a855f7",
-  "#eab308"
+  "#5a6b7a",
+  "#2d8a56",
+  "#9a6700",
+  "#6b46a3",
+  "#8b4c4c",
+  "#4a7c8c",
+  "#8c4a6e",
+  "#5c7a3a",
+  "#8c5a2e",
+  "#3a7c6e"
 ];
 
 function getCategoryColor(category, index = 0) {
@@ -226,6 +251,10 @@ function getCategoryColor(category, index = 0) {
     } catch (e) {
       console.error("Failed to load dropdowns:", e);
       return;
+    }
+    // Populate CATEGORY_COLORS from DB-stored colors
+    for (const cls of assetClasses) {
+      if (cls.color) CATEGORY_COLORS[cls.name] = cls.color;
     }
     populateSelect("add-asset-class", assetClasses, true);
     populateSelect("add-asset-type", assetTypes, true);
@@ -1589,21 +1618,23 @@ function getCategoryColor(category, index = 0) {
     loadHoldings();
   });
 
+  const refreshSvgIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"/><path d="M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"/></svg>`;
+
   document.getElementById("refresh-prices-btn").addEventListener("click", async function() {
     const btn = this;
-    btn.disabled = true; btn.textContent = "🔄 Fetching...";
+    btn.disabled = true; btn.innerHTML = refreshSvgIcon + ' <span style="font-size:0.68rem">…</span>';
     try {
       const data = await apiFetch("/api/refresh-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: true }) });
-      btn.textContent = `✅ ${data.updated} updated`;
-      setTimeout(() => { btn.textContent = "🔄 Prices"; btn.disabled = false; }, 3000);
+      btn.innerHTML = `<span style="font-size:0.68rem">✓ ${data.updated}</span>`;
+      setTimeout(() => { btn.innerHTML = refreshSvgIcon; btn.disabled = false; }, 3000);
       cachedRateData = null;
       invalidateDashboardCache();
       localStorage.removeItem(WATCHLIST_CACHE_KEY);
       loadHoldings(); loadDashboard();
       if (currentTab === "watchlist") loadWatchlist();
     } catch (e) {
-      btn.textContent = "❌ Error";
-      setTimeout(() => { btn.textContent = "🔄 Prices"; btn.disabled = false; }, 3000);
+      btn.innerHTML = `<span style="font-size:0.68rem">✗</span>`;
+      setTimeout(() => { btn.innerHTML = refreshSvgIcon; btn.disabled = false; }, 3000);
     }
   });
 
@@ -1617,6 +1648,10 @@ function getCategoryColor(category, index = 0) {
         apiFetch("/api/settings/brokers"),
         apiFetch("/api/settings/tickers")
       ]);
+      // Update CATEGORY_COLORS from saved colors
+      for (const cls of classes) {
+        if (cls.color) CATEGORY_COLORS[cls.name] = cls.color;
+      }
       renderSettingsList("settings-classes-list", classes, "asset-classes");
       renderSettingsList("settings-types-list", types, "asset-types");
       renderSettingsList("settings-brokers-list", brokersData, "brokers");
@@ -1628,23 +1663,42 @@ function getCategoryColor(category, index = 0) {
   function renderSettingsList(listId, items, endpoint) {
     const ul = document.getElementById(listId);
     ul.innerHTML = "";
+    const isCategories = endpoint === "asset-classes";
     for (const item of items) {
       const li = document.createElement("li");
       li.className = "settings-item";
+      const colorVal = item.color || FALLBACK_COLORS[(items.indexOf(item)) % FALLBACK_COLORS.length];
       li.innerHTML = `
+        ${isCategories ? `<span class="category-color-dot" style="background:${colorVal}; width:12px; height:12px; border-radius:50%; flex-shrink:0; cursor:pointer;" title="Click to change color"></span><input type="color" class="category-color-input" value="${colorVal}" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" />` : ''}
         <input type="text" class="settings-item-input" value="${item.name}" data-id="${item.id}" data-original="${item.name}" />
-        <button class="action-btn settings-rename-btn" title="Rename">💾</button>
+        <button class="action-btn settings-rename-btn" title="Save">💾</button>
         <button class="action-btn delete settings-delete-btn" title="Delete">🗑️</button>
       `;
       ul.appendChild(li);
+
+      if (isCategories) {
+        const dot = li.querySelector(".category-color-dot");
+        const colorInput = li.querySelector(".category-color-input");
+        dot.addEventListener("click", () => colorInput.click());
+        colorInput.addEventListener("input", () => { dot.style.background = colorInput.value; });
+        colorInput.addEventListener("change", async () => {
+          const nameInput = li.querySelector(".settings-item-input");
+          try {
+            await apiFetch(`/api/settings/${endpoint}/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: nameInput.value.trim() || item.name, color: colorInput.value }) });
+            toast("Color updated", "success"); loadDropdowns();
+          } catch(e) { toast(e.message || "Error", "error"); }
+        });
+      }
 
       li.querySelector(".settings-rename-btn").addEventListener("click", async function() {
         const btn = this; const input = li.querySelector(".settings-item-input");
         const newName = input.value.trim();
         if (!newName || newName === input.dataset.original) return;
         btnLoading(btn, true);
+        const colorInput = li.querySelector(".category-color-input");
+        const color = colorInput ? colorInput.value : undefined;
         try {
-          await apiFetch(`/api/settings/${endpoint}/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) });
+          await apiFetch(`/api/settings/${endpoint}/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName, color }) });
           input.dataset.original = newName; toast("Renamed successfully", "success"); loadDropdowns();
         } catch(e) { toast(e.message || "Error", "error"); }
         btnLoading(btn, false);
