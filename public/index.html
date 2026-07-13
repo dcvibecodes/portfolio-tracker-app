@@ -59,7 +59,14 @@
     
     <div id="tab-dashboard" class="tab-content active" role="tabpanel" aria-labelledby="tab-dashboard-btn">
       <section class="summary-row" id="summary-row">
-        <div class="summary-grid-row" id="summary-grid"></div>
+        <div class="summary-grid-row" id="summary-grid">
+          <div class="skeleton skeleton-summary-item summary-item"></div>
+          <div class="skeleton skeleton-summary-item summary-item"></div>
+          <div class="skeleton skeleton-summary-item summary-item"></div>
+          <div class="skeleton skeleton-summary-item summary-item"></div>
+          <div class="skeleton skeleton-summary-item summary-item"></div>
+          <div class="skeleton skeleton-summary-item summary-item"></div>
+        </div>
       </section>
 
       <div class="dashboard-charts-row">
@@ -129,7 +136,11 @@
                 <th class="col-amount">XIRR %</th>
               </tr>
             </thead>
-            <tbody id="pivot-rows"></tbody>
+            <tbody id="pivot-rows">
+              <tr><td colspan="9"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:100px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+              <tr><td colspan="9"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:100px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+              <tr><td colspan="9"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:100px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+            </tbody>
             <tfoot id="pivot-footer"></tfoot>
           </table>
         </div>
@@ -309,7 +320,13 @@
                 <th class="col-actions">Actions</th>
               </tr>
             </thead>
-            <tbody id="holdings-rows"></tbody>
+            <tbody id="holdings-rows">
+              <tr><td colspan="14"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:50px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+              <tr><td colspan="14"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:50px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+              <tr><td colspan="14"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:50px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+              <tr><td colspan="14"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:50px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+              <tr><td colspan="14"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:50px"></div><div class="skeleton skeleton-text" style="width:60px"></div><div class="skeleton skeleton-text" style="width:50px"></div></div></td></tr>
+            </tbody>
           </table>
         </div>
       </section>
@@ -367,7 +384,11 @@
                 <th class="col-actions">Actions</th>
               </tr>
             </thead>
-            <tbody id="watchlist-rows"></tbody>
+            <tbody id="watchlist-rows">
+              <tr><td colspan="5"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:120px"></div><div class="skeleton skeleton-text" style="width:80px"></div><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="width:60px"></div></div></td></tr>
+              <tr><td colspan="5"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:120px"></div><div class="skeleton skeleton-text" style="width:80px"></div><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="width:60px"></div></div></td></tr>
+              <tr><td colspan="5"><div class="skeleton-row"><div class="skeleton skeleton-text" style="width:120px"></div><div class="skeleton skeleton-text" style="width:80px"></div><div class="skeleton skeleton-text" style="width:70px"></div><div class="skeleton skeleton-text" style="width:60px"></div></div></td></tr>
+            </tbody>
           </table>
         </div>
         <p id="watchlist-empty" class="watchlist-empty" style="display:none;">No items in watchlist. Add tickers from your portfolio settings or manually above.</p>
@@ -465,7 +486,11 @@
         <section class="card">
           <h2>Categories</h2>
           <p class="settings-desc">Configure the categories. Click the color dot to assign a chart color. Renaming propagates to all holdings.</p>
-          <ul class="settings-list" id="settings-classes-list"></ul>
+          <ul class="settings-list" id="settings-classes-list">
+            <li class="settings-item"><div class="skeleton skeleton-text" style="width:12px;height:12px;border-radius:50%;flex-shrink:0"></div><div class="skeleton skeleton-text" style="flex:1;margin-left:8px"></div></li>
+            <li class="settings-item"><div class="skeleton skeleton-text" style="width:12px;height:12px;border-radius:50%;flex-shrink:0"></div><div class="skeleton skeleton-text" style="flex:1;margin-left:8px"></div></li>
+            <li class="settings-item"><div class="skeleton skeleton-text" style="width:12px;height:12px;border-radius:50%;flex-shrink:0"></div><div class="skeleton skeleton-text" style="flex:1;margin-left:8px"></div></li>
+          </ul>
           <div class="settings-add">
             <input type="text" id="settings-class-input" placeholder="New category..." />
             <button id="settings-class-add-btn" class="add-btn">+ Add</button>
@@ -475,7 +500,11 @@
         <section class="card">
           <h2>Types</h2>
           <p class="settings-desc">Configure asset types. Renaming propagates to all holdings.</p>
-          <ul class="settings-list" id="settings-types-list"></ul>
+          <ul class="settings-list" id="settings-types-list">
+            <li class="settings-item"><div class="skeleton skeleton-text" style="flex:1"></div></li>
+            <li class="settings-item"><div class="skeleton skeleton-text" style="flex:1"></div></li>
+            <li class="settings-item"><div class="skeleton skeleton-text" style="flex:1"></div></li>
+          </ul>
           <div class="settings-add">
             <input type="text" id="settings-type-input" placeholder="New asset type..." />
             <button id="settings-type-add-btn" class="add-btn">+ Add</button>
@@ -485,7 +514,10 @@
         <section class="card">
           <h2>Brokers / Platforms</h2>
           <p class="settings-desc">Configure broker platforms. Renaming propagates to all holdings.</p>
-          <ul class="settings-list" id="settings-brokers-list"></ul>
+          <ul class="settings-list" id="settings-brokers-list">
+            <li class="settings-item"><div class="skeleton skeleton-text" style="flex:1"></div></li>
+            <li class="settings-item"><div class="skeleton skeleton-text" style="flex:1"></div></li>
+          </ul>
           <div class="settings-add">
             <input type="text" id="settings-broker-input" placeholder="New broker..." />
             <button id="settings-broker-add-btn" class="add-btn">+ Add</button>
@@ -505,7 +537,10 @@
                 <th class="col-actions">Actions</th>
               </tr>
             </thead>
-            <tbody id="settings-tickers-list"></tbody>
+            <tbody id="settings-tickers-list">
+              <tr><td colspan="3"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:80px"></div></div></td></tr>
+              <tr><td colspan="3"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:80px"></div></div></td></tr>
+            </tbody>
           </table>
         </div>
         <div class="settings-add" style="margin-top: 12px;">

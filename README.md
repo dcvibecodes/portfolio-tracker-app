@@ -1,6 +1,14 @@
-# Portfolio+ v3.11.0
+# Portfolio+ v3.12.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.12.0
+
+### Skeleton Loading
+- **Shimmer placeholders on page load** — summary cards, pivot breakdown table, and holdings table show animated skeleton placeholders while data loads from the server
+- **Instant perceived speed** — the page structure appears immediately instead of blank containers, reducing perceived load time on slow connections
+- **Zero impact after load** — skeletons are pure HTML that gets overwritten when real data arrives; no residual code or styling
+- **Works on mobile and desktop** — responsive skeleton shapes adapt to container width
 
 ## What's New in v3.11.0
 

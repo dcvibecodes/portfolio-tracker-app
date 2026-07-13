@@ -1046,3 +1046,39 @@ body { overflow-x: clip; }
 .header-icon-btn svg {
   display: block;
 }
+
+
+/* ── Skeleton Loading ── */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skeleton {
+  background: var(--border-subtle);
+  background-image: linear-gradient(90deg, var(--border-subtle) 0px, var(--bg) 40px, var(--border-subtle) 80px);
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  border-radius: 4px;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.skeleton-row:last-child { border-bottom: none; }
+.skeleton-summary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.skeleton-summary-item {
+  flex: 1 1 0;
+  min-width: 120px;
+  height: 52px;
+  border-radius: 6px;
+}
+.skeleton-text { height: 12px; border-radius: 3px; }
+.skeleton-text-sm { height: 10px; border-radius: 3px; width: 60%; }
+.skeleton-chart { height: 200px; border-radius: 6px; }
