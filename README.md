@@ -1,11 +1,15 @@
-# Portfolio+ v3.10.1
+# Portfolio+ v3.11.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
 
-## What's New in v3.10.1
+## What's New in v3.11.0
 
-### Bug Fixes
-- **FAB position** — floating action button moved higher to avoid touching the bottom nav bar on iPhone PWA
+### Emoji Purge — SVG Icons Everywhere
+- **All action buttons now use SVG icons** — edit (pencil), delete (trash), copy (clipboard), notes (file), save (checkmark) are all inline SVGs that inherit `currentColor`
+- **Consistent cross-platform rendering** — no more emoji differences between Windows, Mac, iOS, and Android
+- **Settings list buttons** — save (💾) and delete (🗑️) replaced with SVG checkmark and trash icons
+- **Watchlist actions** — edit and delete buttons now use SVGs
+- **Ticker table** — save and delete buttons converted to SVGs
 
 ## What's New in v3.10.0
 

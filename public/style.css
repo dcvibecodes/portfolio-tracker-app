@@ -408,9 +408,10 @@ span.negative { color: var(--red); font-weight: 600; }
 [data-theme="dark"] .badge-buy { background: rgba(74,222,128,0.1); color: var(--green); }
 [data-theme="dark"] .badge-sell { background: rgba(248,113,113,0.1); color: var(--red); }
 
-.action-btn { background: none; border: none; cursor: pointer; padding: 3px 5px; font-size: 0.78rem; border-radius: 4px; color: inherit; transition: background 0.15s; }
+.action-btn { background: none; border: none; cursor: pointer; padding: 3px 5px; font-size: 0.78rem; border-radius: 4px; color: inherit; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; }
 .action-btn:hover { background: var(--accent-dim); }
 .action-btn.delete { color: var(--red); }
+.action-btn svg { display: block; }
 .action-btn.notes-empty { opacity: 0.3; }
 .action-btn.notes-empty:hover { opacity: 0.8; }
 

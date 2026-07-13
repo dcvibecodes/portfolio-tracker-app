@@ -1,6 +1,16 @@
 (function () {
   "use strict";
 
+  // SVG Icons (14x14, stroke-based)
+  const ICON = {
+    edit: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    delete: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    copy: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    note: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    noteEmpty: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    save: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  };
+
   //--- Theme Management (auto-detect system preference, with user override) ---
   function applyTheme() {
     const saved = localStorage.getItem("theme-preference");
@@ -1267,10 +1277,10 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount ${plClass}">${r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-"}</td>
         <td class="col-amount ${plClass}">${fmtPct(r.gain_loss_pct)}</td>
         <td class="col-actions">
-          ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">📝</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">🗒️</button>`}
-          <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">📋</button>
-          <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">✏️</button>
-          <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">🗑️</button>
+          ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
+          <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">${ICON.copy}</button>
+          <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">${ICON.edit}</button>
+          <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">${ICON.delete}</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -1671,8 +1681,8 @@ function getCategoryColor(category, index = 0) {
       li.innerHTML = `
         ${isCategories ? `<span class="category-color-dot" style="background:${colorVal}; width:12px; height:12px; border-radius:50%; flex-shrink:0; cursor:pointer;" title="Click to change color"></span><input type="color" class="category-color-input" value="${colorVal}" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" />` : ''}
         <input type="text" class="settings-item-input" value="${item.name}" data-id="${item.id}" data-original="${item.name}" />
-        <button class="action-btn settings-rename-btn" title="Save">💾</button>
-        <button class="action-btn delete settings-delete-btn" title="Delete">🗑️</button>
+        <button class="action-btn settings-rename-btn" title="Save">${ICON.save}</button>
+        <button class="action-btn delete settings-delete-btn" title="Delete">${ICON.delete}</button>
       `;
       ul.appendChild(li);
 
@@ -1725,8 +1735,8 @@ function getCategoryColor(category, index = 0) {
         <td>${t.asset_name}</td>
         <td><input type="text" class="ticker-edit-input" value="${t.ticker}" data-asset="${t.asset_name}" data-original="${t.ticker}" /></td>
         <td class="col-actions">
-          <button class="action-btn ticker-save-btn" title="Save">💾</button>
-          <button class="action-btn delete ticker-delete-btn" title="Delete">🗑️</button>
+          <button class="action-btn ticker-save-btn" title="Save">${ICON.save}</button>
+          <button class="action-btn delete ticker-delete-btn" title="Delete">${ICON.delete}</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -1964,8 +1974,8 @@ function getCategoryColor(category, index = 0) {
       const priceStr = item.current_price != null ? getCurrencySymbol(item.currency) + Number(item.current_price).toLocaleString(getLocaleForCurrency(item.currency), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
 
       const sourceBadge = item.is_portfolio ? '<span class="watchlist-badge watchlist-badge-portfolio">Portfolio</span>' : '<span class="watchlist-badge watchlist-badge-manual">Manual</span>';
-      const editBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>⚙️</button>' : `<button class="action-btn watchlist-edit-btn" data-id="${item.id}" data-name="${item.name.replace(/"/g, '&quot;')}" data-ticker="${item.ticker}" title="Edit">✏️</button>`;
-      const deleteBtn = item.is_portfolio ? '<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>🗑️</button>' : `<button class="action-btn delete watchlist-remove-btn" data-id="${item.id}" title="Remove">🗑️</button>`;
+      const editBtn = item.is_portfolio ? `<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>${ICON.edit}</button>` : `<button class="action-btn watchlist-edit-btn" data-id="${item.id}" data-name="${item.name.replace(/"/g, '&quot;')}" data-ticker="${item.ticker}" title="Edit">${ICON.edit}</button>`;
+      const deleteBtn = item.is_portfolio ? `<button class="action-btn watchlist-action-disabled" title="Part of your portfolio" disabled>${ICON.delete}</button>` : `<button class="action-btn delete watchlist-remove-btn" data-id="${item.id}" title="Remove">${ICON.delete}</button>`;
 
       tr.innerHTML = `<td>${item.name}</td><td class="watchlist-ticker-cell">${item.ticker}</td><td class="col-amount watchlist-price">${priceStr}</td><td>${sourceBadge}</td><td class="col-actions">${editBtn} ${deleteBtn}</td>`;
       tbody.appendChild(tr);
