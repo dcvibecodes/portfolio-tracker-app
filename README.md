@@ -1,6 +1,12 @@
-# Portfolio+ v3.12.0
+# Portfolio+ v3.13.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.13.0
+
+### Theme Flash Fix
+- **Zero-flash dark mode** — inline `<script>` in `<head>` sets the correct theme before the first paint; no more white flash on dark-mode devices
+- **CSS media query fallback** — `@media (prefers-color-scheme: dark)` applies dark variables even before JS runs, covering edge cases
 
 ## What's New in v3.12.0
 
