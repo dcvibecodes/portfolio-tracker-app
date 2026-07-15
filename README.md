@@ -1,6 +1,12 @@
-# Portfolio+ v3.13.0
+# Portfolio+ v3.13.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.13.1
+
+### Remaining Emoji Cleanup
+- **Lock badge** — replaced 🔒 emoji with inline SVG padlock icon in the App Lock section
+- **Recovery warning** — replaced ⚠ emoji with inline SVG warning triangle icon in the PIN setup recovery message
 
 ## What's New in v3.13.0
 
