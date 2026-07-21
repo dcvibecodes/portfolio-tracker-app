@@ -1,6 +1,11 @@
-# Portfolio+ v3.13.1
+# Portfolio+ v3.13.2
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.13.2
+
+### Dark Mode Fix
+- **Pitch black background** — dark mode `--bg` changed from `#0a0a0a` to `#000000` for a true pitch-black background, matching Scrawl's dark theme
 
 ## What's New in v3.13.1
 
