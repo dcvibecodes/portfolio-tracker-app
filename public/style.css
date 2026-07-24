@@ -27,16 +27,16 @@
 
 [data-theme="dark"] {
   --bg: #000000;
-  --surface: #141414;
+  --surface: #0a0a0a;
   --text: #e4e4e4;
   --text-secondary: #a0a0a0;
   --text-faint: #6a6a6a;
-  --border: #2e2e2e;
-  --border-subtle: #1e1e1e;
+  --border: #181818;
+  --border-subtle: transparent;
   --accent: #f5f5f5;
   --accent-hover: #cccccc;
-  --accent-dim: rgba(255,255,255,0.08);
-  --accent-glow: rgba(255,255,255,0.14);
+  --accent-dim: rgba(255,255,255,0.06);
+  --accent-glow: rgba(255,255,255,0.10);
   --green: #4ade80;
   --red: #f87171;
   --orange: #fbbf24;
@@ -47,16 +47,16 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000;
-    --surface: #141414;
+    --surface: #0a0a0a;
     --text: #e4e4e4;
     --text-secondary: #a0a0a0;
     --text-faint: #6a6a6a;
-    --border: #2e2e2e;
-    --border-subtle: #1e1e1e;
+    --border: #181818;
+    --border-subtle: transparent;
     --accent: #f5f5f5;
     --accent-hover: #cccccc;
-    --accent-dim: rgba(255,255,255,0.08);
-    --accent-glow: rgba(255,255,255,0.14);
+    --accent-dim: rgba(255,255,255,0.06);
+    --accent-glow: rgba(255,255,255,0.10);
     --green: #4ade80;
     --red: #f87171;
     --orange: #fbbf24;
