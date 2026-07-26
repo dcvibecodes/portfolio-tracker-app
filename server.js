@@ -362,7 +362,7 @@ function getLoginPage() {
 <style>
   *{ margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 100vh; -webkit-font-smoothing: antialiased; }
-  @media (prefers-color-scheme: dark) { body { background: #0a0a0a; } .lock-modal { background: #141414; border-color: #2e2e2e; } h2 { color: #e4e4e4; } .subtitle { color: #6a6a6a; } input[type="password"], input[type="text"] { background: #0f0f0f; border-color: #2e2e2e; color: #e4e4e4; } input:focus { border-color: #f5f5f5; box-shadow: 0 0 0 2px rgba(255,255,255,0.14); } button { background: #f5f5f5; color: #0a0a0a; } button:hover { opacity: 0.85; background: #f5f5f5; } .error { color: #f87171; } .recovery-link a { color: #f5f5f5; } }
+  @media (prefers-color-scheme: dark) { body { background: #000000; } .lock-modal { background: #000000; border-color: #181818; } h2 { color: #e4e4e4; } .subtitle { color: #6a6a6a; } input[type="password"], input[type="text"] { background: #000000; border-color: #181818; color: #e4e4e4; } input:focus { border-color: #f5f5f5; box-shadow: 0 0 0 2px rgba(255,255,255,0.14); } button { background: #f5f5f5; color: #000000; } button:hover { opacity: 0.85; background: #f5f5f5; } .error { color: #f87171; } .recovery-link a { color: #f5f5f5; } }
   .lock-modal { background: #fff; border: 1px solid #e2e2e2; border-radius: 12px; padding: 36px 32px; width: 100%; max-width: 340px; text-align: center; }
   h2 { margin-bottom: 6px; font-size: 0.92rem; font-weight: 700; color: #1a1a1a; }
   .subtitle { color: #aaa; font-size: 0.72rem; margin: 0 0 18px; }
