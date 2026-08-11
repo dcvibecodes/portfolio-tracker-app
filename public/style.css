@@ -699,7 +699,7 @@ body { overflow-x: clip; }
   .modal-content { width: 95%; padding: 16px; }
   .edit-grid { grid-template-columns: 1fr; }
 
-  .app-header { padding: max(32px, calc(env(safe-area-inset-top) + 24px)) 12px 8px; }
+  .app-header { padding: 8px 12px; }
   .app-title { font-size: 0.78rem; }
 
   .pivot-header { flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -757,7 +757,7 @@ body { overflow-x: clip; }
   .modal-buttons { flex-direction: column; }
   .modal-buttons button { flex: none; }
 
-  .app-header { padding: max(32px, calc(env(safe-area-inset-top) + 24px)) 10px 8px; }
+  .app-header { padding: 8px 10px; }
   .header-actions { gap: 4px; }
   .header-btn { padding: 4px 6px; font-size: 0.66rem; }
   .range-selector, .range-selector-trend { flex-wrap: wrap; }
