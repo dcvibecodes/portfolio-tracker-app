@@ -29,7 +29,7 @@
   });
 
   // Theme toggle buttons
-  const themeBtns = document.querySelectorAll(".theme-option-btn");
+  const themeBtns = document.querySelectorAll("[data-theme-choice]");
   const savedTheme = localStorage.getItem("theme-preference") || "auto";
   themeBtns.forEach(btn => {
     if (btn.dataset.themeChoice === savedTheme) btn.classList.add("active");

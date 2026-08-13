@@ -6,13 +6,13 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #fafafa;
+  --bg: #f4f4f4;
   --surface: #ffffff;
   --text: #1a1a1a;
   --text-secondary: #666666;
-  --text-faint: #aaaaaa;
-  --border: #e2e2e2;
-  --border-subtle: #f0f0f0;
+  --text-faint: #8a8a8a;
+  --border: #e5e5e5;
+  --border-subtle: #e9e9e9;
   --accent: #111111;
   --accent-hover: #333333;
   --accent-dim: rgba(0,0,0,0.055);
@@ -27,12 +27,12 @@
 
 [data-theme="dark"] {
   --bg: #000000;
-  --surface: #000000;
+  --surface: #0a0a0a;
   --text: #e4e4e4;
   --text-secondary: #a0a0a0;
-  --text-faint: #6a6a6a;
-  --border: #181818;
-  --border-subtle: #181818;
+  --text-faint: #737373;
+  --border: #1f1f1f;
+  --border-subtle: #161616;
   --accent: #f5f5f5;
   --accent-hover: #cccccc;
   --accent-dim: transparent;
@@ -47,12 +47,12 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000;
-    --surface: #000000;
+    --surface: #0a0a0a;
     --text: #e4e4e4;
     --text-secondary: #a0a0a0;
-    --text-faint: #6a6a6a;
-    --border: #181818;
-    --border-subtle: #181818;
+    --text-faint: #737373;
+    --border: #1f1f1f;
+    --border-subtle: #161616;
     --accent: #f5f5f5;
     --accent-hover: #cccccc;
     --accent-dim: transparent;
@@ -167,7 +167,7 @@ button, a, input, select, textarea, [tabindex] {
   padding: 16px;
   margin-bottom: 14px;
 }
-.card h2 { font-size: 0.82rem; font-weight: 600; margin-bottom: 12px; }
+.card h2 { font-size: 0.82rem; font-weight: 600; margin-bottom: 12px; letter-spacing: -0.01em; }
 
 .dashboard-top {
   display: grid;
@@ -383,7 +383,7 @@ select {
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
 thead { background: var(--bg); }
-th, td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+th, td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; font-variant-numeric: tabular-nums; }
 th { font-weight: 600; font-size: 0.66rem; text-transform: uppercase; color: var(--text-faint); letter-spacing: 0.4px; }
 .col-amount { text-align: right; }
 .col-actions { text-align: center; }
