@@ -21,7 +21,7 @@
   --red: #c53030;
   --orange: #9a6700;
   --purple: #6b46a3;
-  --radius: 8px;
+  --radius: 14px;
   --shadow: none;
 }
 
@@ -660,7 +660,7 @@ body { overflow-x: clip; }
   body { padding-bottom: 64px; }
   .container { padding: 10px 8px; }
 
-  .card { padding: 12px; margin-bottom: 10px; border-radius: 6px; }
+  .card { padding: 12px; margin-bottom: 10px; border-radius: 12px; }
   .card h2 { font-size: 0.78rem; margin-bottom: 8px; }
 
   .grid, .add-grid, .edit-grid, .batch-grid { grid-template-columns: 1fr; }
