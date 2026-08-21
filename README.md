@@ -1,6 +1,17 @@
-# Portfolio+ v3.13.2
+# Portfolio+ v3.14.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.14.0
+
+### Warm Sepia Light Theme
+- **Warm off-white background** — light theme now uses a warm, sepia-tinted off-white (`#f5efe6` page / `#fdfbf7` cards) instead of cool gray (`#f4f4f4`) / pure white (`#ffffff`); easier on the eyes for long sessions
+- **Complementary palette retinted warm** — text (`#2c241b`), secondary/faint text (`#6b5c4c` / `#9a8a7a`), borders (`#e8ddd0` / `#ede5d8`), and focus glows (`rgba(44,36,27,0.06/0.11)`) all shifted warm so cards, inputs, dividers, and active states feel cohesive on the sepia background
+- **PWA + lock screen updated** — `meta theme-color`, `manifest.json` `background_color`/`theme_color`, and the server-rendered lock page (`server.js`) all now use the sepia tokens so the standalone/PWA chrome and pre-auth screen match the app
+
+### Dark Theme Contrast Lift
+- **More hierarchy in dark** — dark `--surface` lifted from `#0a0a0a` → `#141414` and borders from `#1f1f1f` → `#2a2a2a` (`--border-subtle` `#161616` → `#1e1e1e`) so cards lift off the pitch-black `#000000` page; lock-screen dark borders updated to `#232323` to match
+- **Applies to both `data-theme="dark"` and `prefers-color-scheme` fallback** — no change to accent or semantic colors
 
 ## What's New in v3.13.2
 

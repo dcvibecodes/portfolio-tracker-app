@@ -393,12 +393,12 @@ function getLoginPage() {
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *{ margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 100vh; -webkit-font-smoothing: antialiased; }
-  @media (prefers-color-scheme: dark) { body { background: #000000; } .lock-modal { background: #000000; border-color: #181818; } h2 { color: #e4e4e4; } .subtitle { color: #6a6a6a; } input[type="password"], input[type="text"] { background: #000000; border-color: #181818; color: #e4e4e4; } input:focus { border-color: #f5f5f5; box-shadow: 0 0 0 2px rgba(255,255,255,0.14); } button { background: #f5f5f5; color: #000000; } button:hover { opacity: 0.85; background: #f5f5f5; } .error { color: #f87171; } .recovery-link a { color: #f5f5f5; } }
-  .lock-modal { background: #fff; border: 1px solid #e2e2e2; border-radius: 12px; padding: 36px 32px; width: 100%; max-width: 340px; text-align: center; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5efe6; display: flex; align-items: center; justify-content: center; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  @media (prefers-color-scheme: dark) { body { background: #000000; } .lock-modal { background: #000000; border-color: #232323; } h2 { color: #e4e4e4; } .subtitle { color: #6a6a6a; } input[type="password"], input[type="text"] { background: #000000; border-color: #232323; color: #e4e4e4; } input:focus { border-color: #f5f5f5; box-shadow: 0 0 0 2px rgba(255,255,255,0.14); } button { background: #f5f5f5; color: #000000; } button:hover { opacity: 0.85; background: #f5f5f5; } .error { color: #f87171; } .recovery-link a { color: #f5f5f5; } }
+  .lock-modal { background: #fdfbf7; border: 1px solid #e8ddd0; border-radius: 12px; padding: 36px 32px; width: 100%; max-width: 340px; text-align: center; }
   h2 { margin-bottom: 6px; font-size: 0.92rem; font-weight: 700; color: #1a1a1a; }
   .subtitle { color: #aaa; font-size: 0.72rem; margin: 0 0 18px; }
-  input[type="password"], input[type="text"] { display: block; width: 100%; text-align: center; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 1.2rem; letter-spacing: 0.3em; margin-bottom: 10px; padding: 8px; border: 1px solid #e2e2e2; border-radius: 5px; background: #fafafa; color: #1a1a1a; outline: none; transition: border-color 0.15s; }
+  input[type="password"], input[type="text"] { display: block; width: 100%; text-align: center; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 1.2rem; letter-spacing: 0.3em; margin-bottom: 10px; padding: 8px; border: 1px solid #e8ddd0; border-radius: 5px; background: #f5efe6; color: #2c241b; outline: none; transition: border-color 0.15s; }
   input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
   button { width: 100%; padding: 8px 16px; background: #111; color: #fff; border: none; border-radius: 5px; font-size: 0.76rem; font-weight: 550; cursor: pointer; margin-bottom: 8px; min-height: 34px; font-family: inherit; transition: opacity 0.15s; }
   button:hover { opacity: 0.85; }
