@@ -213,8 +213,29 @@ function getCategoryColor(category, index = 0) {
     }
   }
 
+  //--- CSRF Token ---
+  let csrfToken = null;
+
+  async function getCsrfToken() {
+    try {
+      const res = await fetch("/api/csrf-token");
+      if (res.ok) {
+        const data = await res.json();
+        csrfToken = data.token;
+      }
+    } catch {}
+  }
+
+  getCsrfToken();
+
   //--- Safe fetch wrapper (fix #5.1) ---
   async function apiFetch(url, options) {
+    options = options || {};
+    // Auto-include CSRF token on state-changing requests
+    if (csrfToken && options.method && ["POST", "PUT", "PATCH", "DELETE"].includes(options.method.toUpperCase())) {
+      options.headers = options.headers || {};
+      options.headers["X-CSRF-Token"] = csrfToken;
+    }
     try {
       const res = await fetch(url, options);
       if (!res.ok) {

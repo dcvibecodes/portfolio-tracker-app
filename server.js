@@ -314,8 +314,35 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, secure: false, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }
+  cookie: { httpOnly: true, secure: false, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
+
+// --- CSRF Protection ---
+const CSRF_EXEMPT_PATHS = [
+  "/api/lock/status",
+  "/api/lock/unlock",
+  "/api/lock/recovery",
+  "/api/lock/setup",
+  "/api/lock/disable",
+  "/api/csrf-token"
+];
+
+function csrfTokenMiddleware(req, res, next) {
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+  }
+  next();
+}
+
+function csrfProtectionMiddleware(req, res, next) {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
+  if (CSRF_EXEMPT_PATHS.includes(req.path)) return next();
+  const token = req.headers["x-csrf-token"];
+  if (!token || token !== req.session.csrfToken) {
+    return res.status(403).json({ error: "Invalid CSRF token. Please refresh and try again." });
+  }
+  next();
+}
 
 function authMiddleware(req, res, next) {
   const openPaths = [
@@ -333,6 +360,11 @@ function authMiddleware(req, res, next) {
   "/icon-192.png",
   "/icon-512.png"
 ];
+  // CSRF token endpoint is always open (before auth)
+  if (req.path === "/api/csrf-token") {
+    return next();
+  }
+
   if (openPaths.includes(req.path)) {
     return next();
   }
@@ -413,6 +445,15 @@ function getLoginPage() {
 </html>`;
 }
 
+app.use(csrfTokenMiddleware);
+
+// CSRF token endpoint — returns the current session's CSRF token
+// Must be registered after csrfTokenMiddleware so the token is initialized
+app.get("/api/csrf-token", (req, res) => {
+  return res.json({ token: req.session.csrfToken || "" });
+});
+
+app.use(csrfProtectionMiddleware);
 app.use(authMiddleware);
 app.use(compression());
 app.use(express.static(path.join(__dirname, "public"), {
