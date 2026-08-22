@@ -92,7 +92,7 @@ button, a, input, select, textarea, [tabindex] {
 
 /* ── Header ── */
 .app-header {
-  background: var(--surface);
+  background: var(--bg);
   border-bottom: 1px solid var(--border-subtle);
   padding: 10px 20px;
   display: flex;
@@ -158,8 +158,8 @@ button, a, input, select, textarea, [tabindex] {
 }
 
 .bottom-nav-btn:hover { color: var(--text); }
-.bottom-nav-btn.active { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.bottom-nav-btn.active .nav-icon { stroke: var(--accent); }
+.bottom-nav-btn.active { background: var(--accent); color: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.bottom-nav-btn.active .nav-icon { stroke: var(--surface); }
 
 .bottom-nav-btn span { display: inline; }
 .nav-icon { width: 13px; height: 13px; }
@@ -359,7 +359,7 @@ select {
   background: var(--accent); color: var(--surface); border: none; border-radius: 5px; cursor: pointer; min-height: 34px; font-family: inherit; transition: opacity 0.15s;
 }
 .new-txn-toggle-btn:hover { opacity: 0.85; }
-.new-txn-toggle-btn.open { background: var(--text-secondary); }
+.new-txn-toggle-btn.open { background: var(--accent); }
 .new-txn-content { margin-top: 0; }
 
 .filter-reset-btn {
@@ -662,11 +662,11 @@ body { overflow-x: clip; }
   }
   .bottom-nav-btn:hover { background: transparent; }
   .bottom-nav-btn.active {
-    background: var(--accent-dim);
-    color: var(--accent);
+    background: var(--accent);
+    color: var(--surface);
     box-shadow: none;
   }
-  .bottom-nav-btn.active .nav-icon { stroke: var(--accent); }
+  .bottom-nav-btn.active .nav-icon { stroke: var(--surface); }
   .bottom-nav-btn .nav-icon { width: 18px; height: 18px; }
 
   body { padding-bottom: 64px; }
@@ -1043,8 +1043,8 @@ body { overflow-x: clip; }
   color: var(--text);
 }
 .theme-option-btn.active {
-  background: var(--surface);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
