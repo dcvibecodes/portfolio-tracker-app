@@ -1,6 +1,13 @@
-# Portfolio+ v3.14.0
+# Portfolio+ v3.15.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+
+## What's New in v3.15.0
+
+### New Transaction Form Fixes
+- **Asset Name no longer overlaps Category** — the Asset Name input (which uses an autocomplete wrapper for the suggestions dropdown) was keeping its default intrinsic width instead of filling its grid column, causing it to spill over the Category dropdown next to it. All form inputs/selects now fill their grid cell (`width: 100%`).
+- **FAB reads "New transaction"** — the floating action button now shows a text label ("New transaction", lowercase "t") alongside the plus icon, matching the Expenses+ "Add expense" FAB style. It changed from a plain circular icon button to a pill-shaped button with text.
+- **Removed drag handle** — the little horizontal drag bar at the top of the New Transaction and Filters bottom-sheet pop-overs has been removed.
 
 ## What's New in v3.14.0
 
