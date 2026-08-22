@@ -158,8 +158,8 @@ button, a, input, select, textarea, [tabindex] {
 }
 
 .bottom-nav-btn:hover { color: var(--text); }
-.bottom-nav-btn.active { background: var(--accent); color: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.bottom-nav-btn.active .nav-icon { stroke: var(--surface); }
+.bottom-nav-btn.active { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.bottom-nav-btn.active .nav-icon { stroke: var(--accent); }
 
 .bottom-nav-btn span { display: inline; }
 .nav-icon { width: 13px; height: 13px; }
@@ -662,11 +662,11 @@ body { overflow-x: clip; }
   }
   .bottom-nav-btn:hover { background: transparent; }
   .bottom-nav-btn.active {
-    background: var(--accent);
-    color: var(--surface);
+    background: var(--accent-dim);
+    color: var(--accent);
     box-shadow: none;
   }
-  .bottom-nav-btn.active .nav-icon { stroke: var(--surface); }
+  .bottom-nav-btn.active .nav-icon { stroke: var(--accent); }
   .bottom-nav-btn .nav-icon { width: 18px; height: 18px; }
 
   body { padding-bottom: 64px; }
