@@ -512,8 +512,8 @@ function getCategoryColor(category, index = 0) {
         const arrow = item.value >= 0 ? "▲" : "▼";
         const pct = item.dayPct != null ? Math.abs(item.dayPct).toFixed(2) + "%" : "";
         div.innerHTML = `<div class="label">${item.label}</div>
-                         <div class="value ${cls}">${arrow} ${curSym}${fmtWhole(Math.abs(item.value))}</div>
-                         <div class="change ${cls}">${pct}</div>`;
+                         <div class="value ${cls}">${curSym}${fmtWhole(Math.abs(item.value))}</div>
+                         <div class="change ${cls}">${arrow} ${pct}</div>`;
       } else if (item.isTopGainer) {
         const cls = item.pct >= 0 ? "positive" : "negative";
         const arrow = item.pct >= 0 ? "▲" : "▼";
