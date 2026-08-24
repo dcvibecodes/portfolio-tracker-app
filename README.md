@@ -1,6 +1,13 @@
-# Invest More v3.15.0
+# Invest More v4.0.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.0.0
+
+### Rebrand — "Invest More"
+- **New name** — the app is now called **Invest More** (was "Portfolio+") everywhere: browser tab title, header, PWA install name, iOS home-screen title, lock screen, and server startup log
+- **New icons** — all icons (favicon, PWA icons, apple-touch-icon) redesigned as a **Fraunces wordmark** — the same serif as the header title — with "Invest" and "More" stacked on two rows in sepia on a dark rounded square, baked as vector paths so they render identically on every platform
+- **Same app, new look** — no data or functionality changed; only branding and icons
 
 ## What's New in v3.15.0
 
