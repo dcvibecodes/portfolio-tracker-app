@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+import os
+
+from PIL import Image, ImageDraw, ImageFont
+from fontTools.pens.boundsPen import BoundsPen
+from fontTools.pens.recordingPen import RecordingPen
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.ttLib import TTFont
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+FONT_PATH = os.path.join(BASE, 'icon-fonts', 'Fraunces-600.ttf')
+OUTPUT_DIR = os.path.join(BASE, 'public')
+
+CANVAS = 512
+CORNER_RADIUS = 128
+BACKGROUND = '#12110F'
+ROW_GAP = 16
+ROW1_SIZE = 140
+ROW2_SIZE = 208
+ROW1_COLOR = '#f5efe6'
+ROW2_COLOR = '#fcfaf3'
+ROWS = [
+    ('Invest', ROW1_SIZE, ROW1_COLOR),
+    ('More', ROW2_SIZE, ROW2_COLOR),
+]
+OUTPUTS = [
+    ('favicon.svg', None),
+    ('icon-192.png', 192),
+    ('icon-512.png', 512),
+    ('apple-touch-icon.png', 180),
+    ('favicon-16.png', 16),
+    ('favicon-32.png', 32),
+    ('favicon-16x16.png', 16),
+    ('favicon-32x32.png', 32),
+]
+
+font = TTFont(FONT_PATH)
+cmap = font.getBestCmap()
+glyf = font.getGlyphSet()
+hmtx = font['hmtx']
+upem = font['head'].unitsPerEm
+
+
+def word_ink_bbox(text, size):
+    units = size / upem
+    rec = RecordingPen()
+    x = 0
+    for ch in text:
+        name = cmap[ord(ch)]
+        tp = TransformPen(rec, (1, 0, 0, 1, x, 0))
+        glyf[name].draw(tp)
+        x += hmtx[name][0]
+    bp = BoundsPen(glyf)
+    rec.replay(bp)
+    return tuple(v * units for v in bp.bounds)
+
+
+def word_svg_paths(text, size):
+    units = size / upem
+    x = 0
+    parts = []
+    for ch in text:
+        name = cmap[ord(ch)]
+        pen = SVGPathPen(glyf)
+        glyf[name].draw(pen)
+        parts.append(
+            f'<g transform="translate({x:.3f} 0)"><path d="{pen.getCommands()}"/></g>'
+        )
+        x += hmtx[name][0]
+    return f'<g transform="scale({units:.6f}, {-units:.6f})">' + ''.join(parts) + '</g>'
+
+
+def layout():
+    boxes = [word_ink_bbox(word, size) for word, size, _ in ROWS]
+    baselines = [0.0]
+    for i in range(1, len(boxes)):
+        baselines.append(
+            baselines[i - 1] - boxes[i - 1][1] + ROW_GAP + boxes[i][3]
+        )
+    tops = [baselines[i] - boxes[i][3] for i in range(len(boxes))]
+    bots = [baselines[i] - boxes[i][1] for i in range(len(boxes))]
+    dy = CANVAS / 2 - (min(tops) + max(bots)) / 2
+    positions = []
+    for i, (box, bl) in enumerate(zip(boxes, baselines)):
+        tx = CANVAS / 2 - (box[0] + box[2]) / 2
+        positions.append((tx, bl + dy))
+    return positions, boxes
+
+
+def build_svg(positions):
+    groups = []
+    for (word, size, color), (tx, ty) in zip(ROWS, positions):
+        groups.append(
+            f'<g transform="translate({tx:.3f} {ty:.3f})"><g fill="{color}">'
+            + word_svg_paths(word, size)
+            + '</g></g>'
+        )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS}" height="{CANVAS}" '
+        f'viewBox="0 0 {CANVAS} {CANVAS}">'
+        f'<rect width="{CANVAS}" height="{CANVAS}" rx="{CORNER_RADIUS}" fill="{BACKGROUND}"/>'
+        + ''.join(groups)
+        + '</svg>'
+    )
+
+
+def build_master_png(positions):
+    img = Image.new('RGB', (CANVAS, CANVAS), BACKGROUND)
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle((0, 0, CANVAS - 1, CANVAS - 1),
+                        radius=CORNER_RADIUS, fill=BACKGROUND)
+    for (word, size, color), (tx, ty) in zip(ROWS, positions):
+        f = ImageFont.truetype(FONT_PATH, size)
+        bb = d.textbbox((0, 0), word, font=f, anchor='ls')
+        d.text((CANVAS / 2 - (bb[0] + bb[2]) / 2, ty),
+               word, font=f, fill=color, anchor='ls')
+    return img
+
+
+def main():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    positions, _ = layout()
+    svg = build_svg(positions)
+    master = build_master_png(positions)
+    for name, size in OUTPUTS:
+        out = os.path.join(OUTPUT_DIR, name)
+        if size is None:
+            with open(out, 'w') as fh:
+                fh.write(svg)
+            print(f'Generated {name}')
+        else:
+            master.resize((size, size), Image.LANCZOS).save(out)
+            print(f'Generated {name} ({size}x{size})')
+
+
+if __name__ == '__main__':
+    main()

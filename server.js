@@ -387,7 +387,7 @@ function getLoginPage() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portfolio+ Locked</title>
+<title>Invest More Locked</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -411,7 +411,7 @@ function getLoginPage() {
 </head>
 <body>
 <div class="lock-modal">
-  <h2>Portfolio+ Locked</h2>
+  <h2>Invest More Locked</h2>
   <p class="subtitle">Enter your 6-digit PIN to access the app.</p>
   <input type="password" id="pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" autofocus />
   <button id="unlock-btn" type="button">Unlock</button>
@@ -1592,6 +1592,6 @@ process.on("SIGINT", () => { db.close(); process.exit(0); });
 process.on("SIGTERM", () => { db.close(); process.exit(0); });
 
 app.listen(PORT, () => {
-  console.log(`Portfolio Tracker+ running at http://localhost:${PORT}`);
+  console.log(`Invest More running at http://localhost:${PORT}`);
   console.log(`Database: ${dbPath}`);
 });

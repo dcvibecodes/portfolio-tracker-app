@@ -1,12 +1,12 @@
-# Portfolio+ v3.15.0
+# Invest More v3.15.0
 
-Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Expenses+.
+Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
 
 ## What's New in v3.15.0
 
 ### New Transaction Form Fixes
 - **Asset Name no longer overlaps Category** — the Asset Name input (which uses an autocomplete wrapper for the suggestions dropdown) was keeping its default intrinsic width instead of filling its grid column, causing it to spill over the Category dropdown next to it. All form inputs/selects now fill their grid cell (`width: 100%`).
-- **FAB reads "New transaction"** — the floating action button now shows a text label ("New transaction", lowercase "t") alongside the plus icon, matching the Expenses+ "Add expense" FAB style. It changed from a plain circular icon button to a pill-shaped button with text.
+- **FAB reads "New transaction"** — the floating action button now shows a text label ("New transaction", lowercase "t") alongside the plus icon, matching the Spend Less "Add expense" FAB style. It changed from a plain circular icon button to a pill-shaped button with text.
 - **Removed drag handle** — the little horizontal drag bar at the top of the New Transaction and Filters bottom-sheet pop-overs has been removed.
 
 ## What's New in v3.14.0
@@ -57,7 +57,7 @@ Self-hosted investment portfolio tracker for any asset class, currency, and brok
 ## What's New in v3.10.0
 
 ### Design Overhaul — Monochrome Design Language
-- **Complete visual redesign** — unified design language shared with Expenses+ and other suite apps (Dictation Tool, DocuChat AI)
+- **Complete visual redesign** — unified design language shared with Spend Less and other suite apps (Dictation Tool, DocuChat AI)
 - **Inter font** — switched from system fonts to Inter via Google Fonts
 - **Monochrome accent** — replaced blue (#3b82f6) with near-black (#111) in light mode, near-white (#f5f5f5) in dark mode
 - **No shadows** — surfaces rely on subtle borders instead of box-shadow
@@ -125,7 +125,7 @@ Self-hosted investment portfolio tracker for any asset class, currency, and brok
 - **All bottom sheets** — swipe down to dismiss the New Transaction and Filters sheets; drag handle shown at top
 - **Instant dismiss** — no visual snap-back; sheet disappears immediately on threshold
 
-### Font & Style Consistency (with Expenses+)
+### Font & Style Consistency (with Spend Less)
 - **Summary card values** — `1.1rem` (was `1.2rem`)
 - **Chart headings (h3)** — `0.75rem`, uppercase, letter-spacing (was `0.9rem`, normal case)
 - **Toast weight** — `font-weight: 600` added
@@ -184,7 +184,7 @@ Self-hosted investment portfolio tracker for any asset class, currency, and brok
 ## What's New in v3.3.0
 
 ### Holdings Tab
-- **Summary bar moved above table** — The entries/invested/value/P&L summary now displays above the holdings table in a subtle, compact style (matching the Expenses+ reports tab)
+- **Summary bar moved above table** — The entries/invested/value/P&L summary now displays above the holdings table in a subtle, compact style (matching the Spend Less reports tab)
 
 ### Dashboard — By Category Chart
 - **Invested line overlay** — The horizontal bar chart now shows a gray line with dots representing invested amounts per category, alongside the colored current-value bars. Legend and tooltips distinguish both datasets.
