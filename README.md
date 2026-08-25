@@ -1,6 +1,13 @@
-# Invest More v4.3.0
+# Invest More v4.4.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.4.0
+
+### Holdings — Batch Bar Matches the Expense Tracker
+- **Select All (mobile)** — the mobile batch bar now has a **Select All / Deselect All** toggle that selects every visible holding at once (label flips based on state). Desktop keeps its table-header "select all" checkbox.
+- **"Clear Selection" → "Clear"** — nomenclature now matches the expense tracker.
+- **Buttons restyled** — Apply and Clear now use the same ghost `.btn-secondary` style as the expense tracker's batch bar (transparent, theme-aware border/text) instead of the solid accent Apply button, so light and dark mode look consistent.
 
 ## What's New in v4.3.0
 

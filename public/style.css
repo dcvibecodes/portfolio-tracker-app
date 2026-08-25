@@ -453,6 +453,12 @@ span.negative { color: var(--red); font-weight: 600; }
 .batch-value-hidden { display: none; }
 #batch-count { font-weight: 600; font-size: 0.76rem; }
 
+/* Select All is mobile-only (desktop uses the table-header checkbox) */
+.select-all-mobile-btn { display: none; }
+@media (max-width: 768px) {
+  .select-all-mobile-btn { display: inline-block; }
+}
+
 /* ── Badges ── */
 .badge { display: inline-block; padding: 2px 0; font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
 .badge-indian-stock, .badge-india, .badge-indian-mutual-fund, .badge-us-stock, .badge-us, .badge-crypto, .badge-etf, .badge-bond, .badge-gold, .badge-other { color: var(--text); }
@@ -925,7 +931,7 @@ body { overflow-x: clip; }
   .filter-actions button { flex: 1; }
 
   .batch-bar { flex-direction: column; align-items: stretch; gap: 6px; }
-  .batch-bar select, .batch-bar .add-btn, .batch-bar .cancel-btn { width: 100%; }
+  .batch-bar select, .batch-bar .btn-secondary { width: 100%; }
 
   .watchlist-add-row { flex-direction: column; }
   .watchlist-add-row input { min-width: 100%; }

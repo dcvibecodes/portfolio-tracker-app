@@ -1290,6 +1290,13 @@ function getCategoryColor(category, index = 0) {
     } else {
       bar.classList.add("batch-bar-hidden");
     }
+    const saBtn = document.getElementById("select-all-mobile-btn");
+    if (saBtn) {
+      const cards = document.querySelectorAll("#holdings-mobile-cards .holding-card");
+      const visibleIds = [...cards].map(c => Number(c.dataset.id)).filter(Boolean);
+      const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+      saBtn.textContent = allSelected ? "Deselect All" : "Select All";
+    }
   }
 
   function updateSelectAll() {
@@ -1621,6 +1628,23 @@ function getCategoryColor(category, index = 0) {
     updateBatchBar();
     syncHoldingCardSelection();
   });
+
+  // Select All (mobile batch bar) — toggles all visible cards; label flips between Select All / Deselect All
+  const selectAllMobileBtn = document.getElementById("select-all-mobile-btn");
+  if (selectAllMobileBtn) {
+    selectAllMobileBtn.addEventListener("click", () => {
+      const cards = document.querySelectorAll("#holdings-mobile-cards .holding-card");
+      const visibleIds = [...cards].map(c => Number(c.dataset.id)).filter(Boolean);
+      const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+      if (allSelected) {
+        visibleIds.forEach(id => selectedIds.delete(id));
+      } else {
+        visibleIds.forEach(id => selectedIds.add(id));
+      }
+      syncHoldingCardSelection();
+      updateBatchBar();
+    });
+  }
 
   //--- Custom Confirm Modal (fix #5.5 — replaces native confirm/prompt) ---
   function showConfirm(title, message) {
