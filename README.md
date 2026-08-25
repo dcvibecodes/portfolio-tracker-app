@@ -1,6 +1,22 @@
-# Invest More v4.1.0
+# Invest More v4.2.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.2.0
+
+### Dashboard (Mobile) — Expandable Category Cards
+- **Tap a category card to reveal its assets** — each category card is now an accordion: tapping the header expands a sub-card per asset (name, type, day change, units, invested, current value, current price, XIRR). Only one category is open at a time; the TOTAL card stays static.
+- **Asset type always visible** — the asset name clamps to two lines with an ellipsis when long, and the type label sits on its own row underneath so it's never hidden.
+
+### Holdings (Mobile) — Reset & CSV Outside the Filter Popover
+- **Reset and ↓ CSV are always visible** — they moved out of the Filters bottom-sheet into their own row beside the search bar (matching the expense tracker's reports tab). The popover now only holds the search + year/month/category/broker/currency selectors.
+- **Reset clears the mobile search box too.**
+
+### Form Field Colors — Dropdown vs Text Input
+- **Dropdowns use the second-level color** — every `select` (add/edit forms, filters, settings) now uses the `--surface` (second sepia) background; **text inputs keep the near-white `--elevated` background**. Applied on mobile and web, matching the expense tracker's pattern.
+
+### Web — Holdings Filters Row Full Width
+- **Filters row spans the full card** — the year/month/category/broker/currency selectors are widened ~10–20% and the search box absorbs the rest, so the first row fills the width like the Reset/CSV row below it.
 
 ## What's New in v4.1.0
 

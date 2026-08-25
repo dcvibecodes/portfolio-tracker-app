@@ -372,6 +372,13 @@ select {
   gap: 6px;
   align-self: end;
 }
+.holdings-filter-actions {
+  margin-bottom: 12px;
+}
+.holdings-filter-actions .filter-reset-btn {
+  flex: 1;
+  align-self: stretch;
+}
 .form-msg { margin-top: 6px; font-size: 0.74rem; }
 .form-msg.success { color: var(--green); }
 .form-msg.error { color: var(--red); }
@@ -390,6 +397,18 @@ select {
 .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; align-items: end; }
 .filters label { display: flex; flex-direction: column; gap: 3px; font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); }
 .filters input, .filters select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 0.8rem; background: var(--elevated); color: var(--text); min-height: 32px; font-family: inherit; box-shadow: var(--shadow-item); }
+
+/* Web only: widen the year/month/category/broker/currency selectors and let the
+   search box absorb the rest so the filters row spans the full card width. */
+@media (min-width: 769px) {
+  .filters label {
+    flex: 1 1 12%;
+    min-width: 0;
+  }
+  .filters label:first-child {
+    flex: 2 1 28%;
+  }
+}
 
 /* ── Tables ── */
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -808,6 +827,14 @@ span.negative { color: var(--red); font-weight: 600; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Dropdown fields use the second-level surface color (text inputs keep elevated) ── */
+.add-grid select,
+.edit-grid select,
+.filters select,
+.settings-select {
+  background-color: var(--surface);
 }
 
 /* ═══════════════════════════════════

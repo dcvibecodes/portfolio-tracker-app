@@ -1619,6 +1619,8 @@ function getCategoryColor(category, index = 0) {
   document.getElementById("filter-currency").addEventListener("change", loadHoldings);
   document.getElementById("filter-reset-btn").addEventListener("click", () => {
     document.getElementById("filter-search").value = "";
+    const mobileSearchEl = document.getElementById("mobile-filter-search");
+    if (mobileSearchEl) mobileSearchEl.value = "";
     document.getElementById("filter-year").value = "";
     document.getElementById("filter-month").value = "";
     document.getElementById("filter-class").value = "";
