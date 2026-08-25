@@ -1143,20 +1143,7 @@ function getCategoryColor(category, index = 0) {
       pivotBody.appendChild(parentTr);
 
       const assetCount = cls.assets.length;
-      pivotMobileHTML += `
-        <div class="mobile-data-card pivot-cat-card">
-          <div class="mdc-main">
-            <span class="mdc-name">${cls.asset_class}</span>
-            <span class="mdc-stat-value ${plClass}">${curSym}${fmtCompact(dGain)}</span>
-          </div>
-          <div class="mdc-meta">${assetCount} asset${assetCount === 1 ? "" : "s"}${hasForeignCurrency && defaultCur ? ` · in ${defaultCur}` : ""}</div>
-          <div class="mdc-rows">
-            <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(dInvested)}</span></div>
-            <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(dValue)}</span></div>
-            <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${catXirrClass}">${catXirrStr}</span></div>
-          </div>
-        </div>
-      `;
+      let assetCardsHTML = "";
 
       for (const asset of cls.assets) {
         const adInvested = toDisplayCurrency(asset.invested);
@@ -1196,7 +1183,53 @@ function getCategoryColor(category, index = 0) {
           <td class="col-amount ${assetXirrClass}">${assetXirrStr}</td>
         `;
         pivotBody.appendChild(childTr);
+
+        const dayMeta = asset.day_change_pct != null ? `<div class="mdc-meta">${dayChgStr}</div>` : "";
+        assetCardsHTML += `
+          <div class="mobile-data-card pivot-asset-card">
+            <div class="mdc-main">
+              <span class="mdc-title pivot-asset-title">
+                <span class="mdc-name">${asset.name}</span>
+                ${asset.asset_type ? `<span class="pivot-asset-type">${asset.asset_type}</span>` : ""}
+              </span>
+              <span class="mdc-stat-value ${aPlClass}">${curSym}${fmtCompact(adGain)}</span>
+            </div>
+            ${dayMeta}
+            <div class="mdc-rows">
+              <div class="mdc-stat"><span class="mdc-label">Units</span><span class="mdc-value">${fmtUnits(asset.units)}</span></div>
+              <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(adInvested)}</span></div>
+              <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(adValue)}</span></div>
+              <div class="mdc-stat"><span class="mdc-label">Current Price</span><span class="mdc-value">${curPriceStr}</span></div>
+              <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${assetXirrClass}">${assetXirrStr}</span></div>
+            </div>
+          </div>
+        `;
       }
+
+      pivotMobileHTML += `
+        <div class="mobile-data-card pivot-cat-card">
+          <button type="button" class="pivot-cat-toggle" aria-expanded="false">
+            <span class="pivot-cat-main">
+              <span class="mdc-name">${cls.asset_class}</span>
+              <span class="mdc-stat-value ${plClass}">${curSym}${fmtCompact(dGain)}</span>
+              <span class="pivot-cat-chevron" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </span>
+            </span>
+            <span class="pivot-cat-meta">${assetCount} asset${assetCount === 1 ? "" : "s"}${hasForeignCurrency && defaultCur ? ` · in ${defaultCur}` : ""}</span>
+          </button>
+          <div class="mdc-rows">
+            <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(dInvested)}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(dValue)}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${catXirrClass}">${catXirrStr}</span></div>
+          </div>
+          <div class="pivot-asset-list">
+            <div class="pivot-asset-list-inner">
+              ${assetCardsHTML}
+            </div>
+          </div>
+        </div>
+      `;
 
     }
 
@@ -1407,6 +1440,27 @@ function getCategoryColor(category, index = 0) {
       else if (btn.classList.contains("delete-btn")) deleteHolding(id);
       else if (btn.classList.contains("copy-btn")) copyHolding(id);
       else if (btn.classList.contains("notes-btn")) viewNotes(id);
+    });
+  }
+
+  //--- Pivot category card accordion (mobile) ---
+  const pivotMobileCardsEl = document.getElementById("pivot-mobile-cards");
+  if (pivotMobileCardsEl) {
+    pivotMobileCardsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest(".pivot-cat-toggle");
+      if (!btn) return;
+      const card = btn.closest(".pivot-cat-card");
+      if (!card) return;
+      const isOpen = card.classList.contains("open");
+      pivotMobileCardsEl.querySelectorAll(".pivot-cat-card.open").forEach(c => {
+        c.classList.remove("open");
+        const t = c.querySelector(".pivot-cat-toggle");
+        if (t) t.setAttribute("aria-expanded", "false");
+      });
+      if (!isOpen) {
+        card.classList.add("open");
+        btn.setAttribute("aria-expanded", "true");
+      }
     });
   }
 
