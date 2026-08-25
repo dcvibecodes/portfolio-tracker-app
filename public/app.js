@@ -1184,7 +1184,8 @@ function getCategoryColor(category, index = 0) {
         `;
         pivotBody.appendChild(childTr);
 
-        const dayMeta = asset.day_change_pct != null ? `<div class="mdc-meta">${dayChgStr}</div>` : "";
+        const dayMeta = asset.day_change_pct != null ? `<div class="mdc-meta mdc-meta-day">Day: ${dayChgStr}</div>` : "";
+        const avgBuyStr = asset.units ? curSym + fmtCompact(adInvested / Math.abs(asset.units)) : "-";
         assetCardsHTML += `
           <div class="mobile-data-card pivot-asset-card">
             <div class="mdc-main">
@@ -1192,16 +1193,20 @@ function getCategoryColor(category, index = 0) {
                 <span class="mdc-name">${asset.name}</span>
                 ${asset.asset_type ? `<span class="pivot-asset-type">${asset.asset_type}</span>` : ""}
               </span>
-              <span class="mdc-stat-value ${aPlClass}">${curSym}${fmtCompact(adGain)}</span>
+              <span class="mdc-stat-main">
+                <span class="mdc-stat-value ${aPlClass}">${curSym}${fmtCompact(adGain)}</span>
+                <span class="mdc-stat-sub ${aPlClass}">${aPlPct}%</span>
+              </span>
             </div>
             ${dayMeta}
-            <div class="mdc-rows">
-              <div class="mdc-stat"><span class="mdc-label">Units</span><span class="mdc-value">${fmtUnits(asset.units)}</span></div>
+            <div class="mdc-divider"></div>
+            <div class="mdc-grid">
               <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(adInvested)}</span></div>
               <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(adValue)}</span></div>
-              <div class="mdc-stat"><span class="mdc-label">Current Price</span><span class="mdc-value">${curPriceStr}</span></div>
+              <div class="mdc-stat"><span class="mdc-label">Total Return</span><span class="mdc-value ${aPlClass}">${aPlPct}%</span></div>
               <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${assetXirrClass}">${assetXirrStr}</span></div>
             </div>
+            <div class="mdc-foot">${fmtUnits(asset.units)} units @ avg ${avgBuyStr} · Now ${curPriceStr}</div>
           </div>
         `;
       }
@@ -1211,16 +1216,21 @@ function getCategoryColor(category, index = 0) {
           <button type="button" class="pivot-cat-toggle" aria-expanded="false">
             <span class="pivot-cat-main">
               <span class="mdc-name">${cls.asset_class}</span>
-              <span class="mdc-stat-value ${plClass}">${curSym}${fmtCompact(dGain)}</span>
+              <span class="mdc-stat-main">
+                <span class="mdc-stat-value ${plClass}">${curSym}${fmtCompact(dGain)}</span>
+                <span class="mdc-stat-sub ${plClass}">${plPct}%</span>
+              </span>
               <span class="pivot-cat-chevron" aria-hidden="true">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
               </span>
             </span>
             <span class="pivot-cat-meta">${assetCount} asset${assetCount === 1 ? "" : "s"}${hasForeignCurrency && defaultCur ? ` · in ${defaultCur}` : ""}</span>
           </button>
-          <div class="mdc-rows">
+          <div class="mdc-divider"></div>
+          <div class="mdc-grid">
             <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(dInvested)}</span></div>
             <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(dValue)}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Return</span><span class="mdc-value ${plClass}">${plPct}%</span></div>
             <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${catXirrClass}">${catXirrStr}</span></div>
           </div>
           <div class="pivot-asset-list">
@@ -1254,11 +1264,16 @@ function getCategoryColor(category, index = 0) {
       <div class="mobile-data-card pivot-cat-card pivot-total-card">
         <div class="mdc-main">
           <span class="mdc-name">TOTAL</span>
-          <span class="mdc-stat-value ${grandPlClass}">${curSym}${fmtCompact(toDisplayCurrency(grandPl))}</span>
+          <span class="mdc-stat-main">
+            <span class="mdc-stat-value ${grandPlClass}">${curSym}${fmtCompact(toDisplayCurrency(grandPl))}</span>
+            <span class="mdc-stat-sub ${grandPlClass}">${grandPct}%</span>
+          </span>
         </div>
-        <div class="mdc-rows">
+        <div class="mdc-divider"></div>
+        <div class="mdc-grid">
           <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(toDisplayCurrency(grandInvested))}</span></div>
           <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(toDisplayCurrency(grandValue))}</span></div>
+          <div class="mdc-stat"><span class="mdc-label">Return</span><span class="mdc-value ${grandPlClass}">${grandPct}%</span></div>
           <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${totalXirrClass}">${totalXirrStr}</span></div>
         </div>
       </div>
@@ -1382,19 +1397,27 @@ function getCategoryColor(category, index = 0) {
       tbody.appendChild(tr);
 
       const plStr = r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-";
-      const cardMeta = [formatDate(r.date), r.broker || "—", r.asset_class, r.currency].join(" · ");
+      const plPctStr = r.gain_loss_pct != null ? fmtPct(r.gain_loss_pct) : "-";
+      const buyPriceStr = fmt(r.buy_price, r.currency);
+      const qtyPriceStr = `${fmtQty(Math.abs(r.quantity))} @ ${buyPriceStr}`;
+      const curPriceStrH = r.current_price != null ? fmt(r.current_price, r.currency) : "-";
       mobileCardsHTML += `
         <div class="mobile-data-card holding-card" data-id="${r.id}">
           <div class="mdc-main">
             <span class="mdc-name">${r.name}</span>
-            <span class="mdc-stat-value ${plClass}">${plStr}</span>
+            <span class="mdc-stat-main">
+              <span class="mdc-stat-value ${plClass}">${plStr}</span>
+              <span class="mdc-stat-sub ${plClass}">${plPctStr}</span>
+            </span>
           </div>
-          <div class="mdc-meta">${txnBadge} · ${cardMeta}</div>
+          <div class="mdc-meta mdc-meta-top"><span class="mdc-meta-badges">${txnBadge} <span class="mdc-asset-class-badge">${r.asset_class}</span> · ${r.currency}</span></div>
+          <div class="mdc-meta mdc-meta-sub">${formatDate(r.date)} · ${r.broker || "—"}</div>
+          <div class="mdc-divider"></div>
           <div class="mdc-grid">
             <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${fmt(r.invested_amount, r.currency)}</span></div>
             <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${r.current_value != null ? fmt(r.current_value, r.currency) : "-"}</span></div>
-            <div class="mdc-stat"><span class="mdc-label">Current Price</span><span class="mdc-value">${r.current_price != null ? fmt(r.current_price, r.currency) : "-"}</span></div>
-            <div class="mdc-stat"><span class="mdc-label">Qty</span><span class="mdc-value">${fmtQty(Math.abs(r.quantity))}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Qty @ Price</span><span class="mdc-value">${qtyPriceStr}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Current Price</span><span class="mdc-value">${curPriceStrH}</span></div>
           </div>
           <div class="mdc-actions">
             ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}

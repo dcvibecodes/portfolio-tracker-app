@@ -1,6 +1,15 @@
-# Invest More v4.4.0
+# Invest More v4.5.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.5.0
+
+### Dashboard & Holdings — Mobile Cards Now Glanceable (Option B)
+- **P&L % in header** — every mobile card header now shows both absolute P&L (`₹12,340`) and percentage (`4.20%`) stacked and color-coded (green/red). Category headers, asset cards, TOTAL card, and holdings cards all follow it. Web tables unchanged — desktop keeps its 9/15-column tables.
+- **2×2 financial grid** — pivot category/asset/TOTAL cards use a 2-column grid: Invested | Current Value / Return% | XIRR. Holdings cards: Invested | Current Value / Qty @ Price | Current Price. Replaces the previous vertical `Units`-first list.
+- **Secondary context line** — pivot assets show a faint foot line: `10.5 units @ avg ₹9,523 · Now ₹1,200`. Holdings meta is split into two lines: `BUY Equity · INR` on top, `date · broker` faint below (was one crammed line).
+- **Day change clearer** — pivot assets prefix `Day:` and keep colored arrow.
+- **Divider + spacing** — thin divider separates header/meta from grid; nested asset cards stay on `var(--bg)` vs page cards `var(--surface)`. Same `Outfit`/`Fraunces` fonts, only mobile cards changed.
 
 ## What's New in v4.4.0
 

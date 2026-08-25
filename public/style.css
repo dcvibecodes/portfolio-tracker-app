@@ -675,17 +675,32 @@ span.negative { color: var(--red); font-weight: 600; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mdc-stat-value {
+.mdc-stat-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   flex-shrink: 0;
+  margin-left: 6px;
+  line-height: 1;
+  gap: 1px;
+}
+.mdc-stat-value {
   font-family: 'Fraunces', serif;
   font-weight: 700;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  margin-left: 6px;
 }
 .mdc-stat-value.positive { color: var(--green); }
 .mdc-stat-value.negative { color: var(--red); }
+.mdc-stat-sub {
+  font-size: 0.66rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mdc-stat-sub.positive { color: var(--green); }
+.mdc-stat-sub.negative { color: var(--red); }
 
 .mdc-meta {
   font-size: 0.68rem;
@@ -698,6 +713,35 @@ span.negative { color: var(--red); font-weight: 600; }
   min-width: 0;
 }
 .mdc-meta .badge { margin-right: 2px; }
+.mdc-meta-top { margin-top: 4px; }
+.mdc-meta-sub { color: var(--text-faint); font-size: 0.64rem; }
+.mdc-meta-badges { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.mdc-asset-class-badge {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.mdc-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 8px 0 0;
+}
+.mdc-foot {
+  margin-top: 6px;
+  font-size: 0.66rem;
+  color: var(--text-faint);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mdc-meta-day {
+  margin-top: 4px;
+  font-weight: 500;
+}
+.mdc-meta-day .positive, .mdc-meta-day .negative { font-weight: 600; }
 
 .mdc-grid {
   display: grid;
@@ -776,6 +820,7 @@ span.negative { color: var(--red); font-weight: 600; }
   gap: 8px;
   min-width: 0;
 }
+.pivot-cat-main .mdc-stat-main { margin-left: auto; }
 .pivot-cat-meta {
   font-size: 0.68rem;
   color: var(--text-secondary);
@@ -815,6 +860,18 @@ span.negative { color: var(--red); font-weight: 600; }
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 8px 10px;
+}
+.pivot-asset-card .mdc-divider,
+.pivot-cat-card .mdc-divider,
+.holding-card .mdc-divider,
+.pivot-total-card .mdc-divider {
+  margin-top: 8px;
+}
+.pivot-asset-card .mdc-grid,
+.pivot-cat-card .mdc-grid,
+.pivot-total-card .mdc-grid,
+.holding-card .mdc-grid {
+  margin-top: 8px;
 }
 .pivot-asset-title {
   flex: 1;
