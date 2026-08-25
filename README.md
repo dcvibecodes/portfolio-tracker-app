@@ -1,6 +1,19 @@
-# Invest More v4.2.1
+# Invest More v4.3.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.3.0
+
+### Holdings — Batch Bar Now Honors the Theme
+- **Batch action bar restyled** — the bar is now a soft strip that adapts to the theme (light and dark), matching the app's design language. In dark mode the Apply/Clear buttons were white-on-white (invisible) — fixed. The dropdown, Apply, and Clear all use theme colors.
+- **Batch dropdown matches the buttons** — the batch action select is now the same height (34px) and styling as the adjacent Apply/Clear buttons (fixes the misaligned field on Safari and other browsers).
+
+### Holdings (Mobile) — Long-Press to Select
+- **Card checkboxes removed** — on mobile, holdings cards are no longer selected via a checkbox.
+- **Long-press a card to select it** — hold ~0.5s to toggle selection: the batch bar appears, the card gets an accent highlight, and a haptic buzz confirms it.
+- **Tap-to-toggle while the batch bar is open** — once the batch bar is visible, plain taps on other cards toggle them too, making multi-select fast (same pattern as the expense tracker's reports).
+- Long-press on action buttons is ignored (buttons keep working), finger-move cancels (scrolling stays safe), and the native long-press context menu is suppressed.
+- **Web unchanged** — the desktop table keeps its per-row checkboxes and Select All.
 
 ## What's New in v4.2.1
 

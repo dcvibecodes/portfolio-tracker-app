@@ -435,18 +435,21 @@ span.negative { color: var(--red); font-weight: 600; }
 }
 
 /* ── Batch Bar ── */
-.batch-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--accent); color: var(--surface); border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.batch-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border-subtle); border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; }
 .batch-bar-hidden { display: none; }
 .batch-bar select {
-  padding: 6px 28px 6px 10px; border: 1px solid rgba(255,255,255,0.3); border-radius: 5px;
-  font-size: 0.76rem; background-color: rgba(255,255,255,0.95); color: #1a1a1a; min-height: 32px; font-family: inherit;
-  -webkit-appearance: none; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23666' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 8px center; background-size: 8px;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.76rem;
+  background-color: var(--surface);
+  color: var(--text);
+  min-height: 34px;
+  line-height: 1.4;
+  font-family: inherit;
+  box-shadow: var(--shadow-item);
 }
-.batch-bar select:focus { outline: none; border-color: #fff; }
-.batch-bar .add-btn { background: #fff; color: var(--accent); font-size: 0.74rem; padding: 6px 12px; min-height: 32px; }
-.batch-bar .cancel-btn { background: rgba(255, 255, 255, 0.2); color: #fff; font-size: 0.74rem; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; min-height: 32px; font-family: inherit; }
+.batch-bar select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 .batch-value-hidden { display: none; }
 #batch-count { font-weight: 600; font-size: 0.76rem; }
 
@@ -657,8 +660,6 @@ span.negative { color: var(--red); font-weight: 600; }
   align-items: center;
   gap: 8px;
 }
-.mdc-check { flex-shrink: 0; display: flex; align-items: center; }
-.mdc-check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
 .mdc-name {
   flex: 1;
   min-width: 0;
@@ -736,6 +737,12 @@ span.negative { color: var(--red); font-weight: 600; }
 }
 .mdc-actions .action-btn { color: var(--text-secondary); padding: 4px 6px; }
 .mdc-actions .action-btn.delete { color: var(--red); }
+
+.holding-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--accent-dim);
+}
 
 .skeleton-mobile-card {
   display: flex;

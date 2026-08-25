@@ -1,4 +1,4 @@
-const CACHE_NAME = "invest-more-v4";
+const CACHE_NAME = "invest-more-v5";
 const STATIC_ASSETS = [
   "/",
   "/style.css",

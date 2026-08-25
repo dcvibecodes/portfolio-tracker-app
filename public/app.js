@@ -1379,7 +1379,6 @@ function getCategoryColor(category, index = 0) {
       mobileCardsHTML += `
         <div class="mobile-data-card holding-card" data-id="${r.id}">
           <div class="mdc-main">
-            <label class="mdc-check"><input type="checkbox" class="row-check" data-id="${r.id}" ${checked} /></label>
             <span class="mdc-name">${r.name}</span>
             <span class="mdc-stat-value ${plClass}">${plStr}</span>
           </div>
@@ -1401,9 +1400,10 @@ function getCategoryColor(category, index = 0) {
     }
 
     if (mobileCards) mobileCards.innerHTML = mobileCardsHTML;
+    syncHoldingCardSelection();
 
     // Delegated event listeners (fix #1.7 — no more inline onclick)
-    document.querySelectorAll("#holdings-rows .row-check, #holdings-mobile-cards .row-check").forEach(cb => {
+    document.querySelectorAll("#holdings-rows .row-check").forEach(cb => {
       cb.addEventListener("change", () => {
         const id = Number(cb.dataset.id);
         if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
@@ -1461,6 +1461,84 @@ function getCategoryColor(category, index = 0) {
         card.classList.add("open");
         btn.setAttribute("aria-expanded", "true");
       }
+    });
+  }
+
+  //--- Mobile holdings card selection (long-press toggles; taps toggle while batch bar is open) ---
+  function syncHoldingCardSelection() {
+    const container = document.getElementById("holdings-mobile-cards");
+    if (!container) return;
+    container.querySelectorAll(".holding-card").forEach(card => {
+      card.classList.toggle("selected", selectedIds.has(Number(card.dataset.id)));
+    });
+  }
+
+  const holdingsCardsEl = document.getElementById("holdings-mobile-cards");
+  if (holdingsCardsEl) {
+    const LONG_PRESS_DURATION = 500;
+    const MOVE_THRESHOLD = 10;
+    let longPressTimer = null;
+    let longPressStartX = 0, longPressStartY = 0;
+    let longPressFired = false;
+
+    function toggleCardSelection(id, card) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+        card.classList.remove("selected");
+      } else {
+        selectedIds.add(id);
+        card.classList.add("selected");
+      }
+      updateBatchBar();
+      updateSelectAll();
+    }
+
+    function cancelLongPress() {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    }
+
+    holdingsCardsEl.addEventListener("touchstart", (e) => {
+      const card = e.target.closest(".holding-card");
+      if (!card) return;
+      if (e.target.closest("button, a, input, select")) return;
+      const t = e.touches[0];
+      longPressStartX = t.clientX;
+      longPressStartY = t.clientY;
+      longPressFired = false;
+      cancelLongPress();
+      longPressTimer = setTimeout(() => {
+        const id = Number(card.dataset.id);
+        if (!id) return;
+        longPressFired = true;
+        toggleCardSelection(id, card);
+        if (navigator.vibrate) navigator.vibrate(30);
+      }, LONG_PRESS_DURATION);
+    }, { passive: true });
+
+    holdingsCardsEl.addEventListener("touchmove", (e) => {
+      if (longPressTimer == null) return;
+      const t = e.touches[0];
+      if (Math.abs(t.clientX - longPressStartX) > MOVE_THRESHOLD ||
+          Math.abs(t.clientY - longPressStartY) > MOVE_THRESHOLD) {
+        cancelLongPress();
+      }
+    }, { passive: true });
+    holdingsCardsEl.addEventListener("touchend", cancelLongPress, { passive: true });
+    holdingsCardsEl.addEventListener("touchcancel", cancelLongPress, { passive: true });
+
+    holdingsCardsEl.addEventListener("contextmenu", (e) => {
+      if (e.target.closest(".holding-card")) e.preventDefault();
+    });
+
+    holdingsCardsEl.addEventListener("click", (e) => {
+      if (longPressFired) { longPressFired = false; return; }
+      const batchBar = document.getElementById("batch-bar");
+      if (!batchBar || batchBar.classList.contains("batch-bar-hidden")) return;
+      if (e.target.closest("button, a, input, select")) return;
+      const card = e.target.closest(".holding-card");
+      if (!card) return;
+      const id = Number(card.dataset.id);
+      if (id) toggleCardSelection(id, card);
     });
   }
 
@@ -1541,6 +1619,7 @@ function getCategoryColor(category, index = 0) {
     document.getElementById("select-all").checked = false;
     document.getElementById("select-all").indeterminate = false;
     updateBatchBar();
+    syncHoldingCardSelection();
   });
 
   //--- Custom Confirm Modal (fix #5.5 — replaces native confirm/prompt) ---
