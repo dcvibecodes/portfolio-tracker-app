@@ -1,6 +1,13 @@
-# Invest More v4.2.0
+# Invest More v4.2.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.2.1
+
+### Settings (Mobile) — Ticker Mapping No Longer Side-Scrolls
+- **Asset names wrap instead of overflowing** — the last remaining horizontal-scroll spot is fixed: on mobile, the Ticker Mapping table's asset-name column is narrowed (~50%) and long asset names now wrap onto multiple lines (no ellipsis, nothing truncated). The ticker input and action buttons keep their natural width.
+- **Mobile is now fully side-scroll free** — dashboard, holdings, watchlist, and settings all fit the screen width with no horizontal scrolling.
+- **Web unchanged** — the desktop ticker table keeps its fixed layout and single-line names.
 
 ## What's New in v4.2.0
 

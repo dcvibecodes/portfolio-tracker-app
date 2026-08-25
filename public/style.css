@@ -948,7 +948,13 @@ body { overflow-x: clip; }
   .watchlist-table th, .watchlist-table td { width: auto !important; }
 
   .ticker-table { table-layout: auto; }
-  .ticker-table td:nth-child(1),
+  .ticker-table th:nth-child(1),
+  .ticker-table td:nth-child(1) {
+    width: 50% !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .ticker-table td:nth-child(2),
   .ticker-table td:nth-child(3) { width: auto !important; }
   .ticker-edit-input { min-width: 90px; }
