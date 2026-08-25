@@ -1,6 +1,15 @@
-# Invest More v4.0.0
+# Invest More v4.1.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.1.0
+
+### Mobile — No Horizontal Scrolling
+- **Holdings tab → transaction cards** — on mobile (≤768px), each transaction renders as a card instead of the 14-column table: asset name + P&L (colored), buy/sell badge · date · broker · category · currency, and a 2×2 grid (Invested, Current Value, Current Price, Qty) with the usual edit/copy/notes/delete actions. P&L % and buy price are dropped from the mobile card only; the desktop table keeps every column.
+- **Dashboard → category cards** — the Category Breakdown pivot table becomes category-level cards on mobile (category name + P&L, asset count, Invested / Current Value / XIRR) plus a TOTAL card. Assets stay collapsed on mobile; the desktop pivot table is unchanged.
+- **Watchlist → cards** — each watchlist item renders as a card (name + price, ticker + source badge, actions) on mobile.
+- **Desktop unchanged** — the web/desktop layout, tables, and columns are exactly as before; the mobile cards are hidden and only tables show.
+- **Batch select works on cards** — card checkboxes feed the same batch action bar (update category/type/broker, rename, delete) as the desktop table.
 
 ## What's New in v4.0.0
 

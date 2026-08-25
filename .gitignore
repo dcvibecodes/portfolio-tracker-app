@@ -28,3 +28,7 @@ Desktop.ini
 # Logs
 *.log
 npm-debug.log*
+
+# Agent rules (personal — do not commit)
+AGENTS.md
+.clinerules

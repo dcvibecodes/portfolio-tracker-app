@@ -1067,9 +1067,11 @@ function getCategoryColor(category, index = 0) {
   function renderPivotTable(breakdown) {
     const pivotBody = document.getElementById("pivot-rows");
     const pivotFooter = document.getElementById("pivot-footer");
+    const pivotMobileCards = document.getElementById("pivot-mobile-cards");
     pivotBody.innerHTML = ""; pivotFooter.innerHTML = "";
 
     let grandInvested = 0, grandValue = 0;
+    let pivotMobileHTML = "";
     const curSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
     const defaultCur = baseCurrency || "";
 
@@ -1140,6 +1142,22 @@ function getCategoryColor(category, index = 0) {
       `;
       pivotBody.appendChild(parentTr);
 
+      const assetCount = cls.assets.length;
+      pivotMobileHTML += `
+        <div class="mobile-data-card pivot-cat-card">
+          <div class="mdc-main">
+            <span class="mdc-name">${cls.asset_class}</span>
+            <span class="mdc-stat-value ${plClass}">${curSym}${fmtCompact(dGain)}</span>
+          </div>
+          <div class="mdc-meta">${assetCount} asset${assetCount === 1 ? "" : "s"}${hasForeignCurrency && defaultCur ? ` · in ${defaultCur}` : ""}</div>
+          <div class="mdc-rows">
+            <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(dInvested)}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(dValue)}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${catXirrClass}">${catXirrStr}</span></div>
+          </div>
+        </div>
+      `;
+
       for (const asset of cls.assets) {
         const adInvested = toDisplayCurrency(asset.invested);
         const adValue = toDisplayCurrency(asset.current_value);
@@ -1199,6 +1217,20 @@ function getCategoryColor(category, index = 0) {
     const totalXirrStr = totalXirr != null ? fmtPct(totalXirr * 100) : "-";
     const totalXirrClass = totalXirr != null ? (totalXirr >= 0 ? "positive" : "negative") : "";
 
+    pivotMobileHTML += `
+      <div class="mobile-data-card pivot-cat-card pivot-total-card">
+        <div class="mdc-main">
+          <span class="mdc-name">TOTAL</span>
+          <span class="mdc-stat-value ${grandPlClass}">${curSym}${fmtCompact(toDisplayCurrency(grandPl))}</span>
+        </div>
+        <div class="mdc-rows">
+          <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${curSym}${fmtCompact(toDisplayCurrency(grandInvested))}</span></div>
+          <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${curSym}${fmtCompact(toDisplayCurrency(grandValue))}</span></div>
+          <div class="mdc-stat"><span class="mdc-label">XIRR</span><span class="mdc-value ${totalXirrClass}">${totalXirrStr}</span></div>
+        </div>
+      </div>
+    `;
+
     pivotFooter.innerHTML = `
       <tr>
         <td><strong>TOTAL</strong></td>
@@ -1212,6 +1244,7 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount ${totalXirrClass}"><strong>${totalXirrStr}</strong></td>
       </tr>
     `;
+    if (pivotMobileCards) pivotMobileCards.innerHTML = pivotMobileHTML;
   }
 
   //--- Holdings Data Management ---
@@ -1267,9 +1300,11 @@ function getCategoryColor(category, index = 0) {
     }
 
     const tbody = document.getElementById("holdings-rows");
+    const mobileCards = document.getElementById("holdings-mobile-cards");
     tbody.innerHTML = "";
 
     let totalInvested = 0, totalValue = 0;
+    let mobileCardsHTML = "";
 
     for (const r of rows) {
       const fx = r.currency === rateData.default_currency ? 1 : (rateData.rates[r.currency] || 1);
@@ -1305,10 +1340,37 @@ function getCategoryColor(category, index = 0) {
         </td>
       `;
       tbody.appendChild(tr);
+
+      const plStr = r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-";
+      const cardMeta = [formatDate(r.date), r.broker || "—", r.asset_class, r.currency].join(" · ");
+      mobileCardsHTML += `
+        <div class="mobile-data-card holding-card" data-id="${r.id}">
+          <div class="mdc-main">
+            <label class="mdc-check"><input type="checkbox" class="row-check" data-id="${r.id}" ${checked} /></label>
+            <span class="mdc-name">${r.name}</span>
+            <span class="mdc-stat-value ${plClass}">${plStr}</span>
+          </div>
+          <div class="mdc-meta">${txnBadge} · ${cardMeta}</div>
+          <div class="mdc-grid">
+            <div class="mdc-stat"><span class="mdc-label">Invested</span><span class="mdc-value">${fmt(r.invested_amount, r.currency)}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Current Value</span><span class="mdc-value">${r.current_value != null ? fmt(r.current_value, r.currency) : "-"}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Current Price</span><span class="mdc-value">${r.current_price != null ? fmt(r.current_price, r.currency) : "-"}</span></div>
+            <div class="mdc-stat"><span class="mdc-label">Qty</span><span class="mdc-value">${fmtQty(Math.abs(r.quantity))}</span></div>
+          </div>
+          <div class="mdc-actions">
+            ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
+            <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">${ICON.copy}</button>
+            <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">${ICON.edit}</button>
+            <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">${ICON.delete}</button>
+          </div>
+        </div>
+      `;
     }
 
+    if (mobileCards) mobileCards.innerHTML = mobileCardsHTML;
+
     // Delegated event listeners (fix #1.7 — no more inline onclick)
-    tbody.querySelectorAll(".row-check").forEach(cb => {
+    document.querySelectorAll("#holdings-rows .row-check, #holdings-mobile-cards .row-check").forEach(cb => {
       cb.addEventListener("change", () => {
         const id = Number(cb.dataset.id);
         if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
@@ -1333,6 +1395,20 @@ function getCategoryColor(category, index = 0) {
     else if (btn.classList.contains("copy-btn")) copyHolding(id);
     else if (btn.classList.contains("notes-btn")) viewNotes(id);
   });
+
+  //--- Delegated click handlers for holdings mobile cards ---
+  const holdingsMobileCardsEl = document.getElementById("holdings-mobile-cards");
+  if (holdingsMobileCardsEl) {
+    holdingsMobileCardsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (btn.classList.contains("edit-btn")) editHolding(id);
+      else if (btn.classList.contains("delete-btn")) deleteHolding(id);
+      else if (btn.classList.contains("copy-btn")) copyHolding(id);
+      else if (btn.classList.contains("notes-btn")) viewNotes(id);
+    });
+  }
 
   //--- Action Elements Setup ---
   document.getElementById("select-all").addEventListener("change", function() {
@@ -1985,10 +2061,14 @@ function getCategoryColor(category, index = 0) {
 
   function renderWatchlistRows(items) {
     const tbody = document.getElementById("watchlist-rows");
+    const mobileCards = document.getElementById("watchlist-mobile-cards");
     const emptyMsg = document.getElementById("watchlist-empty");
     tbody.innerHTML = "";
+    if (mobileCards) mobileCards.innerHTML = "";
     if (items.length === 0) { emptyMsg.style.display = "block"; return; }
     emptyMsg.style.display = "none";
+
+    let mobileCardsHTML = "";
 
     for (const item of items) {
       const tr = document.createElement("tr");
@@ -2000,9 +2080,25 @@ function getCategoryColor(category, index = 0) {
 
       tr.innerHTML = `<td>${item.name}</td><td class="watchlist-ticker-cell">${item.ticker}</td><td class="col-amount watchlist-price">${priceStr}</td><td>${sourceBadge}</td><td class="col-actions">${editBtn} ${deleteBtn}</td>`;
       tbody.appendChild(tr);
-    }
 
-    tbody.querySelectorAll(".watchlist-remove-btn").forEach(btn => {
+      mobileCardsHTML += `
+        <div class="mobile-data-card watchlist-card-item" data-id="${item.id}">
+          <div class="mdc-main">
+            <span class="mdc-name">${item.name}</span>
+            <span class="mdc-stat-value watchlist-price">${priceStr}</span>
+          </div>
+          <div class="mdc-meta">
+            <span class="watchlist-ticker-cell">${item.ticker}</span> · ${sourceBadge}
+          </div>
+          <div class="mdc-actions">
+            ${editBtn} ${deleteBtn}
+          </div>
+        </div>
+      `;
+    }
+    if (mobileCards) mobileCards.innerHTML = mobileCardsHTML;
+
+    document.querySelectorAll("#watchlist-rows .watchlist-remove-btn, #watchlist-mobile-cards .watchlist-remove-btn").forEach(btn => {
       btn.addEventListener("click", async function() {
         const id = this.dataset.id;
         if (!await showConfirm("Remove from watchlist?", "This ticker will be removed.")) return;
@@ -2016,7 +2112,7 @@ function getCategoryColor(category, index = 0) {
     });
 
     // Watchlist edit using custom modal instead of prompt() (fix #5.5)
-    tbody.querySelectorAll(".watchlist-edit-btn").forEach(btn => {
+    document.querySelectorAll("#watchlist-rows .watchlist-edit-btn, #watchlist-mobile-cards .watchlist-edit-btn").forEach(btn => {
       btn.addEventListener("click", function() {
         const id = this.dataset.id; const name = this.dataset.name; const ticker = this.dataset.ticker;
         openWatchlistEditModal(id, name, ticker);
