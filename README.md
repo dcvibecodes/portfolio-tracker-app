@@ -1,6 +1,15 @@
-# Invest More v4.8.0
+# Invest More v4.9.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.9.0
+
+### Closed — Period Filter (Universal, Not FY) + Mobile Parity
+- **FY → Period** — `Capital Gains Lots (FIFO)` now filters by `Period` (`Year [All▼]` 2020-2032 + `Month [All/January…December]`) and `Search` (asset name), not `FY 2026-27` text box. `FY Apr→Mar` kept for backward compat (`?fy=` still works), but `?year=2026&month=08` is universal (Jan→Dec) for `THB`/`USD`/`EUR`. See `server.js` `/api/capital-gains?year=&month=&search=`.
+- **Mobile** — `Closed` now has `Mobile search bar + Filters chip → bottom sheet` (like `Holdings`), `Year`/`Month`/`Search` inside the sheet, `Reset` clears all. Desktop keeps `Filters` row inline + `Filter` button. No horizontal scroll (`Closed` tables hide `≤768px`, card stacks show).
+
+### Edit — Ticker Alignment on Web
+- `Edit Holding` `Ticker` hint `Optional for sells — only needed for live prices. Asset name is enough.` was a separate grid item to the right of the field → now inside the `Ticker` label below the input (`<small>`), so it stacks vertically and aligns to the field (same as `Proceeds` hint). Applies to `Add` too.
 
 ## What's New in v4.8.0
 

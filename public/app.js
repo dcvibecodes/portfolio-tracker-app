@@ -2491,15 +2491,41 @@ function getCategoryColor(category, index = 0) {
 
   document.getElementById("watchlist-ticker-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("watchlist-add-btn").click(); } });
 
-  //--- Closed Positions ---
+  //--- Closed Positions — Year/Month period filter (universal, not FY) ---
+  function populateClosedYearFilter() {
+    const sel = document.getElementById("closed-filter-year");
+    if (!sel || sel.options.length > 1) return;
+    const cur = new Date().getFullYear();
+    for (let y = 2032; y >= 2020; y--) {
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = String(y);
+      sel.appendChild(opt);
+    }
+    // Keep hidden FY input in sync for backward compat
+    const fyInput = document.getElementById("cg-fy-input");
+    if (fyInput) fyInput.value = "";
+  }
+  populateClosedYearFilter();
+
+  // Sync Closed search inputs (desktop ↔ mobile)
+  (function syncClosedSearch() {
+    const mobile = document.getElementById("closed-mobile-filter-search");
+    const desktop = document.getElementById("closed-filter-search");
+    if (mobile && desktop) {
+      mobile.addEventListener("input", () => { desktop.value = mobile.value; });
+      desktop.addEventListener("input", () => { mobile.value = desktop.value; });
+    }
+  })();
+
   async function loadClosed() {
     // Currency-aware tax hint: India 112A (12.5% above 1.25L) only for INR; generic otherwise
     const cgDesc = document.getElementById("cg-lots-desc");
     if (cgDesc) {
       if (baseCurrency === "INR") {
-        cgDesc.textContent = "Per-lot breakdown for tax — e.g. SBI ELSS 9 lots \u2192 12.5% LTCG (Sec 112A) above \u20B91,25,000 for equity >12mo. Check current FY rules. Filter by FY.";
+        cgDesc.textContent = "Per-lot breakdown for tax — e.g. SBI ELSS 9 lots \u2192 12.5% LTCG (Sec 112A) above \u20B91,25,000 for equity >12mo. Check current period rules. Filter by sell period.";
       } else {
-        cgDesc.textContent = "Per-lot breakdown (FIFO) — holding period and gain type are indicative. Tax rules vary by country/currency. Filter by FY.";
+        cgDesc.textContent = "Per-lot breakdown (FIFO) — holding period and gain type are indicative. Tax rules vary by country/currency. Filter by sell period.";
       }
     }
     const closedBody = document.getElementById("closed-rows");
@@ -2510,10 +2536,21 @@ function getCategoryColor(category, index = 0) {
     closedBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
     if (closedCards) closedCards.innerHTML = '<div class="mobile-data-card skeleton-mobile-card"><div class="skeleton skeleton-text" style="width:120px"></div><div class="skeleton skeleton-text" style="width:90px;margin-top:8px"></div></div>';
     if (lotsCardsInit) lotsCardsInit.innerHTML = '<div class="mobile-data-card skeleton-mobile-card"><div class="skeleton skeleton-text" style="width:120px"></div><div class="skeleton skeleton-text" style="width:90px;margin-top:8px"></div></div>';
+    // Build period-aware query: ?year=2026&month=08&search=...
+    const yearVal = (document.getElementById("closed-filter-year")?.value || "").trim();
+    const monthVal = (document.getElementById("closed-filter-month")?.value || "").trim();
+    const searchVal = (document.getElementById("closed-filter-search")?.value || document.getElementById("closed-mobile-filter-search")?.value || "").trim();
+    const fyVal = (document.getElementById("cg-fy-input")?.value || "").trim();
+    const params = new URLSearchParams();
+    if (searchVal) params.set("search", searchVal);
+    if (yearVal) params.set("year", yearVal);
+    if (monthVal) params.set("month", monthVal);
+    if (fyVal) params.set("fy", fyVal);
+    const qs = params.toString() ? "?" + params.toString() : "";
     try {
       const [closedData, cgData] = await Promise.all([
         apiFetch("/api/closed-positions"),
-        apiFetch("/api/capital-gains" + (document.getElementById("cg-fy-input").value.trim() ? "?fy=" + encodeURIComponent(document.getElementById("cg-fy-input").value.trim()) : ""))
+        apiFetch("/api/capital-gains" + qs)
       ]);
       // Closed positions table
       if (!closedData.closed || closedData.closed.length === 0) {
@@ -2565,6 +2602,25 @@ function getCategoryColor(category, index = 0) {
   }
   const cgBtn = document.getElementById("cg-filter-btn");
   if (cgBtn) cgBtn.addEventListener("click", loadClosed);
+  const closedResetBtn = document.getElementById("closed-filter-reset-btn");
+  if (closedResetBtn) closedResetBtn.addEventListener("click", () => {
+    const y = document.getElementById("closed-filter-year");
+    const m = document.getElementById("closed-filter-month");
+    const s = document.getElementById("closed-filter-search");
+    const sm = document.getElementById("closed-mobile-filter-search");
+    if (y) y.value = "";
+    if (m) m.value = "";
+    if (s) s.value = "";
+    if (sm) sm.value = "";
+    const fy = document.getElementById("cg-fy-input");
+    if (fy) fy.value = "";
+    loadClosed();
+  });
+  // Enter on search triggers filter
+  ["closed-filter-search", "closed-mobile-filter-search"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); loadClosed(); } });
+  });
 
   //--- Asset Rename Modal ---
   const renameModal = document.getElementById("rename-modal");
@@ -2922,6 +2978,74 @@ function getCategoryColor(category, index = 0) {
     if (!isMobile() && filterOverlay.classList.contains("open")) {
       closeFilterSheet();
     }
+  });
+})();
+
+// ===== CLOSED MOBILE FILTER (Period search + year/month → bottom sheet) =====
+(function() {
+  const filterOverlay = document.getElementById("closed-mobile-filter-overlay");
+  const filterSheet = document.getElementById("closed-mobile-filter-sheet");
+  const filterBody = document.getElementById("closed-mobile-filter-body");
+  const filterCloseBtn = document.getElementById("closed-mobile-filter-close");
+  const filtersDiv = document.getElementById("closed-filters");
+  const filterChip = document.getElementById("closed-mobile-filter-chip");
+  const mobileSearch = document.getElementById("closed-mobile-filter-search");
+  const desktopSearch = document.getElementById("closed-filter-search");
+  if (!filterOverlay || !filterSheet || !filterBody || !filtersDiv || !filterChip) return;
+  let scrollY = 0;
+  const filtersParent = filtersDiv.parentElement;
+  const filtersNextSibling = filtersDiv.nextSibling;
+  function isMobile() { return window.matchMedia("(max-width: 768px)").matches; }
+  if (mobileSearch && desktopSearch) {
+    mobileSearch.addEventListener("input", function() {
+      desktopSearch.value = mobileSearch.value;
+    });
+    desktopSearch.addEventListener("input", function() {
+      mobileSearch.value = desktopSearch.value;
+    });
+  }
+  function openFilterSheet() {
+    scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overscrollBehavior = "none";
+    filterBody.appendChild(filtersDiv);
+    filtersDiv.style.display = "flex";
+    filtersDiv.style.flexDirection = "column";
+    filterOverlay.classList.add("open");
+  }
+  function closeFilterSheet() {
+    filterOverlay.classList.remove("open");
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.overflow = "";
+    document.body.style.overscrollBehavior = "";
+    document.documentElement.style.overscrollBehavior = "";
+    window.scrollTo(0, scrollY);
+    if (filtersNextSibling) {
+      filtersParent.insertBefore(filtersDiv, filtersNextSibling);
+    } else {
+      filtersParent.appendChild(filtersDiv);
+    }
+    filtersDiv.style.display = "";
+    filtersDiv.style.flexDirection = "";
+  }
+  filterChip.addEventListener("click", openFilterSheet);
+  filterCloseBtn.addEventListener("click", closeFilterSheet);
+  filterOverlay.addEventListener("click", function(e) { if (e.target === filterOverlay) closeFilterSheet(); });
+  // Close sheet when Filter/Reset is pressed (mobile)
+  const cgFilterBtn2 = document.getElementById("cg-filter-btn");
+  if (cgFilterBtn2) cgFilterBtn2.addEventListener("click", () => { if (filterOverlay.classList.contains("open")) closeFilterSheet(); });
+  const closedResetBtn2 = document.getElementById("closed-filter-reset-btn");
+  if (closedResetBtn2) closedResetBtn2.addEventListener("click", () => { if (filterOverlay.classList.contains("open")) closeFilterSheet(); });
+  window.addEventListener("resize", function() {
+    if (!isMobile() && filterOverlay.classList.contains("open")) closeFilterSheet();
   });
 })();
 

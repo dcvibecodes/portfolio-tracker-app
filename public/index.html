@@ -220,8 +220,8 @@
             </label>
             <label id="ticker-label"><span id="ticker-label-text">Ticker (Yahoo)</span>
               <input type="text" id="add-ticker" placeholder="e.g. RELIANCE.NS, TSLA, BTC-INR" />
+              <small id="ticker-hint" class="field-hint hidden" style="font-size:0.64rem; color:var(--text-faint);">Optional for sells — only needed for live prices. Asset name is enough.</small>
             </label>
-            <small id="ticker-hint" class="field-hint hidden" style="font-size:0.64rem; color:var(--text-faint);">Optional for sells — only needed for live prices. Asset name is enough.</small>
             <label>Notes <input type="text" id="add-notes" placeholder="Optional" /></label>
             <div style="grid-column: 1/-1; display: flex; gap: 10px;">
               <button type="submit" class="add-btn">+ Submit</button>
@@ -382,7 +382,7 @@
 
       <!-- Mobile filter FAB — removed, replaced by inline search bar -->
 
-      <!-- Mobile filter overlay (bottom sheet) -->
+      <!-- Mobile filter overlay (bottom sheet) — Holdings -->
       <div id="mobile-filter-overlay" class="mobile-form-overlay">
         <div class="mobile-form-sheet" id="mobile-filter-sheet">
           <div class="mobile-form-header">
@@ -390,6 +390,16 @@
             <button type="button" id="mobile-filter-close" class="mobile-form-close" aria-label="Close">✕</button>
           </div>
           <div class="mobile-filter-body" id="mobile-filter-body"></div>
+        </div>
+      </div>
+      <!-- Mobile filter overlay — Closed -->
+      <div id="closed-mobile-filter-overlay" class="mobile-form-overlay">
+        <div class="mobile-form-sheet" id="closed-mobile-filter-sheet">
+          <div class="mobile-form-header">
+            <span class="mobile-form-title">Filters</span>
+            <button type="button" id="closed-mobile-filter-close" class="mobile-form-close" aria-label="Close">✕</button>
+          </div>
+          <div class="mobile-filter-body" id="closed-mobile-filter-body"></div>
         </div>
       </div>
     </div>
@@ -408,12 +418,46 @@
       </section>
       <section class="card">
         <h2>Capital Gains Lots (FIFO)</h2>
-        <p class="settings-desc" id="cg-lots-desc">Per-lot breakdown (FIFO) — holding period and gain type are indicative. Filter by FY.</p>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
-          <label style="font-size:0.72rem;">FY <input type="text" id="cg-fy-input" placeholder="2026-27" style="width:90px; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:0.76rem;" /></label>
-          <button id="cg-filter-btn" class="btn-secondary" style="min-height:32px;">Filter</button>
-          <span id="cg-summary" style="font-size:0.72rem; color:var(--text-secondary);"></span>
+        <p class="settings-desc" id="cg-lots-desc">Per-lot breakdown (FIFO) — holding period and gain type are indicative. Filter by sell period.</p>
+        <div class="mobile-search-bar" id="closed-mobile-search-bar">
+          <input type="search" id="closed-mobile-filter-search" placeholder="Search lots..." autocomplete="off" />
+          <button type="button" id="closed-mobile-filter-chip" class="mobile-filter-chip">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            Filters
+          </button>
         </div>
+        <div class="filters" id="closed-filters">
+          <label>Search <input type="text" id="closed-filter-search" placeholder="Asset name..." /></label>
+          <label>Year
+            <select id="closed-filter-year">
+              <option value="">All</option>
+            </select>
+          </label>
+          <label>Month
+            <select id="closed-filter-month">
+              <option value="">All</option>
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </label>
+        </div>
+        <div class="filter-actions" id="closed-filter-actions" style="display:flex; gap:6px; margin-bottom:10px;">
+          <button type="button" id="closed-filter-reset-btn" class="filter-reset-btn">Reset</button>
+          <button id="cg-filter-btn" class="btn-secondary" style="min-height:32px;">Filter</button>
+          <span id="cg-summary" style="font-size:0.72rem; color:var(--text-secondary); align-self:center;"></span>
+        </div>
+        <!-- Hidden FY input for backward compat (not shown) -->
+        <input type="hidden" id="cg-fy-input" />
         <div class="table-wrap">
           <table>
             <thead><tr><th>Asset</th><th>Buy Date</th><th>Sell Date</th><th class="col-amount">Qty</th><th class="col-amount">Cost</th><th class="col-amount">Proceeds</th><th class="col-amount">Gain</th><th>Type</th><th class="col-amount">Days</th></tr></thead>
@@ -701,8 +745,7 @@
           <input type="number" id="edit-invested-base" step="any" placeholder="Actual amount in your base currency" />
           <small class="invested-base-hint" id="edit-invested-base-hint">The actual amount you spent in your base currency to make this investment.</small>
         </label>
-        <label id="edit-ticker-label">Ticker <input type="text" id="edit-ticker" placeholder="Yahoo ticker (optional for sells)" /></label>
-        <small id="edit-ticker-hint" class="field-hint hidden" style="font-size:0.64rem; color:var(--text-faint);">Optional for sells — only needed for live prices. Asset name is enough.</small>
+        <label id="edit-ticker-label">Ticker <input type="text" id="edit-ticker" placeholder="Yahoo ticker (optional for sells)" /><small id="edit-ticker-hint" class="field-hint hidden" style="font-size:0.64rem; color:var(--text-faint);">Optional for sells — only needed for live prices. Asset name is enough.</small></label>
         <label>Notes <input type="text" id="edit-notes" /></label>
         <div class="modal-buttons">
           <button type="submit" class="save-btn">Save</button>

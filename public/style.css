@@ -1036,7 +1036,7 @@ body { overflow-x: clip; }
   .watchlist-card .table-wrap { display: none; }
   #tab-closed .table-wrap { display: none; }
   .holdings-form-card { display: none; }
-  #holdings-filters { display: none; }
+  #holdings-filters, #closed-filters { display: none; }
   .mobile-search-bar { display: flex !important; }
 
   .holdings-mobile-cards,

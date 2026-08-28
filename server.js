@@ -1484,11 +1484,17 @@ app.get("/api/closed-positions", (req, res) => {
 });
 
 app.get("/api/capital-gains", (req, res) => {
-  const fy = req.query.fy; // e.g. 2026-27 not used for filter yet, returns all
+  const fy = req.query.fy; // e.g. 2026-27
   const asset = req.query.asset;
+  const search = (req.query.search || req.query.name || "").toLowerCase();
+  const year = req.query.year;
+  const month = req.query.month;
   let lots = db.prepare("SELECT * FROM realized_lots ORDER BY sell_date DESC, id DESC").all();
   if (asset) lots = lots.filter(l => l.asset_name === asset);
-  // FY filter: FY 2026-27 = 2026-04-01 to 2027-03-31
+  if (search) lots = lots.filter(l => l.asset_name.toLowerCase().includes(search));
+  if (year && /^\d{4}$/.test(year)) lots = lots.filter(l => l.sell_date && l.sell_date.substring(0,4) === year);
+  if (month && /^\d{2}$/.test(month)) lots = lots.filter(l => l.sell_date && l.sell_date.substring(5,7) === month);
+  // FY filter: FY 2026-27 = 2026-04-01 to 2027-03-31 (kept for backward compat)
   if (fy && /^\d{4}-\d{2}$/.test(fy)) {
     const startYear = parseInt(fy.slice(0,4),10);
     const fyStart = `${startYear}-04-01`;
