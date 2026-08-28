@@ -3064,28 +3064,30 @@ function getCategoryColor(category, index = 0) {
     if (!isMobile() && filterOverlay.classList.contains("open")) closeFilterSheet();
   });
   window.closeClosedFilter = closeFilterSheet;
+  window.openClosedFilter = openFilterSheet;
 })();
 
-// Fallback delegated handler for Closed Filters chip (covers hidden-tab init edge)
+// Fallback delegated handler for Closed Filters chip (covers hidden-tab init edge) — synchronous, authoritative
 document.addEventListener("click", function(e) {
   const chip = e.target.closest("#closed-mobile-filter-chip");
   if (!chip) return;
   const overlay = document.getElementById("closed-mobile-filter-overlay");
   if (!overlay || overlay.classList.contains("open")) return;
-  const filtersDiv = document.getElementById("closed-filters");
-  const filterBody = document.getElementById("closed-mobile-filter-body");
-  if (!filtersDiv || !filterBody) return;
-  // Prevent double-open if direct listener already handled
-  setTimeout(() => {
-    if (!overlay.classList.contains("open")) {
-      overlay.classList.add("open");
-      document.body.style.position = "fixed";
-      document.body.style.top = `-${window.scrollY}px`;
-      filterBody.appendChild(filtersDiv);
-      filtersDiv.style.display = "flex";
-      filtersDiv.style.flexDirection = "column";
-    }
-  }, 10);
+  e.preventDefault();
+  e.stopPropagation();
+  if (window.openClosedFilter) {
+    window.openClosedFilter();
+  } else {
+    const filtersDiv = document.getElementById("closed-filters");
+    const filterBody = document.getElementById("closed-mobile-filter-body");
+    if (!filtersDiv || !filterBody) return;
+    filterBody.appendChild(filtersDiv);
+    filtersDiv.style.display = "flex";
+    filtersDiv.style.flexDirection = "column";
+    overlay.classList.add("open");
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${window.scrollY}px`;
+  }
 });
 
 
