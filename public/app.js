@@ -361,7 +361,9 @@ function getCategoryColor(category, index = 0) {
         try {
           const tickerData = await apiFetch("/api/ticker-for-asset?name=" + encodeURIComponent(input.value));
           if (tickerData.ticker) {
-            document.getElementById("add-ticker").value = tickerData.ticker;
+            const tickerInputId = inputId === "edit-name" ? "edit-ticker" : "add-ticker";
+            const tickerEl = document.getElementById(tickerInputId);
+            if (tickerEl) tickerEl.value = tickerData.ticker;
           }
         } catch(e) {}
       }
@@ -396,6 +398,9 @@ function getCategoryColor(category, index = 0) {
     const addTxnSelect = document.getElementById("add-txn-type");
     const editTxnSelect = document.getElementById("edit-txn-type");
     const tickerLabel = document.getElementById("ticker-label");
+    const editTickerLabel = document.getElementById("edit-ticker-label");
+    const tickerHint = document.getElementById("ticker-hint");
+    const editTickerHint = document.getElementById("edit-ticker-hint");
 
     function updateAddLabels() {
       const isSell = addTxnSelect.value === "sell";
@@ -406,6 +411,7 @@ function getCategoryColor(category, index = 0) {
       const buyPriceInput = document.getElementById("add-buy-price");
       const qtyInput = document.getElementById("add-quantity");
       const investedInput = document.getElementById("add-invested");
+      const tickerLabelText = document.getElementById("ticker-label-text");
       if (priceLabel) priceLabel.textContent = isSell ? "Sell Price (per unit)" : "Buy Price (per unit)";
       if (qtyLabel) qtyLabel.textContent = isSell ? "Quantity Sold" : "Quantity";
       if (investedLabel) investedLabel.textContent = isSell ? "Proceeds" : "Amount Invested";
@@ -413,7 +419,13 @@ function getCategoryColor(category, index = 0) {
       if (buyPriceInput) buyPriceInput.placeholder = isSell ? "e.g. 88.06" : "e.g. 48.60";
       if (qtyInput) qtyInput.placeholder = isSell ? "e.g. 1820.905" : "e.g. 100";
       if (investedInput) investedInput.placeholder = isSell ? "e.g. 160351" : "e.g. 50000";
-      if (tickerLabel) tickerLabel.style.display = isSell ? "none" : "";
+      if (tickerLabelText) tickerLabelText.textContent = isSell ? "Ticker (Yahoo) — optional" : "Ticker (Yahoo)";
+      if (tickerHint) tickerHint.classList.toggle("hidden", !isSell);
+      const addTickerInput = document.getElementById("add-ticker");
+      if (addTickerInput) addTickerInput.placeholder = isSell ? "Yahoo ticker (optional for sells)" : "e.g. RELIANCE.NS, TSLA, BTC-INR";
+      // Keep ticker visible for sells now (optional) — blank asset name is enough for FIFO
+      if (tickerLabel) tickerLabel.style.display = "";
+      if (typeof window._updateInvestedBaseLabels === "function") window._updateInvestedBaseLabels();
     }
     function updateEditLabels() {
       if (!editTxnSelect) return;
@@ -426,6 +438,12 @@ function getCategoryColor(category, index = 0) {
       if (qtyLabel) qtyLabel.textContent = isSell ? "Quantity Sold" : "Quantity";
       if (investedLabel) investedLabel.textContent = isSell ? "Proceeds" : "Amount Invested";
       if (investedHint) investedHint.classList.toggle("hidden", !isSell);
+      // Ticker is optional for sells — hint explains, field stays visible
+      if (editTickerHint) editTickerHint.classList.toggle("hidden", !isSell);
+      // Also update placeholder for edit ticker
+      const editTickerInput = document.getElementById("edit-ticker");
+      if (editTickerInput) editTickerInput.placeholder = isSell ? "Yahoo ticker (optional for sells)" : "Yahoo ticker";
+      if (typeof window._updateInvestedBaseLabels === "function") window._updateInvestedBaseLabels();
     }
     if (addTxnSelect) {
       addTxnSelect.addEventListener("change", updateAddLabels);
@@ -437,42 +455,73 @@ function getCategoryColor(category, index = 0) {
     }
     // Expose for modal open to resync
     window._updateEditTxnLabels = updateEditLabels;
+    window._updateAddTxnLabels = updateAddLabels;
   }
 
   function setupCurrencyToggleForInvestedBase() {
     const addCurrencySelect = document.getElementById("add-currency");
     const addInvestedBaseLabel = document.getElementById("add-invested-base-label");
     const addInvestedBaseCurrency = document.getElementById("add-invested-base-currency");
+    const addInvestedBaseLabelText = document.getElementById("add-invested-base-label-text");
+    const addInvestedBaseHint = document.getElementById("add-invested-base-hint");
+    const addInvestedBaseInput = document.getElementById("add-invested-base");
 
     function updateAddInvestedBase() {
       if (!currencyConfigured) { addInvestedBaseLabel.style.display = "none"; return; }
       const selectedCurrency = addCurrencySelect.value;
       const defaultCur = baseCurrency;
+      const addTxnSelect = document.getElementById("add-txn-type");
+      const isSell = addTxnSelect && addTxnSelect.value === "sell";
       if (selectedCurrency && selectedCurrency !== defaultCur) {
         addInvestedBaseCurrency.textContent = defaultCur;
+        if (addInvestedBaseLabelText) {
+          // Preserve inner currency span, update outer text
+          addInvestedBaseLabelText.childNodes[0].textContent = isSell ? "Proceeds received in " : "Invested in ";
+        }
+        if (addInvestedBaseInput) addInvestedBaseInput.placeholder = isSell ? `Actual amount credited in ${defaultCur}` : `Actual amount in your base currency`;
+        if (addInvestedBaseHint) addInvestedBaseHint.textContent = isSell
+          ? `Actual proceeds credited to you in ${defaultCur} for this sale (e.g. ${selectedCurrency} proceeds converted to ${defaultCur}). Leave blank to auto-convert at current rate.`
+          : `The actual amount you spent in ${defaultCur} to make this investment (e.g. ${defaultCur} converted to ${selectedCurrency}).`;
         addInvestedBaseLabel.style.display = "";
       } else {
         addInvestedBaseLabel.style.display = "none";
       }
     }
     addCurrencySelect.addEventListener("change", updateAddInvestedBase);
+    const addTxnForBase = document.getElementById("add-txn-type");
+    if (addTxnForBase) addTxnForBase.addEventListener("change", updateAddInvestedBase);
     setTimeout(updateAddInvestedBase, 500);
+    window._updateInvestedBaseLabels = updateAddInvestedBase;
 
     const editCurrencySelect = document.getElementById("edit-currency");
     const editInvestedBaseLabel = document.getElementById("edit-invested-base-label");
     const editInvestedBaseCurrency = document.getElementById("edit-invested-base-currency");
+    const editInvestedBaseLabelText = document.getElementById("edit-invested-base-label-text");
+    const editInvestedBaseHint = document.getElementById("edit-invested-base-hint");
+    const editInvestedBaseInput = document.getElementById("edit-invested-base");
 
-    editCurrencySelect.addEventListener("change", () => {
+    function updateEditInvestedBase() {
       if (!currencyConfigured) { editInvestedBaseLabel.style.display = "none"; return; }
       const selectedCurrency = editCurrencySelect.value;
       const defaultCur = baseCurrency;
+      const editTxnSelect = document.getElementById("edit-txn-type");
+      const isSell = editTxnSelect && editTxnSelect.value === "sell";
       if (selectedCurrency && selectedCurrency !== defaultCur) {
         editInvestedBaseCurrency.textContent = defaultCur;
+        if (editInvestedBaseLabelText) editInvestedBaseLabelText.childNodes[0].textContent = isSell ? "Proceeds received in " : "Invested in ";
+        if (editInvestedBaseInput) editInvestedBaseInput.placeholder = isSell ? `Actual proceeds in ${defaultCur}` : `Actual amount in your base currency`;
+        if (editInvestedBaseHint) editInvestedBaseHint.textContent = isSell
+          ? `Actual proceeds credited to you in ${defaultCur} for this sale.`
+          : `The actual amount you spent in ${defaultCur} to make this investment.`;
         editInvestedBaseLabel.style.display = "";
       } else {
         editInvestedBaseLabel.style.display = "none";
       }
-    });
+    }
+    editCurrencySelect.addEventListener("change", updateEditInvestedBase);
+    const editTxnForBase = document.getElementById("edit-txn-type");
+    if (editTxnForBase) editTxnForBase.addEventListener("change", updateEditInvestedBase);
+    window._updateEditInvestedBaseLabels = updateEditInvestedBase;
   }
 
   //--- Dashboard Data Loader ---
@@ -520,7 +569,7 @@ function getCategoryColor(category, index = 0) {
     const hasRealized = summary.total.realized_gain != null || summary.total.unrealized_gain != null;
     const totalItems = hasRealized ? [
       { label: "Invested (Open)", value: toDisplayCurrency(summary.total.invested) },
-      { label: "Current Value (Open)", value: toDisplayCurrency(summary.total.current_value) },
+      { label: "Current (Open)", value: toDisplayCurrency(summary.total.current_value) },
       { label: "Unrealized P&L", value: toDisplayCurrency(summary.total.unrealized_gain), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested) },
       { label: "Realized P&L", value: toDisplayCurrency(summary.total.realized_gain), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested + (summary.total.realized_gain||0)) },
       { label: "Total P&L", value: toDisplayCurrency(summary.total.gain_loss), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested + (summary.total.realized_gain||0)) }
@@ -1491,8 +1540,25 @@ function getCategoryColor(category, index = 0) {
 
     updateSelectAll();
     const pl = totalValue - totalInvested;
-    const footerSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
-    document.getElementById("holdings-footer").textContent = `${rows.length} entries | Invested: ${footerSym}${fmtCompact(toDisplayCurrency(totalInvested))} | Value: ${footerSym}${fmtCompact(toDisplayCurrency(totalValue))} | P&L: ${footerSym}${fmtCompact(toDisplayCurrency(pl))}`;
+    const footerSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : getCurrencySymbol(rateData.default_currency || baseCurrency || "INR");
+    let footerText = `${rows.length} entr${rows.length===1?'y':'ies'} — Invested: ${footerSym}${fmtCompact(toDisplayCurrency(totalInvested))} | Current Value: ${footerSym}${fmtCompact(toDisplayCurrency(totalValue))} | P&L: ${footerSym}${fmtCompact(toDisplayCurrency(pl))}`;
+    // If filtered rows are single foreign currency, also show foreign totals for clarity
+    if (rows.length > 0) {
+      const firstCur = rows[0].currency;
+      const allSame = firstCur && rows.every(r => r.currency === firstCur);
+      const baseCur = rateData.default_currency || baseCurrency || "INR";
+      if (allSame && firstCur !== baseCur) {
+        let foreignInvested = 0, foreignValue = 0;
+        for (const r of rows) {
+          foreignInvested += r.invested_amount || 0;
+          foreignValue += r.current_value || 0;
+        }
+        const foreignPL = foreignValue - foreignInvested;
+        const foreignSym = getCurrencySymbol(firstCur);
+        footerText += `  ·  (${firstCur}: Invested ${foreignSym}${fmtCompact(foreignInvested)} | Value ${foreignSym}${fmtCompact(foreignValue)} | P&L ${foreignSym}${fmtCompact(foreignPL)})`;
+      }
+    }
+    document.getElementById("holdings-footer").textContent = footerText;
   }
 
   //--- Delegated click handlers for holdings table (fix #1.7) ---
@@ -1886,6 +1952,9 @@ function getCategoryColor(category, index = 0) {
     const editCurrencyLabel = document.getElementById("edit-currency").closest("label");
     if (editCurrencyLabel) editCurrencyLabel.style.display = currencyConfigured ? "" : "none";
     if (window._updateEditTxnLabels) window._updateEditTxnLabels();
+    if (window._updateEditInvestedBaseLabels) window._updateEditInvestedBaseLabels();
+    // Also ensure add-form invested base label synced if edit changed currency
+    if (window._updateInvestedBaseLabels) window._updateInvestedBaseLabels();
     editModal.classList.add("open");
   }
 
@@ -2144,7 +2213,7 @@ function getCategoryColor(category, index = 0) {
       try {
         const checkRes = await apiFetch("/api/settings/currency");
         if (checkRes.invested_base_count > 0) {
-          const confirmed = await showConfirm("Change base currency?", `You have ${checkRes.invested_base_count} holding(s) with invested amount in ${baseCurrency}. Changing to ${currency} will misinterpret those values.`);
+          const confirmed = await showConfirm("Change base currency?", `You have ${checkRes.invested_base_count} foreign holding(s) with a custom amount stored in ${baseCurrency} (entered via "Proceeds/Invested in ${baseCurrency}" for holdings where transaction currency ≠ base). Changing base to ${currency} will misinterpret those ${checkRes.invested_base_count} value(s) — they remain in ${baseCurrency}. Re-enter them after changing if needed.`);
           if (!confirmed) { document.getElementById("settings-default-currency").value = baseCurrency; return; }
         }
       } catch(e) {}
@@ -2436,8 +2505,11 @@ function getCategoryColor(category, index = 0) {
     const closedBody = document.getElementById("closed-rows");
     const closedCards = document.getElementById("closed-mobile-cards");
     const lotsBody = document.getElementById("cg-lots-rows");
+    const lotsCardsInit = document.getElementById("cg-lots-mobile-cards");
     const summaryEl = document.getElementById("cg-summary");
     closedBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+    if (closedCards) closedCards.innerHTML = '<div class="mobile-data-card skeleton-mobile-card"><div class="skeleton skeleton-text" style="width:120px"></div><div class="skeleton skeleton-text" style="width:90px;margin-top:8px"></div></div>';
+    if (lotsCardsInit) lotsCardsInit.innerHTML = '<div class="mobile-data-card skeleton-mobile-card"><div class="skeleton skeleton-text" style="width:120px"></div><div class="skeleton skeleton-text" style="width:90px;margin-top:8px"></div></div>';
     try {
       const [closedData, cgData] = await Promise.all([
         apiFetch("/api/closed-positions"),
@@ -2457,20 +2529,38 @@ function getCategoryColor(category, index = 0) {
           return `<div class="mobile-data-card"><div class="mdc-main"><span class="mdc-name">${c.name}</span><span class="mdc-stat-value ${cls}">${fmt(c.realized_gain)}</span></div><div class="mdc-meta">${c.asset_class||""} · ${fmtUnits(c.total_qty)} units · ${formatDate(c.close_date||"")}</div><div class="mdc-divider"></div><div class="mdc-grid"><div class="mdc-stat"><span class="mdc-label">Cost</span><span class="mdc-value">${fmt(c.total_cost)}</span></div><div class="mdc-stat"><span class="mdc-label">Proceeds</span><span class="mdc-value">${fmt(c.total_proceeds)}</span></div></div></div>`;
         }).join("");
       }
-      // Lots
+      // Lots — badge/label generic for non-INR (>1y / ≤1y, 365d proxy), INR keeps LTCG/STCG
+      const isINR = baseCurrency === "INR";
+      const lotsCards = document.getElementById("cg-lots-mobile-cards");
       if (!cgData.lots || cgData.lots.length === 0) {
         lotsBody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-faint);">No realized lots</td></tr>';
+        if (lotsCards) lotsCards.innerHTML = '<div style="text-align:center; color:var(--text-faint); font-size:0.76rem;">No realized lots</div>';
         summaryEl.textContent = "";
       } else {
         lotsBody.innerHTML = cgData.lots.map(l => {
           const cls = l.gain >=0 ? "positive" : "negative";
-          return `<tr><td>${l.asset_name}</td><td>${formatDate(l.buy_date||"")}</td><td>${formatDate(l.sell_date||"")}</td><td class="col-amount">${fmtUnits(l.qty)}</td><td class="col-amount">${fmt(l.cost)}</td><td class="col-amount">${fmt(l.proceeds)}</td><td class="col-amount ${cls}">${fmt(l.gain)}</td><td><span class="badge badge-${l.gain_type==='LTCG'?'buy':'sell'}">${l.gain_type||""}</span></td><td class="col-amount">${l.holding_days||0}</td></tr>`;
+          const displayType = isINR ? (l.gain_type||"") : (l.holding_days > 365 ? ">1y" : "≤1y");
+          const badgeClass = (displayType === "LTCG" || displayType === ">1y") ? "buy" : "sell";
+          return `<tr><td>${l.asset_name}</td><td>${formatDate(l.buy_date||"")}</td><td>${formatDate(l.sell_date||"")}</td><td class="col-amount">${fmtUnits(l.qty)}</td><td class="col-amount">${fmt(l.cost)}</td><td class="col-amount">${fmt(l.proceeds)}</td><td class="col-amount ${cls}">${fmt(l.gain)}</td><td><span class="badge badge-${badgeClass}" title="${isINR ? l.gain_type+' (>365d)' : 'Generic 365d proxy; your country may differ'}">${displayType}</span></td><td class="col-amount">${l.holding_days||0}</td></tr>`;
         }).join("");
+        if (lotsCards) {
+          lotsCards.innerHTML = cgData.lots.map(l => {
+            const cls = l.gain >=0 ? "positive" : "negative";
+            const displayType = isINR ? (l.gain_type||"") : (l.holding_days > 365 ? ">1y" : "≤1y");
+            const badgeClass = (displayType === "LTCG" || displayType === ">1y") ? "buy" : "sell";
+            const gainBadge = displayType ? `<span class="badge badge-${badgeClass}" title="${isINR ? l.gain_type : 'Generic 365d'}">${displayType}</span>` : "";
+            return `<div class="mobile-data-card"><div class="mdc-main"><span class="mdc-name">${l.asset_name}</span><span class="mdc-stat-value ${cls}">${fmt(l.gain)}</span></div><div class="mdc-meta">${gainBadge} ${formatDate(l.buy_date||"")} → ${formatDate(l.sell_date||"")} · ${fmtUnits(l.qty)} units · ${l.holding_days||0} days</div><div class="mdc-divider"></div><div class="mdc-grid"><div class="mdc-stat"><span class="mdc-label">Cost</span><span class="mdc-value">${fmt(l.cost)}</span></div><div class="mdc-stat"><span class="mdc-label">Proceeds</span><span class="mdc-value">${fmt(l.proceeds)}</span></div><div class="mdc-stat"><span class="mdc-label">Gain</span><span class="mdc-value ${cls}">${fmt(l.gain)}</span></div><div class="mdc-stat"><span class="mdc-label">Type</span><span class="mdc-value" title="${isINR ? 'India LTCG/STCG' : 'Generic >1y/≤1y'}">${displayType||"-"}</span></div></div></div>`;
+          }).join("");
+        }
         const s = cgData.summary;
-        summaryEl.textContent = `Total: ${fmt(s.total_gain)} · LTCG: ${fmt(s.ltcg)} · STCG: ${fmt(s.stcg)} · ${s.count} lots`;
+        summaryEl.textContent = isINR
+          ? `Total: ${fmt(s.total_gain)} · LTCG: ${fmt(s.ltcg)} · STCG: ${fmt(s.stcg)} · ${s.count} lots`
+          : `Total: ${fmt(s.total_gain)} · Long (>1y): ${fmt(s.ltcg)} · Short (≤1y): ${fmt(s.stcg)} · ${s.count} lots`;
       }
     } catch(e) {
       closedBody.innerHTML = `<tr><td colspan="7" style="color:var(--red);">Failed to load: ${e.message}</td></tr>`;
+      const lotsCardsErr = document.getElementById("cg-lots-mobile-cards");
+      if (lotsCardsErr) lotsCardsErr.innerHTML = `<div style="color:var(--red); font-size:0.72rem;">Failed to load: ${e.message}</div>`;
     }
   }
   const cgBtn = document.getElementById("cg-filter-btn");
@@ -2573,6 +2663,7 @@ function getCategoryColor(category, index = 0) {
       .catch(() => {});
 
     setupAutocomplete("add-name", "add-name-suggestions");
+    setupAutocomplete("edit-name", "edit-name-suggestions");
     setupTxnTypeToggle();
     setupCurrencyToggleForInvestedBase();
 

@@ -230,15 +230,19 @@ function rebuildAssetLots(assetName) {
   for (const sell of sells) {
     const sellQty = Math.abs(sell.quantity || 0);
     const sellTotalBase = Math.abs(getBaseInvestedForRow(sell, fxMap, defaultCur));
-    // Proceeds: prefer sell buy_price (sell NAV) if set, else fallback to invested amount
     const pricePerUnit = Math.abs(sell.buy_price) || 0;
     const investedPerUnit = sellQty !== 0 && sellTotalBase !== 0 ? sellTotalBase / sellQty : 0;
-    // If buy_price is close to investedPerUnit, it means user entered cost as invested; use buy_price if it looks like NAV (diff >1%)
+    const fxSell = sell.currency === defaultCur ? 1 : (fxMap[sell.currency] || 1);
+    // Proceeds in base currency: if invested_base manually entered, use it (already base); else convert price (txn currency) to base via FX
     let proceedsPerUnit = 0;
-    if (pricePerUnit > 0 && Math.abs(pricePerUnit - investedPerUnit) > 0.01) {
-      proceedsPerUnit = pricePerUnit;
+    if (sell.invested_base != null && sellQty !== 0) {
+      proceedsPerUnit = investedPerUnit; // already in base
     } else if (pricePerUnit > 0) {
-      proceedsPerUnit = pricePerUnit;
+      proceedsPerUnit = pricePerUnit * fxSell;
+      // If price-derived base differs wildly from investedPerUnit (user entered different manual proceeds), prefer manual
+      if (sellTotalBase !== 0 && Math.abs(proceedsPerUnit - investedPerUnit) / (investedPerUnit || 1) > 0.20) {
+        proceedsPerUnit = investedPerUnit;
+      }
     } else {
       proceedsPerUnit = investedPerUnit;
     }

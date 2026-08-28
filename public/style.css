@@ -1034,6 +1034,7 @@ body { overflow-x: clip; }
   #tab-holdings .table-wrap { display: none; }
   .pivot-table-wrap { display: none; }
   .watchlist-card .table-wrap { display: none; }
+  #tab-closed .table-wrap { display: none; }
   .holdings-form-card { display: none; }
   #holdings-filters { display: none; }
   .mobile-search-bar { display: flex !important; }

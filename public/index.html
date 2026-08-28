@@ -48,13 +48,13 @@
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       <span>Holdings</span>
     </button>
-    <button class="bottom-nav-btn" data-tab="watchlist" role="tab" aria-selected="false" aria-controls="tab-watchlist">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      <span>Watchlist</span>
-    </button>
     <button class="bottom-nav-btn" data-tab="closed" role="tab" aria-selected="false" aria-controls="tab-closed">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       <span>Closed</span>
+    </button>
+    <button class="bottom-nav-btn" data-tab="watchlist" role="tab" aria-selected="false" aria-controls="tab-watchlist">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Watchlist</span>
     </button>
     <button class="bottom-nav-btn" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -214,13 +214,14 @@
               </select>
             </label>
             <label id="add-invested-base-label" class="invested-base-label" style="display:none;">
-              <span>Invested in <span id="add-invested-base-currency">INR</span></span>
+              <span id="add-invested-base-label-text">Invested in <span id="add-invested-base-currency">INR</span></span>
               <input type="number" id="add-invested-base" step="any" placeholder="Actual amount in your base currency" />
-              <small class="invested-base-hint">The actual amount you spent in your base currency to make this investment (e.g. INR converted to USD).</small>
+              <small class="invested-base-hint" id="add-invested-base-hint">The actual amount you spent in your base currency to make this investment (e.g. INR converted to USD).</small>
             </label>
-            <label id="ticker-label">Ticker (Yahoo)
+            <label id="ticker-label"><span id="ticker-label-text">Ticker (Yahoo)</span>
               <input type="text" id="add-ticker" placeholder="e.g. RELIANCE.NS, TSLA, BTC-INR" />
             </label>
+            <small id="ticker-hint" class="field-hint hidden" style="font-size:0.64rem; color:var(--text-faint);">Optional for sells — only needed for live prices. Asset name is enough.</small>
             <label>Notes <input type="text" id="add-notes" placeholder="Optional" /></label>
             <div style="grid-column: 1/-1; display: flex; gap: 10px;">
               <button type="submit" class="add-btn">+ Submit</button>
@@ -393,6 +394,36 @@
       </div>
     </div>
 
+    <div id="tab-closed" class="tab-content" role="tabpanel" aria-labelledby="tab-closed-btn">
+      <section class="card">
+        <h2>Closed Positions (Realized P&L)</h2>
+        <p class="settings-desc">Assets fully sold — FIFO realized gains. Holdings ledger keeps all transactions; pivot/dashboard show open only. Losses reduce the realized total.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Category</th><th class="col-amount">Qty Sold</th><th class="col-amount">Cost</th><th class="col-amount">Proceeds</th><th class="col-amount">Realized P&L</th><th>Close Date</th></tr></thead>
+            <tbody id="closed-rows"><tr><td colspan="7"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div></div></td></tr></tbody>
+          </table>
+        </div>
+        <div id="closed-mobile-cards" class="pivot-mobile-cards" style="flex-direction:column; gap:8px; margin-top:12px;"></div>
+      </section>
+      <section class="card">
+        <h2>Capital Gains Lots (FIFO)</h2>
+        <p class="settings-desc" id="cg-lots-desc">Per-lot breakdown (FIFO) — holding period and gain type are indicative. Filter by FY.</p>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+          <label style="font-size:0.72rem;">FY <input type="text" id="cg-fy-input" placeholder="2026-27" style="width:90px; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:0.76rem;" /></label>
+          <button id="cg-filter-btn" class="btn-secondary" style="min-height:32px;">Filter</button>
+          <span id="cg-summary" style="font-size:0.72rem; color:var(--text-secondary);"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Asset</th><th>Buy Date</th><th>Sell Date</th><th class="col-amount">Qty</th><th class="col-amount">Cost</th><th class="col-amount">Proceeds</th><th class="col-amount">Gain</th><th>Type</th><th class="col-amount">Days</th></tr></thead>
+            <tbody id="cg-lots-rows"></tbody>
+          </table>
+        </div>
+        <div id="cg-lots-mobile-cards" class="holdings-mobile-cards" style="flex-direction:column; gap:8px; margin-top:8px;"></div>
+      </section>
+    </div>
+
     <div id="tab-watchlist" class="tab-content" role="tabpanel" aria-labelledby="tab-watchlist-btn">
       <section class="card watchlist-card">
         <div class="watchlist-header">
@@ -434,35 +465,6 @@
           </div>
         </div>
         <p id="watchlist-empty" class="watchlist-empty" style="display:none;">No items in watchlist. Add tickers from your portfolio settings or manually above.</p>
-      </section>
-    </div>
-
-    <div id="tab-closed" class="tab-content" role="tabpanel" aria-labelledby="tab-closed-btn">
-      <section class="card">
-        <h2>Closed Positions (Realized P&L)</h2>
-        <p class="settings-desc">Assets fully sold — FIFO realized gains. Holdings ledger keeps all transactions; pivot/dashboard show open only. Losses reduce the realized total.</p>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Name</th><th>Category</th><th class="col-amount">Qty Sold</th><th class="col-amount">Cost</th><th class="col-amount">Proceeds</th><th class="col-amount">Realized P&L</th><th>Close Date</th></tr></thead>
-            <tbody id="closed-rows"><tr><td colspan="7"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div></div></td></tr></tbody>
-          </table>
-        </div>
-        <div id="closed-mobile-cards" class="pivot-mobile-cards" style="display:flex; flex-direction:column; gap:8px; margin-top:12px;"></div>
-      </section>
-      <section class="card">
-        <h2>Capital Gains Lots (FIFO)</h2>
-        <p class="settings-desc" id="cg-lots-desc">Per-lot breakdown (FIFO) — holding period and gain type are indicative. Filter by FY.</p>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
-          <label style="font-size:0.72rem;">FY <input type="text" id="cg-fy-input" placeholder="2026-27" style="width:90px; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:0.76rem;" /></label>
-          <button id="cg-filter-btn" class="btn-secondary" style="min-height:32px;">Filter</button>
-          <span id="cg-summary" style="font-size:0.72rem; color:var(--text-secondary);"></span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Asset</th><th>Buy Date</th><th>Sell Date</th><th class="col-amount">Qty</th><th class="col-amount">Cost</th><th class="col-amount">Proceeds</th><th class="col-amount">Gain</th><th>Type</th><th class="col-amount">Days</th></tr></thead>
-            <tbody id="cg-lots-rows"></tbody>
-          </table>
-        </div>
       </section>
     </div>
 
@@ -658,7 +660,12 @@
             <option value="sell">Sell</option>
           </select>
         </label>
-        <label>Asset Name <input type="text" id="edit-name" required /></label>
+        <label>Asset Name
+          <div class="autocomplete-wrap">
+            <input type="text" id="edit-name" required autocomplete="off" />
+            <ul class="autocomplete-list" id="edit-name-suggestions"></ul>
+          </div>
+        </label>
         <label>Category <select id="edit-asset-class" required></select></label>
         <label>Type <select id="edit-asset-type"></select></label>
         <label>Broker/Platform <select id="edit-broker"><option value="">- None -</option></select></label>
@@ -690,11 +697,12 @@
           </select>
         </label>
         <label id="edit-invested-base-label" class="invested-base-label" style="display:none;">
-          <span>Invested in <span id="edit-invested-base-currency">INR</span></span>
+          <span id="edit-invested-base-label-text">Invested in <span id="edit-invested-base-currency">INR</span></span>
           <input type="number" id="edit-invested-base" step="any" placeholder="Actual amount in your base currency" />
-          <small class="invested-base-hint">The actual amount you spent in your base currency to make this investment.</small>
+          <small class="invested-base-hint" id="edit-invested-base-hint">The actual amount you spent in your base currency to make this investment.</small>
         </label>
-        <label>Ticker <input type="text" id="edit-ticker" placeholder="Yahoo ticker" /></label>
+        <label id="edit-ticker-label">Ticker <input type="text" id="edit-ticker" placeholder="Yahoo ticker (optional for sells)" /></label>
+        <small id="edit-ticker-hint" class="field-hint hidden" style="font-size:0.64rem; color:var(--text-faint);">Optional for sells — only needed for live prices. Asset name is enough.</small>
         <label>Notes <input type="text" id="edit-notes" /></label>
         <div class="modal-buttons">
           <button type="submit" class="save-btn">Save</button>

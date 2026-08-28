@@ -1,6 +1,19 @@
-# Invest More v4.7.0
+# Invest More v4.8.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.8.0
+
+### Holdings Footer — Dual Currency & Clear Labels
+- **Clearly spelled out** — footer now `7 entries — Invested: ₹X | Current Value: ₹Y | P&L: ₹Z` (was `entries | Invested: …`). Uses `—` and full `Current Value`.
+- **Foreign also shown** — when filtered rows are single foreign currency (e.g. `USD` with base `INR`), footer appends ` (USD: Invested $A | Value $B | P&L $C)` using raw `invested_amount`/`current_value` in that currency. No double-count for mixed-currency views.
+
+### FX & Edit Fixes
+- **USD sell FX fixed** — `FIFO` proceeds now convert `sell price (USD) × FX` to base `INR` when `invested_base` is not manually entered; when you fill `Proceeds received in INR` (e.g. Tesla `₹40,000`), that manual base value is used directly. Closed `Proceeds` for Tesla now correctly shows `₹40,000` (was `₹398` from unconverted USD).
+- **Edit popover** — `Invested in INR` box now correctly shows `Proceeds received in INR` when editing a `Sell` with `USD` currency (was stuck on `Invested`). Both `Buy/Sell` and `Currency` toggles now reword the box. `Ticker` is now optional for sells (hint: “only needed for live prices”).
+
+### Closed Mobile — No Horizontal Scroll
+- `Closed` tab tables (`Closed Positions` 7-col, `Lots` 9-col) now hide on mobile `≤768px` and show card stacks (`#closed-mobile-cards`, `#cg-lots-mobile-cards`) like `Holdings`/`Dashboard` (`pivot-mobile-cards`).
 
 ## What's New in v4.7.0
 
