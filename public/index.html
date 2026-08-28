@@ -392,16 +392,6 @@
           <div class="mobile-filter-body" id="mobile-filter-body"></div>
         </div>
       </div>
-      <!-- Mobile filter overlay — Closed -->
-      <div id="closed-mobile-filter-overlay" class="mobile-form-overlay">
-        <div class="mobile-form-sheet" id="closed-mobile-filter-sheet">
-          <div class="mobile-form-header">
-            <span class="mobile-form-title">Filters</span>
-            <button type="button" id="closed-mobile-filter-close" class="mobile-form-close" aria-label="Close">✕</button>
-          </div>
-          <div class="mobile-filter-body" id="closed-mobile-filter-body"></div>
-        </div>
-      </div>
     </div>
 
     <div id="tab-closed" class="tab-content" role="tabpanel" aria-labelledby="tab-closed-btn">
@@ -689,6 +679,16 @@
         </div>
       </section>
 
+    </div>
+    <!-- Mobile filter overlay — Closed (moved outside tab-holdings so it renders when Closed tab is active) -->
+    <div id="closed-mobile-filter-overlay" class="mobile-form-overlay">
+      <div class="mobile-form-sheet" id="closed-mobile-filter-sheet">
+        <div class="mobile-form-header">
+          <span class="mobile-form-title">Filters</span>
+          <button type="button" id="closed-mobile-filter-close" class="mobile-form-close" aria-label="Close">✕</button>
+        </div>
+        <div class="mobile-filter-body" id="closed-mobile-filter-body"></div>
+      </div>
     </div>
   </main>
 
