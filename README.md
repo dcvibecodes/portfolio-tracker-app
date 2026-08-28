@@ -1,6 +1,18 @@
-# Invest More v4.9.0
+# Invest More v4.10.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.10.0
+
+### Holdings — Notes Tooltip Shows Note
+
+- Hovering the notes icon now shows the actual note (truncated to 60 chars with `…` at word boundary, collapsed whitespace) instead of generic `View notes`. Empty notes still show `Add note` faded. Applies to both table rows and mobile cards (`public/app.js` `noteTooltip`/`escAttr`).
+
+### Closed — Lots Filters Now Auto + CSV Parity with Holdings
+
+- **No more Filter button** — `Capital Gains Lots (FIFO)` filters on type (`input` debounced 300ms for Search, `change` for Year/Month) exactly like Holdings (`public/app.js` `debounce(loadClosed,300)`).
+- **CSV download** — `Filter` replaced by `↓ CSV` (50/50 `Reset | ↓ CSV` via `holdings-filter-actions`, same `filter-reset-btn flex:1` on web + `filter-actions button flex:1` on mobile). CSV exports the currently filtered lots (`GET /api/capital-gains?search=&year=&month=&fy=`) as `Asset,Buy Date,Sell Date,Qty,Cost,Proceeds,Gain,Type,Days` → `portfolio-lots-YYYY-MM-DD.csv`.
+- **Totals row moved** — `LTCG/STCG` totals are now a full-width faint bar (`holdings-summary-bar #cg-summary`) below the `Reset|CSV` row above the table, not an inline span beside the old Filter button — matches Holdings footer placement. Mobile bottom sheet no longer auto-closes on Filter/Reset; stays like Holdings (open/close via chip/close/overlay).
 
 ## What's New in v4.9.0
 

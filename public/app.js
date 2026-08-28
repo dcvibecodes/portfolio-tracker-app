@@ -11,6 +11,20 @@
     save: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
   };
 
+  function escAttr(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function noteTooltip(note) {
+    if (!note || !String(note).trim()) return "Add note";
+    const flat = String(note).replace(/\s+/g, " ").trim();
+    const limit = 60;
+    if (flat.length <= limit) return flat;
+    const sliced = flat.slice(0, limit);
+    const lastSpace = sliced.lastIndexOf(" ");
+    const truncated = lastSpace > 35 ? sliced.slice(0, lastSpace) : sliced;
+    return truncated + "\u2026";
+  }
+
   //--- Theme Management (auto-detect system preference, with user override) ---
   function applyTheme() {
     const saved = localStorage.getItem("theme-preference");
@@ -1499,7 +1513,7 @@ function getCategoryColor(category, index = 0) {
         <td class="col-amount ${plClass}">${r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-"}</td>
         <td class="col-amount ${plClass}">${fmtPct(r.gain_loss_pct)}</td>
         <td class="col-actions">
-          ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
+          ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="${escAttr(noteTooltip(r.notes))}">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
           <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">${ICON.copy}</button>
           <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">${ICON.edit}</button>
           <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">${ICON.delete}</button>
@@ -1531,7 +1545,7 @@ function getCategoryColor(category, index = 0) {
             <div class="mdc-stat"><span class="mdc-label">Current Price</span><span class="mdc-value">${curPriceStrH}</span></div>
           </div>
           <div class="mdc-actions">
-            ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View notes">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
+            ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="${escAttr(noteTooltip(r.notes))}">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
             <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">${ICON.copy}</button>
             <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">${ICON.edit}</button>
             <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">${ICON.delete}</button>
@@ -2523,7 +2537,7 @@ function getCategoryColor(category, index = 0) {
   }
   populateClosedYearFilter();
 
-  // Sync Closed search inputs (desktop ↔ mobile)
+  // Sync Closed search inputs (desktop ↔ mobile) — keep values mirrored
   (function syncClosedSearch() {
     const mobile = document.getElementById("closed-mobile-filter-search");
     const desktop = document.getElementById("closed-filter-search");
@@ -2615,8 +2629,6 @@ function getCategoryColor(category, index = 0) {
       if (lotsCardsErr) lotsCardsErr.innerHTML = `<div style="color:var(--red); font-size:0.72rem;">Failed to load: ${e.message}</div>`;
     }
   }
-  const cgBtn = document.getElementById("cg-filter-btn");
-  if (cgBtn) cgBtn.addEventListener("click", loadClosed);
   const closedResetBtn = document.getElementById("closed-filter-reset-btn");
   if (closedResetBtn) closedResetBtn.addEventListener("click", () => {
     const y = document.getElementById("closed-filter-year");
@@ -2631,11 +2643,56 @@ function getCategoryColor(category, index = 0) {
     if (fy) fy.value = "";
     loadClosed();
   });
-  // Enter on search triggers filter
-  ["closed-filter-search", "closed-mobile-filter-search"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); loadClosed(); } });
+  // CSV download for Lots — filtered view (matches current Year/Month/Search)
+  const closedCsvBtn = document.getElementById("closed-download-csv-btn");
+  if (closedCsvBtn) closedCsvBtn.addEventListener("click", async () => {
+    const yearVal = (document.getElementById("closed-filter-year")?.value || "").trim();
+    const monthVal = (document.getElementById("closed-filter-month")?.value || "").trim();
+    const searchVal = (document.getElementById("closed-filter-search")?.value || document.getElementById("closed-mobile-filter-search")?.value || "").trim();
+    const fyVal = (document.getElementById("cg-fy-input")?.value || "").trim();
+    const params = new URLSearchParams();
+    if (searchVal) params.set("search", searchVal);
+    if (yearVal) params.set("year", yearVal);
+    if (monthVal) params.set("month", monthVal);
+    if (fyVal) params.set("fy", fyVal);
+    const qs = params.toString() ? "?" + params.toString() : "";
+    let cgData;
+    try { cgData = await apiFetch("/api/capital-gains" + qs); } catch(e) { toast("Failed to fetch lots", "error"); return; }
+    const lots = cgData.lots || [];
+    if (!lots.length) { toast("No lots to download.", "info"); return; }
+    const headers = ["Asset","Buy Date","Sell Date","Qty","Cost","Proceeds","Gain","Type","Days"];
+    const csvRows = [headers.join(",")];
+    for (const l of lots) {
+      const displayType = l.gain_type || (l.holding_days > 365 ? "LTCG" : "STCG");
+      const vals = [
+        `"${String(l.asset_name || "").replace(/"/g, '""')}"`,
+        l.buy_date || "", l.sell_date || "", l.qty ?? "", l.cost ?? "", l.proceeds ?? "", l.gain ?? "",
+        `"${String(displayType).replace(/"/g, '""')}"`, l.holding_days ?? ""
+      ];
+      csvRows.push(vals.join(","));
+    }
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `portfolio-lots-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
+  // Auto-filter Lots as you type / on select change (like Holdings tab)
+  (function bindClosedAutoFilter() {
+    const debounced = debounce(loadClosed, 300);
+    const d = document.getElementById("closed-filter-search");
+    const m = document.getElementById("closed-mobile-filter-search");
+    if (d) d.addEventListener("input", debounced);
+    if (m) m.addEventListener("input", debounced);
+    const y = document.getElementById("closed-filter-year");
+    const mo = document.getElementById("closed-filter-month");
+    if (y) y.addEventListener("change", loadClosed);
+    if (mo) mo.addEventListener("change", loadClosed);
+  })();
 
   //--- Asset Rename Modal ---
   const renameModal = document.getElementById("rename-modal");
@@ -3012,14 +3069,7 @@ function getCategoryColor(category, index = 0) {
   const filtersParent = filtersDiv.parentElement;
   const filtersNextSibling = filtersDiv.nextSibling;
   function isMobile() { return window.matchMedia("(max-width: 768px)").matches; }
-  if (mobileSearch && desktopSearch) {
-    mobileSearch.addEventListener("input", function() {
-      desktopSearch.value = mobileSearch.value;
-    });
-    desktopSearch.addEventListener("input", function() {
-      mobileSearch.value = desktopSearch.value;
-    });
-  }
+  // (desktop ↔ mobile search sync handled in syncClosedSearch above with debounced loadClosed)
   function openFilterSheet() {
     scrollY = window.scrollY;
     document.body.style.position = "fixed";
@@ -3055,11 +3105,6 @@ function getCategoryColor(category, index = 0) {
   filterChip.addEventListener("click", openFilterSheet);
   filterCloseBtn.addEventListener("click", closeFilterSheet);
   filterOverlay.addEventListener("click", function(e) { if (e.target === filterOverlay) closeFilterSheet(); });
-  // Close sheet when Filter/Reset is pressed (mobile)
-  const cgFilterBtn2 = document.getElementById("cg-filter-btn");
-  if (cgFilterBtn2) cgFilterBtn2.addEventListener("click", () => { if (filterOverlay.classList.contains("open")) closeFilterSheet(); });
-  const closedResetBtn2 = document.getElementById("closed-filter-reset-btn");
-  if (closedResetBtn2) closedResetBtn2.addEventListener("click", () => { if (filterOverlay.classList.contains("open")) closeFilterSheet(); });
   window.addEventListener("resize", function() {
     if (!isMobile() && filterOverlay.classList.contains("open")) closeFilterSheet();
   });

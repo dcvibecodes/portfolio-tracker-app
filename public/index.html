@@ -441,11 +441,11 @@
             </select>
           </label>
         </div>
-        <div class="filter-actions" id="closed-filter-actions" style="display:flex; gap:6px; margin-bottom:10px;">
+        <div class="filter-actions holdings-filter-actions" id="closed-filter-actions">
           <button type="button" id="closed-filter-reset-btn" class="filter-reset-btn">Reset</button>
-          <button id="cg-filter-btn" class="btn-secondary" style="min-height:32px;">Filter</button>
-          <span id="cg-summary" style="font-size:0.72rem; color:var(--text-secondary); align-self:center;"></span>
+          <button type="button" id="closed-download-csv-btn" class="filter-reset-btn" title="Download lots as CSV">↓ CSV</button>
         </div>
+        <div class="holdings-summary-bar" id="cg-summary"></div>
         <!-- Hidden FY input for backward compat (not shown) -->
         <input type="hidden" id="cg-fy-input" />
         <div class="table-wrap">
