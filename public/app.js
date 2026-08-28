@@ -64,6 +64,7 @@
     if (tabName === "dashboard") loadDashboard();
     else if (tabName === "holdings") loadHoldings();
     else if (tabName === "watchlist") loadWatchlist();
+    else if (tabName === "closed") loadClosed();
     else if (tabName === "settings") loadSettings();
   }
 
@@ -392,11 +393,50 @@ function getCategoryColor(category, index = 0) {
   }
 
   function setupTxnTypeToggle() {
-    const txnSelect = document.getElementById("add-txn-type");
+    const addTxnSelect = document.getElementById("add-txn-type");
+    const editTxnSelect = document.getElementById("edit-txn-type");
     const tickerLabel = document.getElementById("ticker-label");
-    txnSelect.addEventListener("change", () => {
-      tickerLabel.style.display = txnSelect.value === "sell" ? "none" : "";
-    });
+
+    function updateAddLabels() {
+      const isSell = addTxnSelect.value === "sell";
+      const priceLabel = document.getElementById("add-buy-price-label");
+      const qtyLabel = document.getElementById("add-quantity-label");
+      const investedLabel = document.getElementById("add-invested-label");
+      const investedHint = document.getElementById("add-invested-hint");
+      const buyPriceInput = document.getElementById("add-buy-price");
+      const qtyInput = document.getElementById("add-quantity");
+      const investedInput = document.getElementById("add-invested");
+      if (priceLabel) priceLabel.textContent = isSell ? "Sell Price (per unit)" : "Buy Price (per unit)";
+      if (qtyLabel) qtyLabel.textContent = isSell ? "Quantity Sold" : "Quantity";
+      if (investedLabel) investedLabel.textContent = isSell ? "Proceeds" : "Amount Invested";
+      if (investedHint) investedHint.classList.toggle("hidden", !isSell);
+      if (buyPriceInput) buyPriceInput.placeholder = isSell ? "e.g. 88.06" : "e.g. 48.60";
+      if (qtyInput) qtyInput.placeholder = isSell ? "e.g. 1820.905" : "e.g. 100";
+      if (investedInput) investedInput.placeholder = isSell ? "e.g. 160351" : "e.g. 50000";
+      if (tickerLabel) tickerLabel.style.display = isSell ? "none" : "";
+    }
+    function updateEditLabels() {
+      if (!editTxnSelect) return;
+      const isSell = editTxnSelect.value === "sell";
+      const priceLabel = document.getElementById("edit-buy-price-label");
+      const qtyLabel = document.getElementById("edit-quantity-label");
+      const investedLabel = document.getElementById("edit-invested-label");
+      const investedHint = document.getElementById("edit-invested-hint");
+      if (priceLabel) priceLabel.textContent = isSell ? "Sell Price (per unit)" : "Buy Price (per unit)";
+      if (qtyLabel) qtyLabel.textContent = isSell ? "Quantity Sold" : "Quantity";
+      if (investedLabel) investedLabel.textContent = isSell ? "Proceeds" : "Amount Invested";
+      if (investedHint) investedHint.classList.toggle("hidden", !isSell);
+    }
+    if (addTxnSelect) {
+      addTxnSelect.addEventListener("change", updateAddLabels);
+      updateAddLabels();
+    }
+    if (editTxnSelect) {
+      editTxnSelect.addEventListener("change", updateEditLabels);
+      updateEditLabels();
+    }
+    // Expose for modal open to resync
+    window._updateEditTxnLabels = updateEditLabels;
   }
 
   function setupCurrencyToggleForInvestedBase() {
@@ -477,7 +517,14 @@ function getCategoryColor(category, index = 0) {
     updateCurrencyToggleBtn();
 
     const curSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
-    const totalItems = [
+    const hasRealized = summary.total.realized_gain != null || summary.total.unrealized_gain != null;
+    const totalItems = hasRealized ? [
+      { label: "Invested (Open)", value: toDisplayCurrency(summary.total.invested) },
+      { label: "Current Value (Open)", value: toDisplayCurrency(summary.total.current_value) },
+      { label: "Unrealized P&L", value: toDisplayCurrency(summary.total.unrealized_gain), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested) },
+      { label: "Realized P&L", value: toDisplayCurrency(summary.total.realized_gain), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested + (summary.total.realized_gain||0)) },
+      { label: "Total P&L", value: toDisplayCurrency(summary.total.gain_loss), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested + (summary.total.realized_gain||0)) }
+    ] : [
       { label: "Total Invested", value: toDisplayCurrency(summary.total.invested) },
       { label: "Current Value", value: toDisplayCurrency(summary.total.current_value) },
       { label: "Total P&L", value: toDisplayCurrency(summary.total.gain_loss), isChange: true, rawInvested: toDisplayCurrency(summary.total.invested) }
@@ -1838,6 +1885,7 @@ function getCategoryColor(category, index = 0) {
 
     const editCurrencyLabel = document.getElementById("edit-currency").closest("label");
     if (editCurrencyLabel) editCurrencyLabel.style.display = currencyConfigured ? "" : "none";
+    if (window._updateEditTxnLabels) window._updateEditTxnLabels();
     editModal.classList.add("open");
   }
 
@@ -2373,6 +2421,60 @@ function getCategoryColor(category, index = 0) {
   });
 
   document.getElementById("watchlist-ticker-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("watchlist-add-btn").click(); } });
+
+  //--- Closed Positions ---
+  async function loadClosed() {
+    // Currency-aware tax hint: India 112A (12.5% above 1.25L) only for INR; generic otherwise
+    const cgDesc = document.getElementById("cg-lots-desc");
+    if (cgDesc) {
+      if (baseCurrency === "INR") {
+        cgDesc.textContent = "Per-lot breakdown for tax — e.g. SBI ELSS 9 lots \u2192 12.5% LTCG (Sec 112A) above \u20B91,25,000 for equity >12mo. Check current FY rules. Filter by FY.";
+      } else {
+        cgDesc.textContent = "Per-lot breakdown (FIFO) — holding period and gain type are indicative. Tax rules vary by country/currency. Filter by FY.";
+      }
+    }
+    const closedBody = document.getElementById("closed-rows");
+    const closedCards = document.getElementById("closed-mobile-cards");
+    const lotsBody = document.getElementById("cg-lots-rows");
+    const summaryEl = document.getElementById("cg-summary");
+    closedBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+    try {
+      const [closedData, cgData] = await Promise.all([
+        apiFetch("/api/closed-positions"),
+        apiFetch("/api/capital-gains" + (document.getElementById("cg-fy-input").value.trim() ? "?fy=" + encodeURIComponent(document.getElementById("cg-fy-input").value.trim()) : ""))
+      ]);
+      // Closed positions table
+      if (!closedData.closed || closedData.closed.length === 0) {
+        closedBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-faint);">No closed positions yet. Fully sold assets appear here.</td></tr>';
+        closedCards.innerHTML = '<div style="text-align:center; color:var(--text-faint); font-size:0.76rem;">No closed positions</div>';
+      } else {
+        closedBody.innerHTML = closedData.closed.map(c => {
+          const cls = c.realized_gain >=0 ? "positive" : "negative";
+          return `<tr><td>${c.name}</td><td>${c.asset_class||""}</td><td class="col-amount">${fmtUnits(c.total_qty)}</td><td class="col-amount">${fmt(c.total_cost)}</td><td class="col-amount">${fmt(c.total_proceeds)}</td><td class="col-amount ${cls}">${fmt(c.realized_gain)}</td><td>${formatDate(c.close_date||"")}</td></tr>`;
+        }).join("");
+        closedCards.innerHTML = closedData.closed.map(c => {
+          const cls = c.realized_gain >=0 ? "positive" : "negative";
+          return `<div class="mobile-data-card"><div class="mdc-main"><span class="mdc-name">${c.name}</span><span class="mdc-stat-value ${cls}">${fmt(c.realized_gain)}</span></div><div class="mdc-meta">${c.asset_class||""} · ${fmtUnits(c.total_qty)} units · ${formatDate(c.close_date||"")}</div><div class="mdc-divider"></div><div class="mdc-grid"><div class="mdc-stat"><span class="mdc-label">Cost</span><span class="mdc-value">${fmt(c.total_cost)}</span></div><div class="mdc-stat"><span class="mdc-label">Proceeds</span><span class="mdc-value">${fmt(c.total_proceeds)}</span></div></div></div>`;
+        }).join("");
+      }
+      // Lots
+      if (!cgData.lots || cgData.lots.length === 0) {
+        lotsBody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-faint);">No realized lots</td></tr>';
+        summaryEl.textContent = "";
+      } else {
+        lotsBody.innerHTML = cgData.lots.map(l => {
+          const cls = l.gain >=0 ? "positive" : "negative";
+          return `<tr><td>${l.asset_name}</td><td>${formatDate(l.buy_date||"")}</td><td>${formatDate(l.sell_date||"")}</td><td class="col-amount">${fmtUnits(l.qty)}</td><td class="col-amount">${fmt(l.cost)}</td><td class="col-amount">${fmt(l.proceeds)}</td><td class="col-amount ${cls}">${fmt(l.gain)}</td><td><span class="badge badge-${l.gain_type==='LTCG'?'buy':'sell'}">${l.gain_type||""}</span></td><td class="col-amount">${l.holding_days||0}</td></tr>`;
+        }).join("");
+        const s = cgData.summary;
+        summaryEl.textContent = `Total: ${fmt(s.total_gain)} · LTCG: ${fmt(s.ltcg)} · STCG: ${fmt(s.stcg)} · ${s.count} lots`;
+      }
+    } catch(e) {
+      closedBody.innerHTML = `<tr><td colspan="7" style="color:var(--red);">Failed to load: ${e.message}</td></tr>`;
+    }
+  }
+  const cgBtn = document.getElementById("cg-filter-btn");
+  if (cgBtn) cgBtn.addEventListener("click", loadClosed);
 
   //--- Asset Rename Modal ---
   const renameModal = document.getElementById("rename-modal");

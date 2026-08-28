@@ -314,7 +314,9 @@ button, a, input, select, textarea, [tabindex] {
 .pivot-asset-type { font-size: 0.64rem; color: var(--text-faint); margin-left: 5px; }
 
 /* ── Forms ── */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: start; }
+.field-hint { font-size: 0.64rem; color: var(--text-faint); margin-top: 2px; line-height: 1.2; min-height: 0; }
+.field-hint.hidden { visibility: hidden; }
 .add-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); }
 .add-grid input, .add-grid select {
   width: 100%;

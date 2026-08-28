@@ -87,7 +87,42 @@ db.exec(`
   );
 `);
 
-// Add columns if upgrading from old schema
+//--- New tables for realized P&L (FIFO) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS realized_lots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_name TEXT NOT NULL,
+    buy_id INTEGER,
+    sell_id INTEGER,
+    qty REAL NOT NULL,
+    buy_price REAL,
+    sell_price REAL,
+    cost REAL NOT NULL,
+    proceeds REAL NOT NULL,
+    gain REAL NOT NULL,
+    buy_date TEXT,
+    sell_date TEXT,
+    holding_days INTEGER,
+    gain_type TEXT
+  );
+  CREATE TABLE IF NOT EXISTS closed_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    asset_class TEXT NOT NULL,
+    asset_type TEXT DEFAULT '',
+    broker TEXT DEFAULT '',
+    currency TEXT DEFAULT 'INR',
+    ticker TEXT DEFAULT '',
+    total_qty REAL NOT NULL,
+    total_cost REAL NOT NULL,
+    total_proceeds REAL NOT NULL,
+    realized_gain REAL NOT NULL,
+    open_date TEXT,
+    close_date TEXT,
+    notes TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
 try { db.exec("ALTER TABLE holdings ADD COLUMN ticker TEXT DEFAULT '';"); } catch (e) {}
 try { db.exec("ALTER TABLE holdings ADD COLUMN txn_type TEXT DEFAULT 'buy';"); } catch (e) {}
 try { db.exec("ALTER TABLE holdings ADD COLUMN invested_base REAL;"); } catch (e) {}
@@ -149,6 +184,117 @@ async function verifyPin(pin, hash) {
 
 function generateRecoveryCode() {
   return crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
+//--- FIFO / Realized P&L helpers ---
+const EPSILON_QTY = 1e-6;
+
+function getBaseInvestedForRow(row, fxMap, defaultCur) {
+  if (row.invested_base != null) return row.invested_base;
+  const fx = row.currency === defaultCur ? 1 : (fxMap[row.currency] || 1);
+  return (row.invested_amount || 0) * fx;
+}
+
+function rebuildAssetLots(assetName) {
+  db.prepare("DELETE FROM realized_lots WHERE asset_name = ?").run(assetName);
+  db.prepare("DELETE FROM closed_positions WHERE name = ?").run(assetName);
+  const rows = db.prepare("SELECT * FROM holdings WHERE name = ? ORDER BY date ASC, id ASC").all(assetName);
+  if (rows.length === 0) return;
+  const defaultCur = getDefaultCurrency();
+  // Build fx map from cached rates synchronously (fallback 1)
+  const fxMap = {};
+  // Use session cache if available; otherwise assume 1 (INR holdings unaffected)
+  for (const k of Object.keys(ratesSessionCache)) {
+    // keys are like "USDINR" — extract fromCurrency
+    // We stored ratesSessionCache as key `${from}${to}` -> rate
+    // For holdings we need rate fromCurrency->defaultCur, so reverse lookup by suffix
+    if (k.endsWith(defaultCur)) {
+      const from = k.slice(0, k.length - defaultCur.length);
+      fxMap[from] = ratesSessionCache[k];
+    }
+  }
+  // Queue of buys with remaining qty
+  const buyQueue = [];
+  for (const r of rows) {
+    if ((r.txn_type || 'buy') === 'buy' && (r.quantity || 0) > 0) {
+      const totalCost = getBaseInvestedForRow(r, fxMap, defaultCur);
+      const qty = r.quantity;
+      const costPerUnit = qty !== 0 ? totalCost / qty : 0;
+      buyQueue.push({ id: r.id, date: r.date, qty, remaining: qty, costPerUnit, totalCost, asset_class: r.asset_class, asset_type: r.asset_type, broker: r.broker, currency: r.currency, ticker: r.ticker, buy_price: r.buy_price });
+    }
+  }
+  const sells = rows.filter(r => (r.txn_type || 'buy') === 'sell' && (r.quantity || 0) < 0).sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+  let totalProceeds = 0;
+  let totalCostMatched = 0;
+  const insertLot = db.prepare("INSERT INTO realized_lots (asset_name, buy_id, sell_id, qty, buy_price, sell_price, cost, proceeds, gain, buy_date, sell_date, holding_days, gain_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+  for (const sell of sells) {
+    const sellQty = Math.abs(sell.quantity || 0);
+    const sellTotalBase = Math.abs(getBaseInvestedForRow(sell, fxMap, defaultCur));
+    // Proceeds: prefer sell buy_price (sell NAV) if set, else fallback to invested amount
+    const pricePerUnit = Math.abs(sell.buy_price) || 0;
+    const investedPerUnit = sellQty !== 0 && sellTotalBase !== 0 ? sellTotalBase / sellQty : 0;
+    // If buy_price is close to investedPerUnit, it means user entered cost as invested; use buy_price if it looks like NAV (diff >1%)
+    let proceedsPerUnit = 0;
+    if (pricePerUnit > 0 && Math.abs(pricePerUnit - investedPerUnit) > 0.01) {
+      proceedsPerUnit = pricePerUnit;
+    } else if (pricePerUnit > 0) {
+      proceedsPerUnit = pricePerUnit;
+    } else {
+      proceedsPerUnit = investedPerUnit;
+    }
+    let remainingSellQty = sellQty;
+    totalProceeds += proceedsPerUnit * sellQty;
+    while (remainingSellQty > EPSILON_QTY && buyQueue.length > 0) {
+      const buy = buyQueue[0];
+      const take = Math.min(buy.remaining, remainingSellQty);
+      const cost = take * buy.costPerUnit;
+      const proceeds = take * proceedsPerUnit;
+      const gain = proceeds - cost;
+      const holdingDays = Math.floor((new Date(sell.date) - new Date(buy.date)) / (1000*60*60*24));
+      const gainType = holdingDays > 365 ? 'LTCG' : 'STCG';
+      // For equity MF Indian, threshold is 12 months; we use 365 as proxy. LTCG/STCG label is indicative.
+      insertLot.run(assetName, buy.id, sell.id, take, buy.costPerUnit, proceedsPerUnit, cost, proceeds, gain, buy.date, sell.date, holdingDays, gainType);
+      totalCostMatched += cost;
+      buy.remaining -= take;
+      remainingSellQty -= take;
+      if (buy.remaining <= EPSILON_QTY) buyQueue.shift();
+    }
+    // If sells exceed buys (short), remaining qty is ignored for lots — gain already counted with no cost
+    if (remainingSellQty > EPSILON_QTY) {
+      const gain = remainingSellQty * proceedsPerUnit;
+      const holdingDays = 0;
+      insertLot.run(assetName, null, sell.id, remainingSellQty, 0, proceedsPerUnit, 0, remainingSellQty * proceedsPerUnit, gain, null, sell.date, holdingDays, 'STCG');
+      totalCostMatched += 0;
+    }
+  }
+  // Determine if closed (net qty ~0)
+  const netQty = rows.reduce((s, r) => s + (r.quantity || 0), 0);
+  if (Math.abs(netQty) < EPSILON_QTY && sells.length > 0) {
+    const buys = rows.filter(r => (r.txn_type || 'buy') !== 'sell');
+    const totalQty = buys.reduce((s, r) => s + Math.abs(r.quantity || 0), 0);
+    const totalCost = buys.reduce((s, r) => s + Math.abs(getBaseInvestedForRow(r, fxMap, defaultCur)), 0);
+    // Use sell sum as proceeds if lots total differs due to zero-cost sells
+    const realizedGain = db.prepare("SELECT COALESCE(SUM(gain),0) as g FROM realized_lots WHERE asset_name = ?").get(assetName).g;
+    const assetRow = buys[0] || sells[0];
+    const openDate = buys.length ? buys[0].date : sells[0].date;
+    const closeDate = sells[sells.length-1].date;
+    db.prepare("INSERT OR REPLACE INTO closed_positions (name, asset_class, asset_type, broker, currency, ticker, total_qty, total_cost, total_proceeds, realized_gain, open_date, close_date, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+      .run(assetName, assetRow.asset_class || 'Other', assetRow.asset_type || '', assetRow.broker || '', assetRow.currency || 'INR', assetRow.ticker || '', totalQty, totalCost, totalCost + realizedGain, realizedGain, openDate, closeDate, '');
+  }
+}
+
+function rebuildAllLots() {
+  const names = db.prepare("SELECT DISTINCT name FROM holdings").all().map(r => r.name);
+  for (const n of names) rebuildAssetLots(n);
+  // Cleanup orphan closed_positions (asset no longer has sells)
+  const closedNames = db.prepare("SELECT name FROM closed_positions").all().map(r => r.name);
+  for (const n of closedNames) {
+    const holdings = db.prepare("SELECT * FROM holdings WHERE name = ?").all(n);
+    const netQty = holdings.reduce((s, r) => s + (r.quantity || 0), 0);
+    if (Math.abs(netQty) >= EPSILON_QTY) {
+      db.prepare("DELETE FROM closed_positions WHERE name = ?").run(n);
+    }
+  }
 }
 
 // --- Persistent session secret ---
@@ -299,6 +445,9 @@ async function fetchQuoteData(ticker) {
 function isValidDate(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
+
+// Backfill lots after all helpers are defined (deferred to avoid TDZ on ratesSessionCache)
+setImmediate(() => { try { rebuildAllLots(); } catch(e) { console.error("rebuildAllLots startup error:", e.message); } });
 
 //--- Async route wrapper (fix #1.1) ---
 function asyncHandler(fn) {
@@ -737,6 +886,7 @@ app.post("/api/holdings", (req, res) => {
     db.prepare("INSERT OR REPLACE INTO ticker_map (asset_name, ticker) VALUES (?, ?)").run(name.trim(), resolvedTicker);
   }
 
+  try { rebuildAssetLots(name.trim()); } catch(e) { console.error("rebuildAssetLots:", e.message); }
   res.json({ id: result.lastInsertRowid });
 });
 
@@ -785,6 +935,10 @@ app.put("/api/holdings/:id", (req, res) => {
     invested_base: investedBase
   });
 
+  try {
+    rebuildAssetLots(name.trim());
+    if (existing.name !== name.trim()) rebuildAssetLots(existing.name);
+  } catch(e) { console.error("rebuildAssetLots:", e.message); }
   res.json({ success: true });
 });
 
@@ -793,6 +947,7 @@ app.delete("/api/holdings/:id", (req, res) => {
   const existing = db.prepare("SELECT * FROM holdings WHERE id = ?").get(id);
   if (!existing) return res.status(404).json({ error: "Not found." });
   db.prepare("DELETE FROM holdings WHERE id = ?").run(id);
+  try { rebuildAssetLots(existing.name); } catch(e) { console.error("rebuildAssetLots:", e.message); }
   res.json({ success: true });
 });
 
@@ -823,6 +978,7 @@ app.post("/api/holdings/:id/copy", (req, res) => {
     invested_base: existing.invested_base
   });
 
+  try { rebuildAssetLots(existing.name); } catch(e) { console.error("rebuildAssetLots:", e.message); }
   res.json({ id: result.lastInsertRowid });
 });
 
@@ -850,6 +1006,14 @@ app.post("/api/holdings/batch-update", (req, res) => {
   const sql = `UPDATE holdings SET ${setClauses.join(", ")} WHERE id IN (${placeholders})`;
   const stmt = db.prepare(sql);
   const result = stmt.run(...values, ...safeIds);
+  try {
+    const names = db.prepare(`SELECT DISTINCT name FROM holdings WHERE id IN (${safeIds.map(() => "?").join(",")})`).all(...safeIds).map(r=>r.name);
+    // Also need to handle rename case via updates.name
+    const affected = new Set(names);
+    if (updates.name) affected.add(updates.name.trim());
+    // If name wasn't in current holdings (rename old names), also rebuild old names from pre-update snapshot
+    for (const n of affected) { try { rebuildAssetLots(n); } catch(e){} }
+  } catch(e){}
   res.json({ success: true, updated: result.changes });
 });
 
@@ -858,8 +1022,10 @@ app.post("/api/holdings/batch-delete", (req, res) => {
   if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No IDs provided." });
   const safeIds = ids.map(Number).filter(n => Number.isFinite(n) && n > 0);
   if (safeIds.length === 0) return res.status(400).json({ error: "No valid IDs." });
+  const names = db.prepare(`SELECT DISTINCT name FROM holdings WHERE id IN (${safeIds.map(() => "?").join(",")})`).all(...safeIds).map(r=>r.name);
   const placeholders = safeIds.map(() => "?").join(",");
   const result = db.prepare(`DELETE FROM holdings WHERE id IN (${placeholders})`).run(...safeIds);
+  for (const n of names) { try { rebuildAssetLots(n); } catch(e){} }
   res.json({ success: true, deleted: result.changes });
 });
 
@@ -884,6 +1050,8 @@ app.post("/api/holdings/rename-asset", (req, res) => {
     }
   })();
 
+  try { rebuildAssetLots(oldName); } catch(e){}
+  try { rebuildAssetLots(newName); } catch(e){}
   res.json({ success: true, renamed: count, old_name: oldName, new_name: newName });
 });
 
@@ -1032,7 +1200,7 @@ app.get("/api/summary", asyncHandler(async (req, res) => {
   const summary = {
   by_class: {},
   by_type: {},
-  total: { invested: 0, current_value: 0, gain_loss: 0, units: 0 },
+  total: { invested: 0, current_value: 0, gain_loss: 0, units: 0, realized_gain: 0, unrealized_gain: 0 },
   default_currency: defaultCur,
   rates: rateData.rates
 };
@@ -1060,41 +1228,92 @@ classesArr.forEach(({ name }) => {
   summary.display_rate = displayRate;
   summary.display_rate_currency = displayCur;
 
+  // Compute open positions via FIFO (remaining cost) and realized gain from lots
+  const assetGroups = {};
   for (const h of rows) {
-    const cls = h.asset_class || "Other";
-    if (!summary.by_class[cls]) {
-  summary.by_class[cls] = {
-    invested: 0,
-    current_value: 0,
-    gain_loss: 0,
-    count: 0,
-    units: 0
-  };
-}
-    const typ = h.asset_type || "Other";
-    if (!summary.by_type[typ]) {
-      summary.by_type[typ] = { invested: 0, current_value: 0, count: 0 };
+    const key = h.name;
+    if (!assetGroups[key]) assetGroups[key] = [];
+    assetGroups[key].push(h);
+  }
+  let totalRealized = 0;
+  try {
+    const row = db.prepare("SELECT COALESCE(SUM(gain),0) as g FROM realized_lots").get();
+    totalRealized = row ? row.g : 0;
+  } catch(e) {}
+  // For FX, build map from rateData
+  const fxFor = (cur) => cur === defaultCur ? 1 : (rateData.rates[cur] || 1);
+  let totalUnrealized = 0;
+  let totalOpenInvested = 0;
+  let totalOpenValue = 0;
+  let totalUnits = 0;
+  for (const [assetName, assetRows] of Object.entries(assetGroups)) {
+    assetRows.sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+    const buyQueue = [];
+    for (const r of assetRows) {
+      if ((r.txn_type||'buy')==='buy' && (r.quantity||0)>0) {
+        const fx = fxFor(r.currency);
+        const totCost = r.invested_base != null ? r.invested_base : (r.invested_amount||0)*fx;
+        const qty = r.quantity;
+        const cpu = qty!==0 ? totCost/qty : 0;
+        buyQueue.push({ remaining: qty, costPerUnit: cpu, asset_class: r.asset_class, asset_type: r.asset_type, currency: r.currency });
+      }
     }
-
-    const fx = h.currency === defaultCur ? 1 : (rateData.rates[h.currency] || 1);
-    const invested = (h.invested_base != null) ? h.invested_base : (h.invested_amount || 0) * fx;
-    const curval = h.current_price ? (h.current_price * h.quantity * fx) : 0;
-
+    const sells = assetRows.filter(r => (r.txn_type||'buy')==='sell');
+    for (const s of sells) {
+      let rem = Math.abs(s.quantity||0);
+      while (rem > EPSILON_QTY && buyQueue.length>0) {
+        const b = buyQueue[0];
+        const take = Math.min(b.remaining, rem);
+        b.remaining -= take;
+        rem -= take;
+        if (b.remaining <= EPSILON_QTY) buyQueue.shift();
+      }
+    }
+    const remainingCost = buyQueue.reduce((sum,b)=> sum + b.remaining * b.costPerUnit, 0);
+    const netQty = assetRows.reduce((s,r)=> s + (r.quantity||0), 0);
+    if (Math.abs(netQty) < EPSILON_QTY) continue; // closed, not in open summary
+    // Find current price for asset (prefer cached quote, fallback to row current_price)
+    let price = null; let buyPriceFallback = null;
+    let ticker = "";
+    let cls = "Other";
+    let typ = "Other";
+    let cur = "INR";
+    for (const r of assetRows) {
+      if (r.ticker) ticker = r.ticker;
+      if (r.asset_class) cls = r.asset_class;
+      if (r.asset_type) typ = r.asset_type;
+      if (r.currency) cur = r.currency;
+      if (r.current_price) price = r.current_price;
+      if (r.buy_price) buyPriceFallback = r.buy_price;
+    }
+    const cached = ticker ? getCachedQuote(ticker) : null;
+    if (cached && cached.price) price = cached.price;
+    if (price == null) price = buyPriceFallback;
+    const fx = fxFor(cur);
+    const curval = price ? netQty * price * fx : 0;
+    const invested = remainingCost; // already in base
+    const unrealized = curval - invested;
+    if (!summary.by_class[cls]) summary.by_class[cls] = { invested:0, current_value:0, gain_loss:0, count:0, units:0 };
+    if (!summary.by_type[typ]) summary.by_type[typ] = { invested:0, current_value:0, count:0 };
     summary.by_class[cls].invested += invested;
     summary.by_class[cls].current_value += curval;
-    summary.by_class[cls].gain_loss += (curval - invested);
+    summary.by_class[cls].gain_loss += unrealized;
     summary.by_class[cls].count++;
-    summary.by_class[cls].units += (h.quantity || 0);
-
+    summary.by_class[cls].units += netQty;
     summary.by_type[typ].invested += invested;
     summary.by_type[typ].current_value += curval;
     summary.by_type[typ].count++;
-
-    summary.total.invested += invested;
-    summary.total.current_value += curval;
-    summary.total.units += (h.quantity || 0);
+    totalOpenInvested += invested;
+    totalOpenValue += curval;
+    totalUnits += netQty;
+    totalUnrealized += unrealized;
   }
-  summary.total.gain_loss = summary.total.current_value - summary.total.invested;
+  summary.total.invested = totalOpenInvested;
+  summary.total.current_value = totalOpenValue;
+  summary.total.units = totalUnits;
+  summary.total.unrealized_gain = totalUnrealized;
+  summary.total.realized_gain = totalRealized;
+  summary.total.gain_loss = totalUnrealized + totalRealized;
 
   // Calculate best performer (highest day change %) from cached quote data
   const assetDayChange = {};
@@ -1139,13 +1358,21 @@ app.get("/api/allocation", asyncHandler(async (req, res) => {
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
   const map = {};
-
-  for (const h of rows) {
-    const fx = h.currency === defaultCur ? 1 : (rateData.rates[h.currency] || 1);
-    const curval = h.current_price ? (h.current_price * h.quantity * fx) : ((h.invested_base != null) ? h.invested_base : (h.invested_amount || 0) * fx);
-    const key = h.name;
-    if (!map[key]) map[key] = { name: key, asset_class: h.asset_class, value: 0 };
-    map[key].value += curval;
+  const groups = {};
+  for (const h of rows) { if (!groups[h.name]) groups[h.name]=[]; groups[h.name].push(h); }
+  for (const [name, assetRows] of Object.entries(groups)) {
+    const netQty = assetRows.reduce((s,r)=> s + (r.quantity||0), 0);
+    if (Math.abs(netQty) < EPSILON_QTY) continue;
+    const rep = assetRows[0];
+    let price = null; let ticker = ""; let buyFallback = null;
+    for (const r of assetRows) { if (r.current_price) price = r.current_price; if (r.buy_price) buyFallback = r.buy_price; if (r.ticker) ticker = r.ticker; }
+    const cached = ticker ? getCachedQuote(ticker) : null;
+    if (cached && cached.price) price = cached.price;
+    if (price == null) price = buyFallback;
+    const fx = rep.currency === defaultCur ? 1 : (rateData.rates[rep.currency] || 1);
+    const curval = price ? netQty * price * fx : 0;
+    if (!map[name]) map[name] = { name, asset_class: rep.asset_class, value: 0 };
+    map[name].value = curval;
   }
   res.json(Object.values(map).sort((a, b) => b.value - a.value));
 }));
@@ -1155,41 +1382,71 @@ app.get("/api/breakdown", asyncHandler(async (req, res) => {
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
   const classes = {};
-
-  for (const h of rows) {
-    const cls = h.asset_class || "Other";
+  const fxFor = (cur) => cur === defaultCur ? 1 : (rateData.rates[cur] || 1);
+  const groups = {};
+  for (const h of rows) { if (!groups[h.name]) groups[h.name]=[]; groups[h.name].push(h); }
+  for (const [assetName, assetRows] of Object.entries(groups)) {
+    assetRows.sort((a,b)=> a.date.localeCompare(b.date) || a.id - b.id);
+    const netQty = assetRows.reduce((s,r)=> s + (r.quantity||0), 0);
+    if (Math.abs(netQty) < EPSILON_QTY) continue; // closed -> not in breakdown
+    // FIFO remaining cost
+    const buyQueue = [];
+    for (const r of assetRows) {
+      if ((r.txn_type||'buy')==='buy' && (r.quantity||0)>0) {
+        const fx = fxFor(r.currency);
+        const totCost = r.invested_base != null ? r.invested_base : (r.invested_amount||0)*fx;
+        const qty = r.quantity;
+        const cpu = qty!==0 ? totCost/qty : 0;
+        buyQueue.push({ remaining: qty, costPerUnit: cpu });
+      }
+    }
+    const sells = assetRows.filter(r => (r.txn_type||'buy')==='sell');
+    for (const s of sells) {
+      let rem = Math.abs(s.quantity||0);
+      while (rem > EPSILON_QTY && buyQueue.length>0) {
+        const b = buyQueue[0];
+        const take = Math.min(b.remaining, rem);
+        b.remaining -= take; rem -= take;
+        if (b.remaining <= EPSILON_QTY) buyQueue.shift();
+      }
+    }
+    const remainingCost = buyQueue.reduce((sum,b)=> sum + b.remaining * b.costPerUnit, 0);
+    // Price / class from latest row with ticker/price
+    let price = null; let buyFallback = null; let ticker = ""; let cls = "Other"; let assetType=""; let currency="INR";
+    for (const r of assetRows) {
+      if (r.ticker) ticker = r.ticker;
+      if (r.asset_class) cls = r.asset_class;
+      if (r.asset_type) assetType = r.asset_type;
+      if (r.currency) currency = r.currency;
+      if (r.current_price) price = r.current_price;
+      if (r.buy_price) buyFallback = r.buy_price;
+    }
+    const cached = ticker ? getCachedQuote(ticker) : null;
+    if (cached && cached.price) price = cached.price;
+    if (price == null) price = buyFallback;
+    const fx = fxFor(currency);
+    const curval = price ? netQty * price * fx : 0;
+    const invested = remainingCost;
     if (!classes[cls]) classes[cls] = { asset_class: cls, invested: 0, current_value: 0, units: 0, count: 0, assets: {} };
-    const fx = h.currency === defaultCur ? 1 : (rateData.rates[h.currency] || 1);
-    const invested = (h.invested_base != null) ? h.invested_base : (h.invested_amount || 0) * fx;
-    const curval = h.current_price ? (h.current_price * h.quantity * fx) : 0;
-    const qty = h.quantity || 0;
-
     classes[cls].invested += invested;
     classes[cls].current_value += curval;
-    classes[cls].units += qty;
+    classes[cls].units += netQty;
     classes[cls].count++;
-
-    const assetKey = h.name;
+    const assetKey = assetName;
     if (!classes[cls].assets[assetKey]) {
-      classes[cls].assets[assetKey] = { name: assetKey, asset_type: h.asset_type, invested: 0, current_value: 0, units: 0, count: 0, current_price: null, currency: h.currency, ticker: h.ticker || "", transactions: [] };
+      classes[cls].assets[assetKey] = { name: assetKey, asset_type: assetType, invested: 0, current_value: 0, units: 0, count: assetRows.length, current_price: null, currency, ticker: ticker || "", transactions: [] };
     }
-    classes[cls].assets[assetKey].invested += invested;
-    classes[cls].assets[assetKey].current_value += curval;
-    classes[cls].assets[assetKey].units += qty;
-    classes[cls].assets[assetKey].count++;
-    // Collect raw transaction data for XIRR calculation
-    // Buys: invested is positive, so -invested = negative (outflow)
-    // Sells: invested is negative (server stores sells with negative amounts), so -invested = positive (inflow)
-    classes[cls].assets[assetKey].transactions.push({
-      date: h.date,
-      amount: -invested
-    });
-    if (h.current_price) {
-      classes[cls].assets[assetKey].current_price = h.current_price * fx;
+    classes[cls].assets[assetKey].invested = invested;
+    classes[cls].assets[assetKey].current_value = curval;
+    classes[cls].assets[assetKey].units = netQty;
+    // Build transactions for XIRR (buys negative, sells positive)
+    for (const r of assetRows) {
+      const fx2 = fxFor(r.currency);
+      const amtBase = r.invested_base != null ? r.invested_base : (r.invested_amount||0)*fx2;
+      classes[cls].assets[assetKey].transactions.push({ date: r.date, amount: -amtBase });
     }
-    if (h.ticker) {
-      classes[cls].assets[assetKey].ticker = h.ticker;
-    }
+    if (price) classes[cls].assets[assetKey].current_price = price * fx;
+    if (ticker) classes[cls].assets[assetKey].ticker = ticker;
   }
 
   // Attach day_change_pct from cached quote data (no extra API calls)
@@ -1214,6 +1471,34 @@ app.get("/api/breakdown", asyncHandler(async (req, res) => {
 
   res.json({ classes: result, default_currency: defaultCur });
 }));
+
+// Closed positions (realized) — open vs closed split
+app.get("/api/closed-positions", (req, res) => {
+  const rows = db.prepare("SELECT * FROM closed_positions ORDER BY close_date DESC, id DESC").all();
+  const lots = db.prepare("SELECT * FROM realized_lots ORDER BY sell_date DESC, id DESC").all();
+  res.json({ closed: rows, lots });
+});
+
+app.get("/api/capital-gains", (req, res) => {
+  const fy = req.query.fy; // e.g. 2026-27 not used for filter yet, returns all
+  const asset = req.query.asset;
+  let lots = db.prepare("SELECT * FROM realized_lots ORDER BY sell_date DESC, id DESC").all();
+  if (asset) lots = lots.filter(l => l.asset_name === asset);
+  // FY filter: FY 2026-27 = 2026-04-01 to 2027-03-31
+  if (fy && /^\d{4}-\d{2}$/.test(fy)) {
+    const startYear = parseInt(fy.slice(0,4),10);
+    const fyStart = `${startYear}-04-01`;
+    const fyEnd = `${startYear+1}-03-31`;
+    lots = lots.filter(l => l.sell_date >= fyStart && l.sell_date <= fyEnd);
+  }
+  const summary = { total_gain: 0, ltcg: 0, stcg: 0, count: lots.length };
+  for (const l of lots) {
+    summary.total_gain += l.gain || 0;
+    if (l.gain_type === 'LTCG') summary.ltcg += l.gain || 0;
+    else summary.stcg += l.gain || 0;
+  }
+  res.json({ lots, summary, fy: fy || null });
+});
 
 app.get("/api/monthly-investments", asyncHandler(async (req, res) => {
   const monthsParam = req.query.months;
@@ -1260,10 +1545,21 @@ app.get("/api/monthly-investments", asyncHandler(async (req, res) => {
     cursor.setMonth(cursor.getMonth() + 1);
   }
 
-  const totalCurrentValue = rows.reduce((s, h) => {
-    const fx = h.currency === defaultCur ? 1 : (rateData.rates[h.currency] || 1);
-    return s + (h.current_price ? (h.current_price * h.quantity * fx) : 0);
-  }, 0);
+  // totalCurrentValue: open positions only (net qty * price), not sum of row quantities including sells
+  const groupsCur = {};
+  for (const h of rows) { if (!groupsCur[h.name]) groupsCur[h.name]=[]; groupsCur[h.name].push(h); }
+  let totalCurrentValue = 0;
+  for (const [nm, gr] of Object.entries(groupsCur)) {
+    const netQty = gr.reduce((s,r)=> s + (r.quantity||0), 0);
+    if (Math.abs(netQty) < EPSILON_QTY) continue;
+    const rep = gr.find(r=> r.current_price) || gr.find(r=> r.buy_price) || gr[0];
+    const fx = rep.currency === defaultCur ? 1 : (rateData.rates[rep.currency] || 1);
+    let price = rep.current_price || rep.buy_price || 0;
+    const tickerRow = gr.find(r=> r.ticker);
+    const cached = tickerRow && tickerRow.ticker ? getCachedQuote(tickerRow.ticker) : null;
+    const effPrice = (cached && cached.price) ? cached.price : price;
+    totalCurrentValue += effPrice ? effPrice * netQty * fx : 0;
+  }
 
   const sliced = months === 0 ? result : result.slice(-months);
   res.json({ months: sliced, classes: classesArr, total_current_value: totalCurrentValue, default_currency: defaultCur });
@@ -1527,7 +1823,9 @@ app.get("/api/export", (req, res) => {
     brokers: db.prepare("SELECT * FROM brokers ORDER BY sort_order").all(),
     ticker_map: db.prepare("SELECT * FROM ticker_map").all(),
     watchlist: db.prepare("SELECT * FROM watchlist").all(),
-    settings: db.prepare("SELECT * FROM settings").all()
+    settings: db.prepare("SELECT * FROM settings").all(),
+    realized_lots: db.prepare("SELECT * FROM realized_lots").all(),
+    closed_positions: db.prepare("SELECT * FROM closed_positions").all()
   };
   res.setHeader("Content-Disposition", `attachment; filename="portfolio-backup-${new Date().toISOString().slice(0,10)}.json"`);
   res.json(data);
@@ -1575,6 +1873,18 @@ app.post("/api/import", (req, res) => {
       for (const r of data.holdings) {
         stmt.run(r.id, r.date, r.name, r.asset_class, r.asset_type || "", r.broker || "", r.txn_type || "buy", r.buy_price || 0, r.quantity || 0, r.invested_amount || 0, r.currency || "INR", r.current_price, r.notes || "", r.ticker || "", r.invested_base);
       }
+      if (data.realized_lots) {
+        db.prepare("DELETE FROM realized_lots").run();
+        const s2 = db.prepare("INSERT INTO realized_lots (id, asset_name, buy_id, sell_id, qty, buy_price, sell_price, cost, proceeds, gain, buy_date, sell_date, holding_days, gain_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+        for (const r of data.realized_lots) s2.run(r.id, r.asset_name, r.buy_id, r.sell_id, r.qty, r.buy_price, r.sell_price, r.cost, r.proceeds, r.gain, r.buy_date, r.sell_date, r.holding_days, r.gain_type);
+      }
+      if (data.closed_positions) {
+        db.prepare("DELETE FROM closed_positions").run();
+        const s3 = db.prepare("INSERT INTO closed_positions (id, name, asset_class, asset_type, broker, currency, ticker, total_qty, total_cost, total_proceeds, realized_gain, open_date, close_date, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+        for (const r of data.closed_positions) s3.run(r.id, r.name, r.asset_class, r.asset_type, r.broker, r.currency, r.ticker, r.total_qty, r.total_cost, r.total_proceeds, r.realized_gain, r.open_date, r.close_date, r.notes||"", r.created_at);
+      }
+      // Rebuild lots after import to ensure consistency
+      try { rebuildAllLots(); } catch(e){}
     })();
     res.json({ success: true, holdings: data.holdings.length });
   } catch(e) {

@@ -52,6 +52,10 @@
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       <span>Watchlist</span>
     </button>
+    <button class="bottom-nav-btn" data-tab="closed" role="tab" aria-selected="false" aria-controls="tab-closed">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>Closed</span>
+    </button>
     <button class="bottom-nav-btn" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       <span>Settings</span>
@@ -182,9 +186,9 @@
             <label>Category <select id="add-asset-class" required></select></label>
             <label>Type <select id="add-asset-type"></select></label>
             <label>Broker/Platform <select id="add-broker"><option value="">- None -</option></select></label>
-            <label>Price <input type="number" id="add-buy-price" step="any" required /></label>
-            <label>Quantity <input type="number" id="add-quantity" step="any" required /></label>
-            <label>Invested Amount <input type="number" id="add-invested" step="any" required /></label>
+            <label><span id="add-buy-price-label">Buy Price (per unit)</span> <input type="number" id="add-buy-price" step="any" required placeholder="e.g. 48.60" /></label>
+            <label><span id="add-quantity-label">Quantity</span> <input type="number" id="add-quantity" step="any" required placeholder="e.g. 100" /></label>
+            <label><span id="add-invested-label">Amount Invested</span> <input type="number" id="add-invested" step="any" required placeholder="e.g. 50000" /><small id="add-invested-hint" class="field-hint hidden">Proceeds = Sell Price × Quantity Sold</small></label>
             <label>Currency
               <select id="add-currency">
                 <option value="INR">INR (₹)</option>
@@ -433,6 +437,35 @@
       </section>
     </div>
 
+    <div id="tab-closed" class="tab-content" role="tabpanel" aria-labelledby="tab-closed-btn">
+      <section class="card">
+        <h2>Closed Positions (Realized P&L)</h2>
+        <p class="settings-desc">Assets fully sold — FIFO realized gains. Holdings ledger keeps all transactions; pivot/dashboard show open only. Losses reduce the realized total.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Category</th><th class="col-amount">Qty Sold</th><th class="col-amount">Cost</th><th class="col-amount">Proceeds</th><th class="col-amount">Realized P&L</th><th>Close Date</th></tr></thead>
+            <tbody id="closed-rows"><tr><td colspan="7"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div></div></td></tr></tbody>
+          </table>
+        </div>
+        <div id="closed-mobile-cards" class="pivot-mobile-cards" style="display:flex; flex-direction:column; gap:8px; margin-top:12px;"></div>
+      </section>
+      <section class="card">
+        <h2>Capital Gains Lots (FIFO)</h2>
+        <p class="settings-desc" id="cg-lots-desc">Per-lot breakdown (FIFO) — holding period and gain type are indicative. Filter by FY.</p>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+          <label style="font-size:0.72rem;">FY <input type="text" id="cg-fy-input" placeholder="2026-27" style="width:90px; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:0.76rem;" /></label>
+          <button id="cg-filter-btn" class="btn-secondary" style="min-height:32px;">Filter</button>
+          <span id="cg-summary" style="font-size:0.72rem; color:var(--text-secondary);"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Asset</th><th>Buy Date</th><th>Sell Date</th><th class="col-amount">Qty</th><th class="col-amount">Cost</th><th class="col-amount">Proceeds</th><th class="col-amount">Gain</th><th>Type</th><th class="col-amount">Days</th></tr></thead>
+            <tbody id="cg-lots-rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
     <div id="tab-settings" class="tab-content" role="tabpanel" aria-labelledby="tab-settings-btn">
       <section class="card">
         <h2>Theme</h2>
@@ -629,9 +662,9 @@
         <label>Category <select id="edit-asset-class" required></select></label>
         <label>Type <select id="edit-asset-type"></select></label>
         <label>Broker/Platform <select id="edit-broker"><option value="">- None -</option></select></label>
-        <label>Price <input type="number" id="edit-buy-price" step="any" required /></label>
-        <label>Quantity <input type="number" id="edit-quantity" step="any" required /></label>
-        <label>Invested Amount <input type="number" id="edit-invested" step="any" required /></label>
+        <label><span id="edit-buy-price-label">Buy Price (per unit)</span> <input type="number" id="edit-buy-price" step="any" required /></label>
+        <label><span id="edit-quantity-label">Quantity</span> <input type="number" id="edit-quantity" step="any" required /></label>
+        <label><span id="edit-invested-label">Amount Invested</span> <input type="number" id="edit-invested" step="any" required /><small id="edit-invested-hint" class="field-hint hidden">Proceeds = Sell Price × Quantity Sold</small></label>
         <label>Currency
           <select id="edit-currency">
             <option value="INR">INR (₹)</option>

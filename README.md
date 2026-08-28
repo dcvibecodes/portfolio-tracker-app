@@ -1,6 +1,27 @@
-# Invest More v4.5.0
+# Invest More v4.7.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.7.0
+
+### Holdings → Sell UX Now Unambiguous (Option A)
+- **Dynamic labels** — `Buy/Sell` toggle renames `Price` → `Buy Price (per unit)` / `Sell Price (per unit)`, `Quantity` → `Quantity` / `Quantity Sold`, `Amount Invested` → `Amount Invested` / `Proceeds`. Placeholders switch too (`e.g. 88.06` for sell). `Ticker` hides on sell.
+- **Hint** — `Proceeds = Sell Price × Quantity Sold` appears only for sells (`visibility:hidden` when buy, so vertical alignment stays level).
+- **Vertical alignment fix** — Holdings form grid now `align-items: start` with `min-height` hint; the `Proceeds` field no longer sits higher than `Quantity Sold`/`Currency` when sell is selected. See `public/style.css` `.grid` / `.field-hint`.
+
+### Closed Tab — Currency-Aware Tax Hint
+- **Generic vs India** — `Capital Gains Lots (FIFO)` description now checks `baseCurrency`. `INR` → `12.5% LTCG (Sec 112A) above ₹1,25,000 for equity >12mo — check current FY rules.` Non-INR → `FIFO — indicative, tax rules vary by country.` Prevents showing Indian exemption to US/EU users.
+- **Rule in `AGENTS.md`** — added `Tax Law Maintenance` section: before any release, verify FY's 112A rate/exemption/holding period with CBDT and update `public/app.js` hint + `server.js` `gain_type` (>365d).
+
+## What's New in v4.6.0
+
+### Realized vs Unrealized — FIFO Cost Basis + Closed Positions
+- **Bye phantom P&L** — `Dashboard` summary now splits `Invested (Open)` / `Current Value (Open)` / `Unrealized P&L` / `Realized P&L` / `Total P&L`. Full switch `SBI ELSS → Nifty 50` nets `Invested +1,45,702` to open, `Current Value` unchanged, `Realized +1,45,702` instead of lingering +1.45L as phantom.
+- **FIFO lots** — `realized_lots` table built per asset on every `POST/PUT/DELETE` of holdings (`server.js` `rebuildAssetLots`). Sells consume oldest buys first; per-lot `gain`, `holding_days`, `LTCG (>365d)` vs `STCG`. Handles full and **partial** sells (partial leaves remaining qty/cost in pivot).
+- **Closed Positions** — new `Closed` tab + `GET /api/closed-positions` aggregates fully-closed assets (`total_qty/cost/proceeds/realized_gain`) and per-lot table.
+- **Capital Gains API** — `GET /api/capital-gains?fy=2026-27&asset=` filters by FY (Apr-Mar) and summarizes `ltcg/stcg` for tax. Used by Closed tab's FY filter.
+- **Breakdown/Allocation/Monthly now open-only** — pivot, allocation, and `total_current_value` sum only open positions (`net qty × price` with `buy_price` fallback if no Yahoo price yet). Holdings ledger still keeps every transaction.
+- **Export/import includes** `realized_lots` + `closed_positions` and rebuilds on import.
 
 ## What's New in v4.5.0
 
