@@ -1,6 +1,12 @@
-# Invest More v4.10.0
+# Invest More v4.11.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.11.0
+
+### Bar Transparency
+
+- **Dashboard bars now 20% transparent** — `Current Value` horizontal bars (By Category) and `Monthly Investments` stacked bars use `hexToRgba(color, 0.8)` via new `hexToRgba()` helper, matching Spend Less v4.1.0's airy 80% opacity (was solid). Same hues, just glassy.
 
 ## What's New in v4.10.0
 

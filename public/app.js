@@ -145,6 +145,12 @@ function getCategoryColor(category, index = 0) {
   return CATEGORY_COLORS[category] ||
          FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 }
+function hexToRgba(hex, alpha) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return hex;
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
   //--- Locale & Formatting Helpers ---
   function getLocaleForCurrency(cur) {
@@ -671,7 +677,7 @@ function getCategoryColor(category, index = 0) {
       data: {
         labels: classLabels,
         datasets: [
-          { label: "Current Value", data: classValues.map(v => toDisplayCurrency(v)), backgroundColor: classColors.slice(0, classLabels.length), borderRadius: 4, order: 2 },
+          { label: "Current Value", data: classValues.map(v => toDisplayCurrency(v)), backgroundColor: classColors.map(c => hexToRgba(c, 0.8)), borderRadius: 4, order: 2 },
           { label: "Invested", data: classInvested, type: "line", borderColor: "rgba(150,150,150,0.7)", backgroundColor: "rgba(150,150,150,0.3)", pointBackgroundColor: "rgba(150,150,150,0.9)", pointRadius: 4, borderWidth: 2, fill: false, indexAxis: "y", order: 1 }
         ]
       },
@@ -799,7 +805,7 @@ function getCategoryColor(category, index = 0) {
     const barDatasets = (data.classes || []).map((cls, i) => ({
       label: cls,
       data: data.months.map(m => toDisplayCurrency(m.by_class[cls] || 0)),
-      backgroundColor: getCategoryColor(cls, i),
+      backgroundColor: hexToRgba(getCategoryColor(cls, i), 0.8),
       borderRadius: i === (data.classes.length - 1) ? 4 : 0,
       stack: "invested"
     }));
