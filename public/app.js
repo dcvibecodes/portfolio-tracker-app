@@ -822,8 +822,8 @@ function positionChartTooltip(el, chart, tooltip) {
       data: {
         labels,
         datasets: [
-          { label: "Invested", data: cumulative, borderColor: "#6366f1", backgroundColor: "rgba(99, 102, 241, 0.05)", borderWidth: 2.5, borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 4, tension: 0.3, fill: false },
-          { label: "Portfolio Value", data: valueTrend, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.08)", borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4, fill: false, tension: 0.3 }
+          { label: "Invested", data: cumulative, borderColor: "#6366f1", backgroundColor: "rgba(99, 102, 241, 0.05)", borderWidth: 2, borderDash: [5, 3], pointRadius: 1, pointHoverRadius: 3, tension: 0.3, fill: true },
+          { label: "Portfolio Value", data: valueTrend, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.08)", borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 3, fill: true, tension: 0.3 }
         ]
       },
       options: {
