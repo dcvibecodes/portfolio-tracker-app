@@ -151,6 +151,42 @@ function hexToRgba(hex, alpha) {
   const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function ensureChartTooltipEl() {
+  let el = document.getElementById("chart-tooltip");
+  if (el) return el;
+  el = document.createElement("div");
+  el.id = "chart-tooltip";
+  el.style.position = "fixed";
+  el.style.pointerEvents = "none";
+  el.style.background = "var(--surface)";
+  el.style.border = "1px solid var(--border)";
+  el.style.borderRadius = "8px";
+  el.style.padding = "8px 12px";
+  el.style.fontSize = "0.75rem";
+  el.style.fontFamily = "inherit";
+  el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+  el.style.zIndex = "1200";
+  el.style.opacity = "0";
+  el.style.transition = "opacity 0.15s";
+  el.style.maxWidth = "240px";
+  el.style.color = "var(--text)";
+  document.body.appendChild(el);
+  return el;
+}
+function positionChartTooltip(el, chart, tooltip) {
+  const pos = chart.canvas.getBoundingClientRect();
+  const elW = el.offsetWidth || 180;
+  const elH = el.offsetHeight || 80;
+  let left = pos.left + tooltip.caretX + 12;
+  let top = pos.top + tooltip.caretY + 8;
+  if (left + elW > window.innerWidth - 8) left = pos.left + tooltip.caretX - elW - 12;
+  if (top + elH > window.innerHeight - 8) top = pos.top + tooltip.caretY - elH - 8;
+  el.style.left = left + "px";
+  el.style.top = top + "px";
+}
 
   //--- Locale & Formatting Helpers ---
   function getLocaleForCurrency(cur) {
@@ -685,14 +721,31 @@ function hexToRgba(hex, alpha) {
         responsive: true, maintainAspectRatio: false,
         indexAxis: "y",
         plugins: {
-          legend: { display: true, position: "bottom", labels: { boxWidth: 12, font: { size: 10 } } },
-          tooltip: { callbacks: { label: (ctx) => {
-            if (ctx.datasetIndex === 0) return " Value: " + curSym + fmtCompact(ctx.raw) + ` (${totalVal ? (classValues[ctx.dataIndex] / totalVal * 100).toFixed(1) : 0}%)`;
-            return " Invested: " + curSym + fmtCompact(ctx.raw);
-          } } }
+          legend: { display: false },
+          tooltip: {
+            enabled: false,
+            external: function(context) {
+              const { chart, tooltip } = context;
+              const el = ensureChartTooltipEl();
+              if (tooltip.opacity === 0 || !tooltip.dataPoints || !tooltip.dataPoints.length) { el.style.opacity = "0"; return; }
+              const idx = tooltip.dataPoints[0].dataIndex;
+              const label = escapeHtml(chart.data.labels[idx] || "");
+              const curSym2 = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
+              const val = classValues[idx] != null ? toDisplayCurrency(classValues[idx]) : 0;
+              const inv = classInvested[idx] != null ? classInvested[idx] : 0;
+              const pct = totalVal ? (classValues[idx] / totalVal * 100).toFixed(1) : 0;
+              const col = classColors[idx] || "#888";
+              const invCol = "rgba(150,150,150,0.9)";
+              el.innerHTML = `<div style="font-weight:600;margin-bottom:5px;">${label}</div>`
+                + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:6px;"></span><span style="color:var(--text-secondary);">Current Value (${pct}%)</span></span><span style="font-weight:600;">${escapeHtml(curSym2 + fmtCompact(val))}</span></div>`
+                + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${invCol};margin-right:6px;"></span><span style="color:var(--text-secondary);">Invested</span></span><span style="font-weight:600;">${escapeHtml(curSym2 + fmtCompact(inv))}</span></div>`;
+              el.style.opacity = "1";
+              positionChartTooltip(el, chart, tooltip);
+            }
+          }
         },
         scales: {
-          x: { display: false },
+          x: { beginAtZero: true, ticks: { callback: (v) => { const s = currencyConfigured ? getCurrencySymbol(displayCurrency) : ""; return s + fmtCompact(v); }, font: { size: 9 } }, grid: { color: "rgba(0,0,0,0.05)" } },
           y: { grid: { display: false }, ticks: { font: { size: 10 } } }
         }
       }
@@ -777,8 +830,27 @@ function hexToRgba(hex, alpha) {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { position: "bottom", labels: { font: { size: 10 }, padding: 6, boxWidth: 10 } },
-          tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ": " + curSym + fmtCompact(ctx.raw) } }
+          legend: { display: false },
+          tooltip: {
+            enabled: false,
+            external: function(context) {
+              const { chart, tooltip } = context;
+              const el = ensureChartTooltipEl();
+              if (tooltip.opacity === 0 || !tooltip.dataPoints || !tooltip.dataPoints.length) { el.style.opacity = "0"; return; }
+              const idx = tooltip.dataPoints[0].dataIndex;
+              const title = escapeHtml(chart.data.labels[idx] || "");
+              let rows = "";
+              for (const dp of tooltip.dataPoints) {
+                const ds = chart.data.datasets[dp.datasetIndex];
+                const v = dp.raw;
+                const col = ds.borderColor || ds.backgroundColor || "#888";
+                rows += `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:6px;"></span><span style="color:var(--text-secondary);">${escapeHtml(ds.label)}</span></span><span style="font-weight:600;">${escapeHtml(curSym + fmtCompact(v))}</span></div>`;
+              }
+              el.innerHTML = `<div style="font-weight:600;margin-bottom:5px;">${title}</div>${rows}`;
+              el.style.opacity = "1";
+              positionChartTooltip(el, chart, tooltip);
+            }
+          }
         },
         scales: {
           y: { beginAtZero: true, ticks: { callback: (v) => curSym + fmtCompact(v), font: { size: 9 } }, grid: { color: "rgba(0,0,0,0.05)" } },
@@ -819,8 +891,30 @@ function hexToRgba(hex, alpha) {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { position: "bottom", labels: { font: { size: 9 }, boxWidth: 10, padding: 5 } },
-          tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ": " + curSym + fmtCompact(ctx.raw) } }
+          legend: { display: false },
+          tooltip: {
+            enabled: false,
+            external: function(context) {
+              const { chart, tooltip } = context;
+              const el = ensureChartTooltipEl();
+              if (tooltip.opacity === 0 || !tooltip.dataPoints || !tooltip.dataPoints.length) { el.style.opacity = "0"; return; }
+              const idx = tooltip.dataPoints[0].dataIndex;
+              const title = escapeHtml(chart.data.labels[idx] || "");
+              let total = 0;
+              let rows = "";
+              for (const dp of tooltip.dataPoints) {
+                const ds = chart.data.datasets[dp.datasetIndex];
+                const v = Number(dp.raw) || 0;
+                if (v <= 0) continue;
+                total += v;
+                const col = ds.backgroundColor || "#888";
+                rows += `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:6px;"></span><span style="color:var(--text-secondary);">${escapeHtml(ds.label)}</span></span><span style="font-weight:600;">${escapeHtml(curSym + fmtCompact(v))}</span></div>`;
+              }
+              el.innerHTML = `<div style="font-weight:600;margin-bottom:5px;">${title}</div>${rows}<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1px solid var(--border-subtle);margin-top:6px;padding-top:5px;"><span style="color:var(--text-secondary);">Total</span><span style="font-weight:700;">${escapeHtml(curSym + fmtCompact(total))}</span></div>`;
+              el.style.opacity = "1";
+              positionChartTooltip(el, chart, tooltip);
+            }
+          }
         },
         scales: {
           y: { beginAtZero: true, stacked: true, ticks: { callback: (v) => curSym + fmtCompact(v), font: { size: 9 } }, grid: { color: "rgba(0,0,0,0.05)" } },
@@ -950,17 +1044,27 @@ function hexToRgba(hex, alpha) {
         plugins: {
           legend: { display: false },
           tooltip: {
-            callbacks: {
-              title: (items) => items[0].label,
-              label: (ctx) => {
-                const m = sliced[ctx.dataIndex];
-                const curSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
-                return [
-                  `P&L: ${ctx.raw >= 0 ? "+" : ""}${ctx.raw.toFixed(2)}%`,
-                  `Invested: ${curSym}${fmtCompact(toDisplayCurrency(m.invested))}`,
-                  `Value: ${curSym}${fmtCompact(toDisplayCurrency(m.current_value))}`
-                ];
-              }
+            enabled: false,
+            external: function(context) {
+              const { chart, tooltip } = context;
+              const el = ensureChartTooltipEl();
+              if (tooltip.opacity === 0 || !tooltip.dataPoints || !tooltip.dataPoints.length) { el.style.opacity = "0"; return; }
+              const idx = tooltip.dataPoints[0].dataIndex;
+              const m = sliced[idx];
+              if (!m) return;
+              const title = escapeHtml(chart.data.labels[idx] || "");
+              const curSym2 = currencyConfigured ? getCurrencySymbol(displayCurrency) : "";
+              const raw = tooltip.dataPoints[0].raw;
+              const pnlStr = (raw >= 0 ? "+" : "") + Number(raw).toFixed(2) + "%";
+              const invStr = curSym2 + fmtCompact(toDisplayCurrency(m.invested));
+              const valStr = curSym2 + fmtCompact(toDisplayCurrency(m.current_value));
+              const lineCol = lineColor || "#8b5cf6";
+              el.innerHTML = `<div style="font-weight:600;margin-bottom:5px;">${title}</div>`
+                + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${lineCol};margin-right:6px;"></span><span style="color:var(--text-secondary);">P&L</span></span><span style="font-weight:600;">${escapeHtml(pnlStr)}</span></div>`
+                + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span style="color:var(--text-secondary);">Invested</span><span style="font-weight:600;">${escapeHtml(invStr)}</span></div>`
+                + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span style="color:var(--text-secondary);">Value</span><span style="font-weight:600;">${escapeHtml(valStr)}</span></div>`;
+              el.style.opacity = "1";
+              positionChartTooltip(el, chart, tooltip);
             }
           }
         },
@@ -2818,23 +2922,26 @@ function hexToRgba(hex, alpha) {
   let lastTapChartKey = null;
   document.addEventListener("click", (e) => {
     const canvas = e.target.closest("canvas");
+    const tipEl = document.getElementById("chart-tooltip");
     if (!canvas) {
-      [classPieChart, valueTrendChart, monthlyChart].forEach(chart => {
+      [classPieChart, valueTrendChart, monthlyChart, vintageChart].forEach(chart => {
         if (chart && chart.tooltip) {
           chart.setActiveElements([]);
           chart.tooltip.setActiveElements([], {x: 0, y: 0 });
           chart.update("none");
         }
       });
+      if (tipEl) tipEl.style.opacity = "0";
       lastTapChartKey = null;
       return;
     }
-    const chartInstance = [classPieChart, valueTrendChart, monthlyChart].find(c => c && c.canvas === canvas);
+    const chartInstance = [classPieChart, valueTrendChart, monthlyChart, vintageChart].find(c => c && c.canvas === canvas);
     if (!chartInstance || !chartInstance.tooltip) return;
     const activeEls = chartInstance.getActiveElements();
     if (activeEls.length === 0) {
       chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
       chartInstance.update("none");
+      if (tipEl) tipEl.style.opacity = "0";
       lastTapChartKey = null;
     } else {
       const currentKey = canvas.id + "-" + activeEls[0].datasetIndex + "-" + activeEls[0].index;
@@ -2842,6 +2949,7 @@ function hexToRgba(hex, alpha) {
         chartInstance.setActiveElements([]);
         chartInstance.tooltip.setActiveElements([], {x: 0, y: 0 });
         chartInstance.update("none");
+        if (tipEl) tipEl.style.opacity = "0";
         lastTapChartKey = null;
       } else {
         lastTapChartKey = currentKey;
