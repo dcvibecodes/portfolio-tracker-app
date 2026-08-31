@@ -811,6 +811,9 @@ function positionChartTooltip(el, chart, tooltip) {
     });
 
     const cumulative = data.months.map(m => toDisplayCurrency(m.cumulative_invested));
+    const portfolioValue = toDisplayCurrency(data.total_current_value || 0);
+    const lastCum = cumulative[cumulative.length - 1] || 0;
+    const valueTrend = cumulative.map(cum => lastCum === 0 ? 0 : (cum / lastCum) * portfolioValue);
 
     if (valueTrendChart) valueTrendChart.destroy();
     const trendCanvas = document.getElementById("value-trend-chart");
@@ -819,7 +822,8 @@ function positionChartTooltip(el, chart, tooltip) {
       data: {
         labels,
         datasets: [
-          { label: "Invested", data: cumulative, borderColor: "#6366f1", backgroundColor: "rgba(99, 102, 241, 0.08)", borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, fill: true }
+          { label: "Invested", data: cumulative, borderColor: "#6366f1", backgroundColor: "rgba(99, 102, 241, 0.05)", borderWidth: 2, borderDash: [5, 3], pointRadius: 1, pointHoverRadius: 3, tension: 0.3, fill: true },
+          { label: "Portfolio Value", data: valueTrend, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.08)", borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 3, fill: true, tension: 0.3 }
         ]
       },
       options: {

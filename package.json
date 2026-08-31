@@ -1,6 +1,6 @@
 {
   "name": "finance-portfolio-tracker",
-  "version": "4.17.0",
+  "version": "4.18.0",
   "description": "Invest More \u2014 multi-currency portfolio tracker with watchlist, live prices, and analytics",
   "main": "server.js",
   "scripts": {

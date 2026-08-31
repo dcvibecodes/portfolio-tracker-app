@@ -1538,16 +1538,39 @@ app.get("/api/monthly-investments", asyncHandler(async (req, res) => {
   const now = new Date();
   const currentMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
   const firstMonth = allMonths[0];
+  const sortedRows = [...rows].sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const fxFor = (cur) => cur === defaultCur ? 1 : (rateData.rates[cur] || 1);
   const result = [];
   let cursor = new Date(firstMonth + "-01");
   const end = new Date(currentMonth + "-01");
-  let cumInvested = 0;
 
   while (cursor <= end) {
     const key = cursor.getFullYear() + "-" + String(cursor.getMonth() + 1).padStart(2, "0");
     const entry = monthMap[key];
     const invested = entry ? entry.total : 0;
-    cumInvested += invested;
+    // FIFO cumulative open invested up to this month (matches /api/summary cards)
+    const monthEnd = key + "-31";
+    const buyQueue = [];
+    for (const h of sortedRows) {
+      if (h.date > monthEnd) break;
+      if ((h.txn_type || "buy") === "buy" && (h.quantity || 0) > 0) {
+        const fx = fxFor(h.currency);
+        const totCost = h.invested_base != null ? h.invested_base : (h.invested_amount || 0) * fx;
+        const qty = h.quantity;
+        const cpu = qty !== 0 ? totCost / qty : 0;
+        buyQueue.push({ remaining: qty, costPerUnit: cpu });
+      } else if ((h.txn_type || "buy") === "sell") {
+        let rem = Math.abs(h.quantity || 0);
+        while (rem > EPSILON_QTY && buyQueue.length > 0) {
+          const b = buyQueue[0];
+          const take = Math.min(b.remaining, rem);
+          b.remaining -= take;
+          rem -= take;
+          if (b.remaining <= EPSILON_QTY) buyQueue.shift();
+        }
+      }
+    }
+    const cumInvested = buyQueue.reduce((s, b) => s + b.remaining * b.costPerUnit, 0);
     const byClass = {};
     classesArr.forEach(c => { byClass[c] = entry ? (entry.by_class[c] || 0) : 0; });
 
