@@ -737,7 +737,7 @@ function positionChartTooltip(el, chart, tooltip) {
               const col = classColors[idx] || "#888";
               const invCol = "rgba(150,150,150,0.9)";
               el.innerHTML = `<div style="font-weight:600;margin-bottom:5px;">${label}</div>`
-                + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:6px;"></span><span style="color:var(--text-secondary);">Current Value (${pct}%)</span></span><span style="font-weight:600;">${escapeHtml(curSym2 + fmtCompact(val))}</span></div>`
+                + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:6px;"></span><span style="color:var(--text-secondary);">Current (${pct}%)</span></span><span style="font-weight:600;">${escapeHtml(curSym2 + fmtCompact(val))}</span></div>`
                 + `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${invCol};margin-right:6px;"></span><span style="color:var(--text-secondary);">Invested</span></span><span style="font-weight:600;">${escapeHtml(curSym2 + fmtCompact(inv))}</span></div>`;
               el.style.opacity = "1";
               positionChartTooltip(el, chart, tooltip);
