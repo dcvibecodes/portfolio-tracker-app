@@ -1515,11 +1515,12 @@ app.get("/api/monthly-investments", asyncHandler(async (req, res) => {
   const months = monthsParam !== undefined ? Number(monthsParam) : 12;
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
-  const rows = db.prepare("SELECT date, invested_amount, invested_base, currency, current_price, quantity, asset_class FROM holdings ORDER BY date").all();
+  const rows = db.prepare("SELECT date, invested_amount, invested_base, currency, current_price, quantity, txn_type, asset_class FROM holdings ORDER BY date").all();
   const classesArr = db.prepare("SELECT name FROM asset_classes ORDER BY sort_order, id").all().map(r => r.name);
   const monthMap = {};
 
   for (const h of rows) {
+    if ((h.txn_type || 'buy') === 'sell') continue;
     const month = h.date.substring(0, 7);
     if (!monthMap[month]) {
       monthMap[month] = { total: 0, by_class: {} };
