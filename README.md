@@ -1,6 +1,44 @@
-# Invest More v4.11.0
+# Invest More v4.18.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.18.0
+
+### Invested Over Time — Dual Line Restored + Monthly Cumulative Fix
+
+- **Invested vs Portfolio Value restored** — `Invested Over Time` card shows both `Invested (FIFO open cumulative)` and `Portfolio Value (current)` trend lines again (was invested-only in 4.16.0).
+- **Monthly cumulative excludes closed** — `GET /api/monthly-investments` cumulative now sums FIFO open remaining cost only; closed proceeds `762.91` no longer inflates the total.
+
+## What's New in v4.17.0
+
+### Rename — Portfolio Value → Invested Over Time
+
+- Summary card `Portfolio Value` renamed to `Invested Over Time` to reflect it plots invested over time, not NAV.
+
+## What's New in v4.16.0
+
+### Value Trend — Invested Only
+
+- Removed synthetic `Portfolio Value` line; chart showed invested only (reverted in 4.18.0).
+
+## What's New in v4.15.0 / v4.14.0
+
+### Value Trend Visual Tweaks
+
+- `v4.14.0` removed fills to separate `Invested` vs `Portfolio Value` lines; `v4.15.0` reverted fill.
+
+## What's New in v4.13.0
+
+### Chart Tooltip — Current Value → Current
+
+- Tooltip label now `Current` to match summary cards.
+
+## What's New in v4.12.0
+
+### Charts — Expense-Style Tooltips + Horizontal Bar Fixes
+
+- Removed legends; external tooltip card like Spend Less.
+- Fixed horizontal `By Category` bar X-axis/grid.
 
 ## What's New in v4.11.0
 
