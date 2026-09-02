@@ -404,11 +404,11 @@ select {
    search box absorb the rest so the filters row spans the full card width. */
 @media (min-width: 769px) {
   .filters label {
-    flex: 1 1 12%;
+    flex: 1 1 10%;
     min-width: 0;
   }
   .filters label:first-child {
-    flex: 2 1 28%;
+    flex: 2 1 22%;
   }
 }
 

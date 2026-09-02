@@ -813,7 +813,8 @@ app.get("/api/holdings", (req, res) => {
     asset_class,
     asset_type,
     broker,
-    currency
+    currency,
+    txn_type
   } = req.query;
 
   if (name) rows = rows.filter(r => r.name.toLowerCase().includes(name.toLowerCase()));
@@ -830,6 +831,7 @@ app.get("/api/holdings", (req, res) => {
   if (asset_type) rows = rows.filter(r => r.asset_type === asset_type);
   if (broker) rows = rows.filter(r => r.broker === broker);
   if (currency) rows = rows.filter(r => r.currency === currency);
+  if (txn_type) rows = rows.filter(r => (r.txn_type || 'buy') === txn_type);
 
   rows = rows.map(r => {
     const isSell = r.txn_type === "sell";

@@ -1562,6 +1562,7 @@ function positionChartTooltip(el, chart, tooltip) {
     const assetClass = document.getElementById("filter-class").value;
     const broker = document.getElementById("filter-broker").value;
     const currency = document.getElementById("filter-currency").value;
+    const txnType = document.getElementById("filter-txn-type") ? document.getElementById("filter-txn-type").value : "";
 
     const params = new URLSearchParams();
 
@@ -1571,6 +1572,7 @@ function positionChartTooltip(el, chart, tooltip) {
     if (assetClass) params.set("asset_class", assetClass);
     if (broker) params.set("broker", broker);
     if (currency) params.set("currency", currency);
+    if (txnType) params.set("txn_type", txnType);
 
     let rows, rateData;
     try {
@@ -1670,15 +1672,31 @@ function positionChartTooltip(el, chart, tooltip) {
     });
 
     updateSelectAll();
-    // FIFO open-only totals (match /api/summary) — group by asset, consume sells, skip closed (netQty ~0)
+    // Totals: FIFO open-only when txnType filter is All, signed net when Buy/Sell is filtered (hybrid)
     let totalInvested = 0, totalValue = 0;
-    {
+    let closedRealizedHint = null;
+    const txnFilterVal = document.getElementById("filter-txn-type") ? document.getElementById("filter-txn-type").value : "";
+    if (txnFilterVal) {
+      // Buy/Sell filtered: show signed net of filtered rows (old behaviour) — more intuitive for that view
+      for (const r of rows) {
+        const fx = r.currency === rateData.default_currency ? 1 : (rateData.rates[r.currency] || 1);
+        totalInvested += (r.invested_base != null) ? r.invested_base : (r.invested_amount || 0) * fx;
+        totalValue += (r.current_value || 0) * fx;
+      }
+    } else {
+      // FIFO open-only totals (match /api/summary) — group by asset, consume sells, skip closed (netQty ~0)
       const EPSILON_QTY = 1e-6;
       const fxFor = (cur) => cur === rateData.default_currency ? 1 : (rateData.rates[cur] || 1);
       const groups = {};
       for (const r of rows) {
         if (!groups[r.name]) groups[r.name] = [];
         groups[r.name].push(r);
+      }
+      // Detect all-closed filtered set for hint
+      let allClosed = rows.length > 0;
+      for (const g of Object.values(groups)) {
+        const netQty = g.reduce((s, r) => s + (r.quantity || 0), 0);
+        if (Math.abs(netQty) >= EPSILON_QTY) { allClosed = false; break; }
       }
       for (const assetRows of Object.values(groups)) {
         const netQty = assetRows.reduce((s, r) => s + (r.quantity || 0), 0);
@@ -1720,10 +1738,29 @@ function positionChartTooltip(el, chart, tooltip) {
         const curVal = price ? netQty * price * fx : assetRows.reduce((s, r) => s + ((r.current_value || 0) * fx), 0);
         totalValue += curVal;
       }
+      if (allClosed && rows.length > 0) {
+        // Sum realized gain for these closed assets
+        try {
+          const names = Object.keys(groups);
+          const data = await apiFetch("/api/closed-positions");
+          let sum = 0;
+          for (const c of (data.closed || [])) {
+            if (names.includes(c.name)) sum += c.realized_gain || 0;
+          }
+          // Fallback to lots if closed empty
+          if (sum === 0 && data.lots) {
+            for (const l of data.lots) if (names.includes(l.asset_name)) sum += l.gain || 0;
+          }
+          closedRealizedHint = sum;
+        } catch(e) {}
+      }
     }
     const pl = totalValue - totalInvested;
     const footerSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : getCurrencySymbol(rateData.default_currency || baseCurrency || "INR");
     let footerText = `${rows.length} entr${rows.length===1?'y':'ies'} — Invested: ${footerSym}${fmtCompact(toDisplayCurrency(totalInvested))} | Current Value: ${footerSym}${fmtCompact(toDisplayCurrency(totalValue))} | P&L: ${footerSym}${fmtCompact(toDisplayCurrency(pl))}`;
+    if (closedRealizedHint != null) {
+      footerText += ` · Closed — see Closed tab (Realized ${footerSym}${fmtCompact(toDisplayCurrency(closedRealizedHint))})`;
+    }
     // If filtered rows are single foreign currency, also show foreign totals for clarity
     if (rows.length > 0) {
       const firstCur = rows[0].currency;
@@ -2038,6 +2075,8 @@ function positionChartTooltip(el, chart, tooltip) {
   document.getElementById("filter-class").addEventListener("change", loadHoldings);
   document.getElementById("filter-broker").addEventListener("change", loadHoldings);
   document.getElementById("filter-currency").addEventListener("change", loadHoldings);
+  const txnFilterEl = document.getElementById("filter-txn-type");
+  if (txnFilterEl) txnFilterEl.addEventListener("change", loadHoldings);
   document.getElementById("filter-reset-btn").addEventListener("click", () => {
     document.getElementById("filter-search").value = "";
     const mobileSearchEl = document.getElementById("mobile-filter-search");
@@ -2047,6 +2086,8 @@ function positionChartTooltip(el, chart, tooltip) {
     document.getElementById("filter-class").value = "";
     document.getElementById("filter-broker").value = "";
     document.getElementById("filter-currency").value = "";
+    const txnEl = document.getElementById("filter-txn-type");
+    if (txnEl) txnEl.value = "";
     loadHoldings();
   });
 
