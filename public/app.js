@@ -1589,13 +1589,9 @@ function positionChartTooltip(el, chart, tooltip) {
     const mobileCards = document.getElementById("holdings-mobile-cards");
     tbody.innerHTML = "";
 
-    let totalInvested = 0, totalValue = 0;
     let mobileCardsHTML = "";
 
     for (const r of rows) {
-      const fx = r.currency === rateData.default_currency ? 1 : (rateData.rates[r.currency] || 1);
-      totalInvested += (r.invested_base != null) ? r.invested_base : (r.invested_amount || 0) * fx;
-      totalValue += (r.current_value || 0) * fx;
 
       const plClass = (r.gain_loss != null && r.gain_loss >= 0) ? "positive" : "negative";
       const checked = selectedIds.has(r.id) ? "checked" : "";
@@ -1674,6 +1670,57 @@ function positionChartTooltip(el, chart, tooltip) {
     });
 
     updateSelectAll();
+    // FIFO open-only totals (match /api/summary) — group by asset, consume sells, skip closed (netQty ~0)
+    let totalInvested = 0, totalValue = 0;
+    {
+      const EPSILON_QTY = 1e-6;
+      const fxFor = (cur) => cur === rateData.default_currency ? 1 : (rateData.rates[cur] || 1);
+      const groups = {};
+      for (const r of rows) {
+        if (!groups[r.name]) groups[r.name] = [];
+        groups[r.name].push(r);
+      }
+      for (const assetRows of Object.values(groups)) {
+        const netQty = assetRows.reduce((s, r) => s + (r.quantity || 0), 0);
+        if (Math.abs(netQty) < EPSILON_QTY) continue;
+        assetRows.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+        const buyQueue = [];
+        for (const r of assetRows) {
+          if ((r.txn_type || 'buy') === 'buy' && (r.quantity || 0) > 0) {
+            const fx = fxFor(r.currency);
+            const totCost = r.invested_base != null ? r.invested_base : (r.invested_amount || 0) * fx;
+            const qty = r.quantity;
+            const cpu = qty !== 0 ? totCost / qty : 0;
+            buyQueue.push({ remaining: qty, costPerUnit: cpu });
+          }
+        }
+        const sells = assetRows.filter(r => (r.txn_type || 'buy') === 'sell');
+        for (const s of sells) {
+          let rem = Math.abs(s.quantity || 0);
+          while (rem > EPSILON_QTY && buyQueue.length > 0) {
+            const b = buyQueue[0];
+            const take = Math.min(b.remaining, rem);
+            b.remaining -= take;
+            rem -= take;
+            if (b.remaining <= EPSILON_QTY) buyQueue.shift();
+          }
+        }
+        const remainingCost = buyQueue.reduce((sum, b) => sum + b.remaining * b.costPerUnit, 0);
+        totalInvested += remainingCost;
+        // Current value: netQty * price (prefer current_price, fallback buy_price) * fx
+        let price = null; let cur = assetRows[0].currency || 'INR';
+        for (const r of assetRows) {
+          if (r.currency) cur = r.currency;
+          if (r.current_price) price = r.current_price;
+        }
+        if (price == null) {
+          for (const r of assetRows) if (r.buy_price) { price = r.buy_price; break; }
+        }
+        const fx = fxFor(cur);
+        const curVal = price ? netQty * price * fx : assetRows.reduce((s, r) => s + ((r.current_value || 0) * fx), 0);
+        totalValue += curVal;
+      }
+    }
     const pl = totalValue - totalInvested;
     const footerSym = currencyConfigured ? getCurrencySymbol(displayCurrency) : getCurrencySymbol(rateData.default_currency || baseCurrency || "INR");
     let footerText = `${rows.length} entr${rows.length===1?'y':'ies'} — Invested: ${footerSym}${fmtCompact(toDisplayCurrency(totalInvested))} | Current Value: ${footerSym}${fmtCompact(toDisplayCurrency(totalValue))} | P&L: ${footerSym}${fmtCompact(toDisplayCurrency(pl))}`;
