@@ -1,6 +1,20 @@
-# Invest More v4.18.0
+# Invest More v4.19.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.19.1
+
+### Vintage — Closed Excluded (Open-Only, like By Category)
+
+- **No more phantom vintage** — `GET /api/vintage-returns` now excludes fully-closed assets (`netQty≈0` e.g. SBI ELSS) — vintage line no longer inflates as NAV climbs for sold funds.
+
+## What's New in v4.19.0
+
+### Holdings — Buy/Sell Filter + FIFO Footer Fix + Broker/Platform
+
+- **Buy/Sell filter** — new `Buy/Sell: All/Buy/Sell` after `Broker/Platform` (`GET /api/holdings?txn_type`) — web same row (7 filters), mobile full-width. When `Buy/Sell` is set, footer shows signed net of filtered rows; otherwise FIFO open `1,687,189` matching Dashboard.
+- **Holdings footer open-only** — was signed net `1,540,673`; now FIFO `remaining*costPerUnit` skipping closed (`SBI ELSS 145k` gap) — `2 entries` closed shows `0/0/0 · Closed — see Closed tab (Realized ₹1,026)`.
+- **Broker → Broker/Platform** label uniform.
 
 ## What's New in v4.18.0
 

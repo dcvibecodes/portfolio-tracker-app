@@ -1603,9 +1603,24 @@ app.get("/api/monthly-investments", asyncHandler(async (req, res) => {
 
 //--- Vintage / Cohort Return Analysis ---
 app.get("/api/vintage-returns", asyncHandler(async (req, res) => {
-  const rows = db.prepare("SELECT date, invested_amount, invested_base, currency, current_price, quantity, txn_type, asset_class FROM holdings ORDER BY date").all();
+  const rows = db.prepare("SELECT date, invested_amount, invested_base, currency, current_price, quantity, txn_type, asset_class, name FROM holdings ORDER BY date").all();
   const defaultCur = getDefaultCurrency();
   const rateData = await getAllRates();
+
+  // Exclude fully-closed assets (netQty ~0) — matches summary/breakdown open-only (SBI ELSS would otherwise inflate winter)
+  const EPSILON_QTY = 1e-6;
+  const closedSet = new Set();
+  {
+    const groups = {};
+    for (const r of rows) {
+      if (!groups[r.name]) groups[r.name] = [];
+      groups[r.name].push(r);
+    }
+    for (const [nm, gr] of Object.entries(groups)) {
+      const netQty = gr.reduce((s, x) => s + (x.quantity || 0), 0);
+      if (Math.abs(netQty) < EPSILON_QTY) closedSet.add(nm);
+    }
+  }
 
   // Group by purchase month: for each month, sum invested and current value (total + per category)
   const monthMap = {};
@@ -1613,6 +1628,7 @@ app.get("/api/vintage-returns", asyncHandler(async (req, res) => {
 
   for (const h of rows) {
     if (h.txn_type === "sell") continue;
+    if (closedSet.has(h.name)) continue;
     const month = h.date.substring(0, 7);
     const cls = h.asset_class || "Other";
     categoriesSet.add(cls);
