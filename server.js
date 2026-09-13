@@ -10,6 +10,34 @@ const bcrypt = require("bcrypt");
 const app = express();
 const PORT = 3001;
 
+// --- Rate Limiting (in-memory) ---
+const rateLimitMap = new Map(); // key -> { count, resetAt }
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 10; // 10 attempts per window
+
+function rateLimit(key) {
+  const now = Date.now();
+  let entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 1, resetAt: now + RATE_LIMIT_WINDOW };
+    rateLimitMap.set(key, entry);
+    return true;
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) {
+    return false;
+  }
+  return true;
+}
+
+// Periodic cleanup of expired rate limit entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(key);
+  }
+}, 5 * 60 * 1000);
+
 const dataDir = path.join(__dirname, "data");
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -1803,6 +1831,12 @@ app.post("/api/lock/setup", asyncHandler(async (req, res) => {
   if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
     return res.status(400).json({ error: "PIN must be exactly 6 digits." });
   }
+  // Refuse to overwrite an existing lock — otherwise an unauthenticated
+  // request could reset the PIN and take over the app while it is locked.
+  const existing = db.prepare("SELECT id FROM app_lock WHERE id = 1").get();
+  if (existing) {
+    return res.status(409).json({ error: "App lock is already configured." });
+  }
   const recoveryCode = generateRecoveryCode();
   const pinHash = await hashPin(pin);
   const recoveryHash = await hashPin(recoveryCode);
@@ -1815,6 +1849,10 @@ app.post("/api/lock/setup", asyncHandler(async (req, res) => {
 app.post("/api/lock/unlock", asyncHandler(async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: "PIN required." });
+  const clientKey = `unlock:${req.ip}`;
+  if (!rateLimit(clientKey)) {
+    return res.status(429).json({ error: "Too many attempts. Please wait a minute." });
+  }
   const row = db.prepare("SELECT pin_hash FROM app_lock WHERE id = 1").get();
   if (!row) return res.status(404).json({ error: "No lock configured." });
 
@@ -1834,6 +1872,10 @@ app.post("/api/lock/unlock", asyncHandler(async (req, res) => {
 app.post("/api/lock/disable", asyncHandler(async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: "PIN required." });
+  const clientKey = `disable:${req.ip}`;
+  if (!rateLimit(clientKey)) {
+    return res.status(429).json({ error: "Too many attempts. Please wait a minute." });
+  }
   const row = db.prepare("SELECT pin_hash FROM app_lock WHERE id = 1").get();
   if (!row) return res.status(404).json({ error: "No lock configured." });
 
@@ -1847,6 +1889,10 @@ app.post("/api/lock/disable", asyncHandler(async (req, res) => {
 app.post("/api/lock/recovery", asyncHandler(async (req, res) => {
   const { code } = req.body;
   if (!code) return res.status(400).json({ error: "Recovery code required." });
+  const clientKey = `recovery:${req.ip}`;
+  if (!rateLimit(clientKey)) {
+    return res.status(429).json({ error: "Too many attempts. Please wait a minute." });
+  }
   const row = db.prepare("SELECT recovery_hash FROM app_lock WHERE id = 1").get();
   if (!row) return res.status(404).json({ error: "No lock configured." });
 

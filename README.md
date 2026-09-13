@@ -1,6 +1,13 @@
-# Invest More v4.19.1
+# Invest More v4.19.2
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.19.2
+
+### Security — App Lock Setup Hardened + Brute-Force Rate Limiting
+
+- **Lock setup can no longer overwrite an existing lock** — `POST /api/lock/setup` is reachable before unlock (by design) but used `INSERT OR REPLACE` with no guard, so while the app was locked anyone could POST a new 6-digit PIN, replace the real one, and have the request marked authenticated — a full lockout/takeover. The route now returns `409 App lock is already configured.` when a lock exists; `Disable`/`Recovery` still delete the lock so setup becomes available again. Code: `server.js` (`/api/lock/setup`).
+- **Rate limiting on the lock endpoints** — `/api/lock/unlock`, `/api/lock/disable`, and `/api/lock/recovery` are limited to 10 attempts/min/IP (returns `429`), backed by an in-memory map swept every 5 min — matches Spend Less. Code: `server.js` (top-of-file limiter + the three lock routes).
 
 ## What's New in v4.19.1
 
