@@ -1382,6 +1382,7 @@ body { overflow-x: clip; }
 .header-icon-btn svg {
   display: block;
 }
+.header-icon-btn.spinning svg { animation: spin 0.8s linear infinite; }
 
 
 /* ── Skeleton Loading ── */

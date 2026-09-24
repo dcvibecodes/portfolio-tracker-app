@@ -1368,6 +1368,17 @@ classesArr.forEach(({ name }) => {
   }
   summary.top_gainer = topGainer;
 
+  // Worst performer of the day (only when actually down — a "loser" that is up is misleading)
+  let topLoser = null;
+  let topLossPct = Infinity;
+  for (const a of Object.values(assetDayChange)) {
+    if (a.day_change_pct < topLossPct) {
+      topLossPct = a.day_change_pct;
+      topLoser = { name: a.name, pct: a.day_change_pct };
+    }
+  }
+  summary.top_loser = topLoser && topLoser.pct < 0 ? topLoser : null;
+
   // Calculate total day change from cached quote data
   let totalDayChange = 0;
   const seenTickers = new Set();

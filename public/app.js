@@ -662,9 +662,12 @@ function positionChartTooltip(el, chart, tooltip) {
       totalItems.push({ label: "Day Change", value: toDisplayCurrency(summary.total.day_change), isDayChange: true, dayPct: summary.total.day_change_pct });
     }
 
-    // Top gainer today card
+    // Top gainer / loser today cards
     if (summary.top_gainer) {
-      totalItems.push({ label: "Top Gainer Today", isTopGainer: true, assetName: summary.top_gainer.name, pct: summary.top_gainer.pct });
+      totalItems.push({ label: "Top Gainer Today", isMover: true, assetName: summary.top_gainer.name, pct: summary.top_gainer.pct });
+    }
+    if (summary.top_loser) {
+      totalItems.push({ label: "Top Loser Today", isMover: true, assetName: summary.top_loser.name, pct: summary.top_loser.pct });
     }
 
     if (currencyConfigured && altRate && altCurrency && altCurrency !== baseCurrency) {
@@ -688,7 +691,7 @@ function positionChartTooltip(el, chart, tooltip) {
         div.innerHTML = `<div class="label">${item.label}</div>
                          <div class="value ${cls}">${curSym}${fmtWhole(Math.abs(item.value))}</div>
                          <div class="change ${cls}">${arrow} ${pct}</div>`;
-      } else if (item.isTopGainer) {
+      } else if (item.isMover) {
         const cls = item.pct >= 0 ? "positive" : "negative";
         const arrow = item.pct >= 0 ? "▲" : "▼";
         div.innerHTML = `<div class="label">${item.label}</div>
@@ -2254,23 +2257,24 @@ function positionChartTooltip(el, chart, tooltip) {
     loadHoldings();
   });
 
-  const refreshSvgIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"/><path d="M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"/></svg>`;
-
   document.getElementById("refresh-prices-btn").addEventListener("click", async function() {
     const btn = this;
-    btn.disabled = true; btn.innerHTML = refreshSvgIcon + ' <span style="font-size:0.68rem">…</span>';
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.classList.add("spinning");
     try {
       const data = await apiFetch("/api/refresh-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: true }) });
-      btn.innerHTML = `<span style="font-size:0.68rem">✓ ${data.updated}</span>`;
-      setTimeout(() => { btn.innerHTML = refreshSvgIcon; btn.disabled = false; }, 3000);
+      toast(`Updated ${data.updated} prices`, "success");
       cachedRateData = null;
       invalidateDashboardCache();
       localStorage.removeItem(WATCHLIST_CACHE_KEY);
       loadHoldings(); loadDashboard();
       if (currentTab === "watchlist") loadWatchlist();
     } catch (e) {
-      btn.innerHTML = `<span style="font-size:0.68rem">✗</span>`;
-      setTimeout(() => { btn.innerHTML = refreshSvgIcon; btn.disabled = false; }, 3000);
+      toast(e.message || "Refresh failed", "error");
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("spinning");
     }
   });
 

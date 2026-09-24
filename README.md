@@ -1,6 +1,14 @@
-# Invest More v4.19.3
+# Invest More v4.19.4
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.19.4
+
+### Refresh Button Animation + Top Loser Today
+
+- **Refresh button now spins** — the header refresh button kept its icon but swapped it for `…` / `✓ N`. It now spins the icon in place (`.header-icon-btn.spinning svg` → `@keyframes spin`, 0.8s) and reports via a toast (`Updated N prices` / error) — matching Spend Less. Code: `public/app.js`, `public/style.css`.
+- **Top Loser Today card** — the Dashboard summary strip now shows a `Top Loser Today` card mirroring `Top Gainer Today` (worst day-change % among held assets). Both cards share one render branch (`isMover`); the loser is only emitted when the change is actually negative. Code: `server.js` (`/api/summary` → `summary.top_loser`), `public/app.js` (`renderDashboard`).
+- **No database change.**
 
 ## What's New in v4.19.3
 
