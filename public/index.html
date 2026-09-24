@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
   <script>
-    (function(){var s=localStorage.getItem('theme-preference');if(s==='dark')document.documentElement.setAttribute('data-theme','dark');else if(s==='light')document.documentElement.setAttribute('data-theme','light');else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.setAttribute('data-theme','light');})();
+    (function(){var s=localStorage.getItem('theme-preference');if(s==='dark')document.documentElement.setAttribute('data-theme','dark');else if(s==='light')document.documentElement.setAttribute('data-theme','light');else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.setAttribute('data-theme','light');var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',document.documentElement.getAttribute('data-theme')==='dark'?'#000000':'#f5efe6');})();
   </script>
   <link rel="stylesheet" href="/style.css" />
   <!-- Chart.js loaded at end of body with pinned version and SRI -->
