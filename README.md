@@ -1,6 +1,12 @@
-# Invest More v4.20.0
+# Invest More v4.20.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.20.1
+
+### API Tokens — Desktop-Only Management UI
+
+- **Mobile shows a notice instead of cramped controls** — the API Tokens card's create/revoke controls don't fit small screens, so on mobile (≤768px) the section shows a short note that token management is available on the desktop version. No server change.
 
 ## What's New in v4.20.0
 

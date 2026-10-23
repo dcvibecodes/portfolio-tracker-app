@@ -532,6 +532,7 @@ span.negative { color: var(--red); font-weight: 600; }
 .currency-setting-row label { display: flex; flex-direction: column; gap: 3px; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; }
 .settings-select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 0.8rem; background: var(--elevated); color: var(--text); min-width: 160px; min-height: 34px; font-family: inherit; box-shadow: var(--shadow-item); }
 .settings-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.api-tokens-mobile-note { display: none; }
 
 .ticker-name { font-weight: 600; min-width: 140px; }
 .ticker-symbol { color: var(--text-secondary); font-size: 0.76rem; flex: 1; }
@@ -1046,6 +1047,9 @@ body { overflow-x: clip; }
   .ticker-table td:nth-child(2),
   .ticker-table td:nth-child(3) { width: auto !important; }
   .ticker-edit-input { min-width: 90px; }
+
+  .api-tokens-desktop { display: none; }
+  .api-tokens-mobile-note { display: block; }
 
   #tab-holdings .table-wrap { display: none; }
   .pivot-table-wrap { display: none; }

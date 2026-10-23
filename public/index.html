@@ -660,6 +660,8 @@
       <section class="card">
         <h2>API Tokens</h2>
         <p class="settings-desc">Personal access tokens let an external agent you approve read your portfolio and log transactions you dictate, without your browser session. Tokens are bearer secrets — anyone holding one can use it.</p>
+        <p class="settings-desc api-tokens-mobile-note">API token management is available on the desktop version of Invest More. Please open Settings on a larger screen to create or revoke tokens.</p>
+        <div class="api-tokens-desktop">
         <div class="settings-add">
           <input type="text" id="settings-token-name" placeholder="Token name (e.g. agent)" maxlength="80" />
           <select id="settings-token-profile" class="settings-select">
@@ -692,6 +694,7 @@
               <tr><td colspan="5"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:80px"></div></div></td></tr>
             </tbody>
           </table>
+        </div>
         </div>
       </section>
 

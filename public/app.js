@@ -2309,6 +2309,8 @@ function positionChartTooltip(el, chart, tooltip) {
   async function loadTokens() {
     const tbody = document.getElementById("settings-tokens-list");
     if (!tbody) return;
+    // Token management is desktop-only; mobile shows a notice instead.
+    if (window.matchMedia("(max-width: 768px)").matches) return;
     try {
       const data = await apiFetch("/api/tokens");
       const tokens = data.tokens || [];
