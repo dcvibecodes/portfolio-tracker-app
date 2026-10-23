@@ -2297,7 +2297,45 @@ function positionChartTooltip(el, chart, tooltip) {
       renderSettingsList("settings-brokers-list", brokersData, "brokers");
       renderTickersList(tickers);
       loadLockSettings();
+      loadTokens();
     } catch(e) { toast("Failed to load settings", "error"); }
+  }
+
+  //--- API Tokens (personal access tokens, session-only management) ---
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  async function loadTokens() {
+    const tbody = document.getElementById("settings-tokens-list");
+    if (!tbody) return;
+    try {
+      const data = await apiFetch("/api/tokens");
+      const tokens = data.tokens || [];
+      if (tokens.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="settings-desc">No API tokens yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = tokens.map((t) => {
+        const revoked = !!t.revoked_at;
+        const action = revoked
+          ? `<span class="settings-desc">Revoked</span>`
+          : `<button type="button" class="cancel-btn" data-token-revoke="${t.id}">Revoke</button>`;
+        return `<tr><td>${escapeHtml(t.name)}</td><td>${t.profile === "write" ? "Read + write" : "Read only"}</td><td>${escapeHtml(t.created_at || "")}</td><td>${escapeHtml(t.last_used_at || "—")}</td><td class="col-actions">${action}</td></tr>`;
+      }).join("");
+      tbody.querySelectorAll("[data-token-revoke]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const msg = document.getElementById("settings-token-message");
+          try {
+            await apiFetch("/api/tokens/" + btn.getAttribute("data-token-revoke") + "/revoke", { method: "POST" });
+            if (msg) { msg.textContent = "Token revoked."; msg.className = "form-msg success"; }
+            loadTokens();
+          } catch (e) { if (msg) { msg.textContent = e.message || "Failed"; msg.className = "form-msg error"; } }
+        });
+      });
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="5" class="settings-desc">Token management needs the app lock set up first.</td></tr>`;
+    }
   }
 
   function renderSettingsList(listId, items, endpoint) {
@@ -2967,6 +3005,43 @@ function positionChartTooltip(el, chart, tooltip) {
   });
 
   document.querySelectorAll('#settings-pin, #settings-pin-confirm, #settings-disable-pin').forEach(input => { input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); }); });
+
+  //--- API Tokens UI wiring ---
+  const tokenProfileSelect = document.getElementById("settings-token-profile");
+  if (tokenProfileSelect) {
+    const syncTokenWarning = () => {
+      document.getElementById("settings-token-profile-warning").style.display = tokenProfileSelect.value === "write" ? "block" : "none";
+    };
+    tokenProfileSelect.addEventListener("change", syncTokenWarning);
+    syncTokenWarning();
+  }
+  const tokenAddBtn = document.getElementById("settings-token-add-btn");
+  if (tokenAddBtn) {
+    tokenAddBtn.addEventListener("click", async () => {
+      const msg = document.getElementById("settings-token-message");
+      const name = document.getElementById("settings-token-name").value;
+      const profile = document.getElementById("settings-token-profile").value;
+      try {
+        const data = await apiFetch("/api/tokens", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, profile }) });
+        document.getElementById("settings-token-once").style.display = "block";
+        document.getElementById("settings-token-once-value").value = data.token;
+        document.getElementById("settings-token-name").value = "";
+        if (msg) { msg.textContent = "Token created. Copy it now — it will never be shown again."; msg.className = "form-msg success"; }
+        loadTokens();
+      } catch (e) { if (msg) { msg.textContent = e.message || "Failed"; msg.className = "form-msg error"; } }
+    });
+  }
+  const tokenCopyBtn = document.getElementById("settings-token-copy-btn");
+  if (tokenCopyBtn) {
+    tokenCopyBtn.addEventListener("click", async () => {
+      const input = document.getElementById("settings-token-once-value");
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(input.value);
+        else { input.select(); document.execCommand("copy"); }
+        toast("Token copied", "success");
+      } catch (e) { input.select(); toast("Copy it manually — shown only once", "info"); }
+    });
+  }
   document.getElementById("settings-pin-confirm").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("settings-lock-enable").click(); } });
   document.getElementById("settings-disable-pin").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("settings-lock-disable").click(); } });
 

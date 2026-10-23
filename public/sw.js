@@ -40,7 +40,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // API requests: network-first, no cache fallback
+  // API requests: network-first, never cached. Requests carrying an
+  // Authorization header (personal access tokens) and any /api/tokens*
+  // response must NEVER touch the cache.
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -53,7 +55,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: network-first
+  // Static assets: network-first. Never cache requests carrying an
+  // Authorization header (bearer tokens must stay out of the cache).
+  if (event.request.headers.has("authorization")) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
 event.respondWith(
   fetch(event.request)
     .then((response) => {

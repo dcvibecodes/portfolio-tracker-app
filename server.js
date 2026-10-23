@@ -36,7 +36,36 @@ setInterval(() => {
   for (const [key, entry] of rateLimitMap) {
     if (now > entry.resetAt) rateLimitMap.delete(key);
   }
+  for (const [key, entry] of tokenFailMap) {
+    if (now > entry.resetAt) tokenFailMap.delete(key);
+  }
+  for (const [key, entry] of tokenBucketMap) {
+    if (now > entry.resetAt) tokenBucketMap.delete(key);
+  }
 }, 5 * 60 * 1000);
+
+// --- Token rate limiting (windowed buckets, same in-memory pattern) ---
+const tokenFailMap = new Map(); // key `tokenfail:<ip>` -> { count, resetAt }, 60/hour
+const tokenBucketMap = new Map(); // key `token:<tokenHash>` -> { count, resetAt }, 300/hour
+const TOKEN_FAIL_MAX = 60;
+const TOKEN_FAIL_WINDOW = 60 * 60 * 1000; // 1 hour
+const TOKEN_BUCKET_MAX = 300;
+const TOKEN_BUCKET_WINDOW = 60 * 60 * 1000; // 1 hour
+
+function rateLimitWindowed(map, key, max, windowMs) {
+  const now = Date.now();
+  let entry = map.get(key);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 1, resetAt: now + windowMs };
+    map.set(key, entry);
+    return true;
+  }
+  entry.count++;
+  if (entry.count > max) {
+    return false;
+  }
+  return true;
+}
 
 const dataDir = path.join(__dirname, "data");
 if (!fs.existsSync(dataDir)) {
@@ -149,6 +178,26 @@ db.exec(`
     close_date TEXT,
     notes TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS personal_access_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    profile TEXT NOT NULL DEFAULT 'read' CHECK (profile IN ('read','write')),
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT,
+    revoked_at TEXT
+  );
+  CREATE TABLE IF NOT EXISTS idempotency_keys (
+    token_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    method TEXT NOT NULL,
+    route TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    holding_id INTEGER,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (token_id, key)
   );
 `);
 try { db.exec("ALTER TABLE holdings ADD COLUMN ticker TEXT DEFAULT '';"); } catch (e) {}
@@ -498,6 +547,119 @@ app.use(session({
   cookie: { httpOnly: true, secure: false, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
+// --- Personal access tokens (Bearer auth for external agents) ---
+function hashToken(raw) {
+  return crypto.createHash("sha256").update(raw).digest("hex");
+}
+
+function bearerToken(req) {
+  const header = req.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+function denyToken(res) {
+  return res.status(403).json({ error: "This token is not allowed to use this endpoint" });
+}
+
+function tokenAuth(req, res, next) {
+  const header = req.get("authorization") || "";
+  if (!header) return next(); // no token: session flow proceeds exactly as today
+  // An Authorization header IS present: it must be a valid Bearer token.
+  // A bad Bearer token must NEVER fall through to cookie auth or fail-open mode.
+  const raw = bearerToken(req);
+  const failKey = `tokenfail:${req.ip}`;
+  if (!raw) {
+    if (!rateLimitWindowed(tokenFailMap, failKey, TOKEN_FAIL_MAX, TOKEN_FAIL_WINDOW)) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(429).json({ error: "Too many invalid token attempts. Try again later." });
+    }
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(401).json({ error: "Invalid or revoked token" });
+  }
+  const tokenHash = hashToken(raw);
+  let row;
+  try {
+    row = db.prepare("SELECT id, name, profile FROM personal_access_tokens WHERE token_hash = ? AND revoked_at IS NULL").get(tokenHash);
+  } catch (e) {
+    return next(e);
+  }
+  if (!row) {
+    if (!rateLimitWindowed(tokenFailMap, failKey, TOKEN_FAIL_MAX, TOKEN_FAIL_WINDOW)) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(429).json({ error: "Too many invalid token attempts. Try again later." });
+    }
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(401).json({ error: "Invalid or revoked token" });
+  }
+  req.token = { id: row.id, name: row.name, profile: row.profile };
+  req.tokenHash = tokenHash;
+  try {
+    db.prepare("UPDATE personal_access_tokens SET last_used_at = ? WHERE id = ?").run(new Date().toISOString(), row.id);
+  } catch (e) {}
+  return next();
+}
+
+// Per-token rate limit bucket: 300 requests/hour. Runs after tokenAuth.
+function tokenRateLimit(req, res, next) {
+  if (!req.token) return next();
+  if (!rateLimitWindowed(tokenBucketMap, `token:${req.tokenHash}`, TOKEN_BUCKET_MAX, TOKEN_BUCKET_WINDOW)) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(429).json({ error: "Token rate limit reached. Slow down and try again later." });
+  }
+  return next();
+}
+
+// Cache hygiene: every token-authenticated response and every /api/tokens*
+// response carries `Cache-Control: no-store`.
+function tokenCacheHeaders(req, res, next) {
+  if (req.token || req.path.startsWith("/api/tokens")) {
+    res.setHeader("Cache-Control", "no-store");
+  }
+  return next();
+}
+
+// Token scope gate (default-deny). Mounted at app root so req.path is the full
+// pathname; MUST run before any route handler that can terminate a request
+// (including GET /api/csrf-token and the /api/lock/* handlers registered
+// before authMiddleware).
+const TOKEN_READ_GETS = new Set([
+  "/api/holdings",
+  "/api/summary",
+  "/api/allocation",
+  "/api/breakdown",
+  "/api/closed-positions",
+  "/api/capital-gains",
+  "/api/monthly-investments",
+  "/api/vintage-returns",
+  "/api/watchlist",
+  "/api/settings/asset-classes",
+  "/api/settings/asset-types",
+  "/api/settings/brokers",
+  "/api/settings/tickers",
+  "/api/settings/currency",
+  "/api/autocomplete/assets",
+  "/api/assets/names",
+  "/api/ticker-for-asset",
+  "/api/exchange-rate",
+]);
+
+function tokenScopeGate(req, res, next) {
+  if (!req.token) return next();
+  const method = req.method;
+  const pathname = req.path;
+  if (method === "GET") {
+    if (TOKEN_READ_GETS.has(pathname)) return next();
+    if (/^\/api\/holdings\/\d+$/.test(pathname)) return next(); // numeric id only
+    if (/^\/api\/price\/[^/]+$/.test(pathname)) return next();
+    return denyToken(res);
+  }
+  if (method === "POST" && pathname === "/api/holdings" && req.token.profile === "write") {
+    return next();
+  }
+  return denyToken(res);
+}
+
 // --- CSRF Protection ---
 const CSRF_EXEMPT_PATHS = [
   "/api/lock/status",
@@ -516,6 +678,11 @@ function csrfTokenMiddleware(req, res, next) {
 }
 
 function csrfProtectionMiddleware(req, res, next) {
+  if (req.token) return next(); // token-authenticated requests skip CSRF (no session)
+  // Token management is handled (including its own CSRF check for sessions)
+  // by requireTokenManager so unauthenticated callers get 401/403, not a
+  // CSRF error.
+  if (req.path === "/api/tokens" || req.path.startsWith("/api/tokens/")) return next();
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
   if (CSRF_EXEMPT_PATHS.includes(req.path)) return next();
   const token = req.headers["x-csrf-token"];
@@ -526,6 +693,13 @@ function csrfProtectionMiddleware(req, res, next) {
 }
 
 function authMiddleware(req, res, next) {
+  // Token-authenticated requests: allow /api/* through (the scope gate
+  // decides); never serve app HTML or the lock page to a token. Applies
+  // regardless of whether an app_lock row exists.
+  if (req.token) {
+    if (req.path.startsWith("/api/")) return next();
+    return denyToken(res);
+  }
   const openPaths = [
   "/api/lock/status",
   "/api/lock/unlock",
@@ -631,6 +805,13 @@ function getLoginPage() {
 </body>
 </html>`;
 }
+
+app.use(tokenAuth);
+app.use(tokenRateLimit);
+app.use(tokenCacheHeaders);
+// Scope gate MUST run before any route handler that can terminate a request,
+// including the early GET /api/csrf-token handler below.
+app.use(tokenScopeGate);
 
 app.use(csrfTokenMiddleware);
 
@@ -877,7 +1058,171 @@ app.get("/api/holdings", (req, res) => {
   res.json(rows);
 });
 
+// --- Token-authenticated idempotent holding creation (tokens only) ---
+const TOKEN_NUMERIC_FIELDS = ["buy_price", "quantity", "invested_amount", "invested_base"];
+
+function validateTokenNumerics(body) {
+  // Strict validation: each declared numeric field, when present, must be a
+  // finite number. Garbage and null must never collapse into one fingerprint.
+  const normalized = {};
+  for (const field of TOKEN_NUMERIC_FIELDS) {
+    const v = body[field];
+    if (v === undefined || v === null || v === "") continue; // absent
+    let n;
+    if (typeof v === "number") {
+      n = v;
+    } else if (typeof v === "string") {
+      if (!v.trim()) continue; // blank string counts as absent
+      n = Number(v);
+    } else {
+      return { error: `Invalid numeric field: ${field}. Must be a finite number.` };
+    }
+    if (!Number.isFinite(n)) {
+      return { error: `Invalid numeric field: ${field}. Must be a finite number.` };
+    }
+    normalized[field] = n;
+  }
+  return { normalized };
+}
+
+function fingerprintTokenPayload(body, normalized) {
+  // Canonical form: object keys sorted; declared numeric fields in normalized
+  // number form (1700 vs "1700" stable); string fields kept exact, no case
+  // folding or extra trimming. The idempotency_key body field is excluded.
+  const canonical = {};
+  for (const k of Object.keys(body).filter((key) => key !== "idempotency_key").sort()) {
+    if (TOKEN_NUMERIC_FIELDS.includes(k) && normalized[k] !== undefined) {
+      canonical[k] = normalized[k];
+    } else {
+      canonical[k] = body[k];
+    }
+  }
+  return crypto.createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+}
+
+function sleepSyncMs(ms) {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  } catch (e) {}
+}
+
+function handleTokenHoldingCreate(req, res) {
+  const body = req.body || {};
+  const rawKey = req.get("Idempotency-Key") !== undefined ? req.get("Idempotency-Key") : body.idempotency_key;
+  if (rawKey === undefined || rawKey === null) {
+    return res.status(400).json({ error: "Idempotency-Key header is required for API creates" });
+  }
+  if (typeof rawKey !== "string" || !rawKey.trim() || rawKey.trim().length > 200) {
+    return res.status(400).json({ error: "Invalid idempotency key" });
+  }
+  const idemKey = rawKey.trim();
+
+  const numCheck = validateTokenNumerics(body);
+  if (numCheck.error) return res.status(400).json({ error: numCheck.error });
+  const normalized = numCheck.normalized;
+  const payloadHash = fingerprintTokenPayload(body, normalized);
+
+  const tokenId = req.token.id;
+  const now = new Date().toISOString();
+
+  const createTxn = db.transaction(() => {
+    const claim = db.prepare("SELECT method, route, payload_hash, holding_id FROM idempotency_keys WHERE token_id = ? AND key = ?").get(tokenId, idemKey);
+    if (claim) {
+      if (claim.method !== "POST" || claim.route !== "/api/holdings" || claim.payload_hash !== payloadHash) {
+        throw { status: 409, message: "Idempotency key reused with a different payload" };
+      }
+      if (claim.holding_id != null) {
+        const holding = db.prepare("SELECT id FROM holdings WHERE id = ?").get(claim.holding_id);
+        if (holding) return { id: claim.holding_id, deduplicated: true };
+        return { id: claim.holding_id, deduplicated: true, deleted: true };
+      }
+      throw { status: 409, message: "Idempotency key already in use" };
+    }
+
+    // Claim the key first; everything below commits atomically or rolls back
+    // together (claim + holding + FIFO rebuild), so a retry is always safe.
+    db.prepare("INSERT INTO idempotency_keys (token_id, key, method, route, payload_hash, holding_id, created_at) VALUES (?, ?, 'POST', '/api/holdings', ?, NULL, ?)").run(tokenId, idemKey, payloadHash, now);
+
+    // Same validation semantics as the session route
+    const { date, name, asset_class, asset_type, broker, txn_type, currency, notes, ticker } = body;
+    if (!isValidDate(date)) throw { status: 400, message: "Invalid date format (YYYY-MM-DD)." };
+    if (!name || !asset_class) throw { status: 400, message: "Name and asset class are required." };
+
+    const type = (txn_type || "buy").toLowerCase();
+    let qty = normalized.quantity !== undefined ? normalized.quantity : 0;
+    let amt = normalized.invested_amount !== undefined ? normalized.invested_amount : 0;
+    if (type === "sell") {
+      qty = -Math.abs(qty);
+      amt = -Math.abs(amt);
+    }
+
+    // Ticker map is read-only for tokens: resolve blank tickers, never upsert.
+    let resolvedTicker = (ticker || "").trim();
+    if (!resolvedTicker) {
+      const mapped = db.prepare("SELECT ticker FROM ticker_map WHERE asset_name = ?").get(name.trim());
+      if (mapped) resolvedTicker = mapped.ticker;
+    } else {
+      const mapped = db.prepare("SELECT ticker FROM ticker_map WHERE asset_name = ?").get(name.trim());
+      if (!mapped) throw { status: 409, message: "Add the ticker mapping in the app UI first" };
+      if (mapped.ticker !== resolvedTicker) throw { status: 409, message: "Ticker conflicts with the existing mapping; change it in the app UI" };
+    }
+
+    const defaultCur = getDefaultCurrency();
+    const holdingCurrency = (currency || defaultCur || "INR").toUpperCase();
+    const baseMissing = body.invested_base === undefined || body.invested_base === null || body.invested_base === "" || (typeof body.invested_base === "string" && !body.invested_base.trim());
+    if (defaultCur && holdingCurrency && holdingCurrency !== defaultCur && baseMissing) {
+      throw { status: 400, message: "invested_base is required for foreign-currency entries" };
+    }
+    let investedBase = null;
+    if (defaultCur && holdingCurrency && holdingCurrency !== defaultCur && !baseMissing) {
+      const baseNum = normalized.invested_base;
+      investedBase = type === "sell" ? -Math.abs(baseNum) : baseNum;
+    }
+
+    const result = db.prepare(`
+      INSERT INTO holdings (date, name, asset_class, asset_type, broker, txn_type, buy_price, quantity, invested_amount, currency, notes, ticker, invested_base)
+      VALUES (@date, @name, @asset_class, @asset_type, @broker, @txn_type, @buy_price, @quantity, @invested_amount, @currency, @notes, @ticker, @invested_base)
+    `).run({
+      date,
+      name: name.trim(),
+      asset_class: asset_class.trim(),
+      asset_type: (asset_type || "").trim(),
+      broker: (broker || "").trim(),
+      txn_type: type,
+      buy_price: normalized.buy_price !== undefined ? normalized.buy_price : 0,
+      quantity: qty,
+      invested_amount: amt,
+      currency: holdingCurrency,
+      notes: (notes || "").trim(),
+      ticker: resolvedTicker,
+      invested_base: investedBase
+    });
+
+    rebuildAssetLots(name.trim());
+    db.prepare("UPDATE idempotency_keys SET holding_id = ? WHERE token_id = ? AND key = ?").run(result.lastInsertRowid, tokenId, idemKey);
+    return { id: Number(result.lastInsertRowid) };
+  });
+
+  // Bounded busy handling: BEGIN IMMEDIATE can hit SQLITE_BUSY under
+  // contention (e.g. a second connection touching the same DB file).
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const outcome = createTxn.immediate();
+      if (outcome.deduplicated) return res.json(outcome); // 200 replay
+      return res.status(201).json({ id: outcome.id });
+    } catch (e) {
+      if (e && e.status) return res.status(e.status).json({ error: e.message });
+      if (e && /BUSY|LOCKED/i.test(e && e.message ? e.message : "") && attempt < 5) {
+        sleepSyncMs(50);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 app.post("/api/holdings", (req, res) => {
+  if (req.token) return handleTokenHoldingCreate(req, res);
   const { date, name, asset_class, asset_type, broker, txn_type, buy_price, quantity, invested_amount, currency, notes, ticker, invested_base } = req.body;
   if (!isValidDate(date)) return res.status(400).json({ error: "Invalid date format (YYYY-MM-DD)." });
   if (!name || !asset_class) return res.status(400).json({ error: "Name and asset class are required." });
@@ -1927,6 +2272,62 @@ app.post("/api/lock/logout", (req, res) => {
     res.clearCookie("connect.sid");
     return res.json({ success: true });
   });
+});
+
+// --- PERSONAL ACCESS TOKEN MANAGEMENT (session-only, never token-managed) ---
+function requireTokenManager(req, res) {
+  // Stricter than the rest of the app: explicit session auth required, and a
+  // configured app lock is mandatory even in fail-open (no-lock) mode.
+  const lockRow = db.prepare("SELECT id FROM app_lock WHERE id = 1").get();
+  if (!lockRow) {
+    res.status(403).json({ error: "Set up the app lock before managing API tokens." });
+    return false;
+  }
+  if (!req.session || req.session.authenticated !== true) {
+    res.status(401).json({ error: "Unauthorized. Please unlock the app first." });
+    return false;
+  }
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    const csrf = req.headers["x-csrf-token"];
+    if (!csrf || csrf !== req.session.csrfToken) {
+      res.status(403).json({ error: "Invalid CSRF token. Please refresh and try again." });
+      return false;
+    }
+  }
+  return true;
+}
+
+app.get("/api/tokens", (req, res) => {
+  if (!requireTokenManager(req, res)) return;
+  res.setHeader("Cache-Control", "no-store");
+  const tokens = db.prepare("SELECT id, name, profile, created_at, last_used_at, revoked_at FROM personal_access_tokens ORDER BY id").all();
+  res.json({ tokens });
+});
+
+app.post("/api/tokens", (req, res) => {
+  if (!requireTokenManager(req, res)) return;
+  res.setHeader("Cache-Control", "no-store");
+  const { name, profile } = req.body || {};
+  const tokenName = name === undefined || name === null || String(name).trim() === "" ? "agent" : String(name).trim();
+  if (tokenName.length > 80) return res.status(400).json({ error: "Token name must be 80 characters or fewer." });
+  const tokenProfile = profile === undefined ? "read" : profile;
+  if (tokenProfile !== "read" && tokenProfile !== "write") {
+    return res.status(400).json({ error: "Profile must be 'read' or 'write'." });
+  }
+  const raw = crypto.randomBytes(48).toString("base64url");
+  const createdAt = new Date().toISOString();
+  const result = db.prepare("INSERT INTO personal_access_tokens (name, profile, token_hash, created_at) VALUES (?, ?, ?, ?)").run(tokenName, tokenProfile, hashToken(raw), createdAt);
+  // The raw token is shown exactly once, in this response only.
+  res.status(201).json({ id: Number(result.lastInsertRowid), name: tokenName, profile: tokenProfile, token: raw, created_at: createdAt });
+});
+
+app.post("/api/tokens/:id/revoke", (req, res) => {
+  if (!requireTokenManager(req, res)) return;
+  res.setHeader("Cache-Control", "no-store");
+  if (!/^\d+$/.test(req.params.id || "")) return res.status(404).json({ error: "Token not found." });
+  const result = db.prepare("UPDATE personal_access_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL").run(new Date().toISOString(), Number(req.params.id));
+  if (result.changes === 0) return res.status(404).json({ error: "Token not found." });
+  res.json({ success: true });
 });
 
 // --- EXPORT / IMPORT APIs (fix #5.4) ---

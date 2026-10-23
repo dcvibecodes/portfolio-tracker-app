@@ -1,6 +1,52 @@
-# Invest More v4.19.5
+# Invest More v4.20.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.20.0
+
+### Personal Access Tokens — Scoped API Access for Approved Agents
+
+- **Two token profiles** — every token is `read` (default, portfolio/reference GETs only) or `write` (read plus `POST /api/holdings` for single ledger entries). Nothing else is token-reachable: edits, deletes, batch ops, renames, price refreshes, settings writes, import/export, lock routes, and token management itself stay browser-session-only. Code: `server.js` (`tokenAuth`, `tokenScopeGate`).
+- **Atomic, idempotent creates** — token creates require an `Idempotency-Key`; claim + validation + insert + FIFO rebuild commit as one `BEGIN IMMEDIATE` transaction, so concurrent replays create exactly one row and any failure leaves nothing behind for a safe retry. Code: `server.js` (`handleTokenHoldingCreate`).
+- **Token create guards** — the ticker map is read-only for tokens (unknown/conflicting tickers are a `409`, map them in the app UI first) and `invested_base` is required on foreign-currency entries. Session (browser) creates are unchanged.
+- **Manage in Settings → API Tokens** — name + profile picker (write shows a warning), one-time copyable token, per-token revoke. Tokens are SHA-256 hashes at rest; the raw value exists only in the creation response.
+- **No database change to existing tables.** Two new tables (`personal_access_tokens`, `idempotency_keys`); export/import ignore them.
+
+## API Tokens
+
+Tokens authenticate with `Authorization: Bearer $TEST_TOKEN`. Serve the app over HTTPS before using tokens — they are bearer secrets and travel in one header.
+
+A token profile is technical capability, not permission: only log transactions the owner has explicitly dictated after they happened. Never invent, edit, or delete entries on the agent's own initiative.
+
+### Profiles and allowlists
+
+- `read` (default) — `GET` only: `/api/holdings`, `/api/holdings/:id` (numeric id), `/api/summary`, `/api/allocation`, `/api/breakdown`, `/api/closed-positions`, `/api/capital-gains`, `/api/monthly-investments`, `/api/vintage-returns`, `/api/watchlist`, `/api/settings/asset-classes`, `/api/settings/asset-types`, `/api/settings/brokers`, `/api/settings/tickers`, `/api/settings/currency`, `/api/autocomplete/assets`, `/api/assets/names`, `/api/ticker-for-asset`, `/api/exchange-rate`, `/api/price/:ticker`.
+- `write` — everything in `read`, plus `POST /api/holdings` (idempotency key required, see below).
+- Everything else (`PUT`/`DELETE /api/holdings/:id`, copy, batch-update, batch-delete, rename-asset, refresh-prices, all watchlist/settings writes, export, import, lock routes, csrf-token, token management) returns `403` for tokens. Unknown, revoked, or malformed tokens return `401` and never fall through to session auth. Non-`/api` paths are never served to tokens.
+
+### Creating transactions (write tokens)
+
+- Send the key in the `Idempotency-Key` header (or `idempotency_key` body field). Missing key → `400`; empty/overlong key → `400`.
+- Fresh create → `201 { id }`. Replaying the same key with the same payload → `200 { id, deduplicated: true }` (no new row). Same key with a different payload → `409`. If the original holding was later deleted in the UI, replaying returns `200 { id, deduplicated: true, deleted: true }` and does NOT recreate it.
+- Keep `buy_price`/`quantity`/`invested_amount`/`invested_base` as finite numbers (`1700` and `"1700"` are treated the same; `NaN`/`Infinity`/non-numeric strings are rejected with `400`).
+- `ticker` must be blank (resolved from the existing mapping) or exactly match the mapped ticker for that asset name; otherwise `409` — add or fix the mapping in Settings → Ticker Mapping first. Token requests never write the ticker map.
+- Foreign-currency entries (currency differs from the base currency) require `invested_base` → else `400`. Sell entries keep the server's sign-negation (send positive magnitudes).
+
+### Rate limits and caching
+
+- Invalid-token failures: 60/hour per client IP, then `429`. Valid tokens: 300 requests/hour per token (`429 { error: "Token rate limit reached. Slow down and try again later." }`).
+- Every token-authenticated response and every `/api/tokens*` response carries `Cache-Control: no-store`; the service worker never caches `Authorization`-bearing requests or token responses.
+
+Example:
+
+```bash
+curl -H "Authorization: Bearer $TEST_TOKEN" http://localhost:3001/api/summary
+curl -X POST http://localhost:3001/api/holdings \
+  -H "Authorization: Bearer $TEST_WRITE_TOKEN" \
+  -H "Idempotency-Key: k-inr-1" \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2026-01-15","name":"API TEST FUND","asset_class":"<existing asset class>","txn_type":"buy","buy_price":100,"quantity":1,"invested_amount":100,"currency":"INR","notes":"api test"}'
+```
 
 ## What's New in v4.19.5
 
