@@ -1,6 +1,16 @@
-# Invest More v4.20.1
+# Invest More v4.21.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.21.0
+
+### Token Edits — Scoped Single-Entry Corrections (Option A)
+
+- **Write tokens can now edit one existing transaction** — `PUT /api/holdings/:id` (numeric id only) joins the `write` profile; every active write token gains edit access, no rotation needed. Still token-forbidden: deletes, batch operations, copy, rename-asset, price refreshes, settings writes, export/import, and token management. Code: `server.js` (`handleTokenHoldingUpdate`).
+- **Partial-update contract** — only the fields present in the edit body change; omitted fields (including stored negative sell values) pass through untouched. Any unknown top-level field (e.g. `note`) is a `400`, and unknown keys inside `expected` are a `400`.
+- **Stale-write precondition** — token edits SHOULD send `expected` with the values the edit was based on; if the stored entry changed in the meantime (e.g. a manual UI correction), the edit aborts with `409` instead of overwriting it. Claim lookup runs before the precondition, so an identical retry still replays cleanly with `200 { id, deduplicated: true }`.
+- **Token edit guards** — `Idempotency-Key` required (replay/`409`/`deleted:true` semantics identical to creates, including route + method namespacing); ticker map stays read-only (`409` on conflict or unknown mapping); `invested_base` required on foreign-currency entries and on `txn_type` flips; a `txn_type` change requires `quantity` + `invested_amount` in the same edit. Renaming via a token edit renames only that single entry — bulk rename stays browser-only. Session (browser) edits are unchanged (full replacement).
+- **Settings UI** — the write profile description now states it can add AND edit individual transactions, and lists what it cannot do. Manage in Settings → API Tokens.
 
 ## What's New in v4.20.1
 
@@ -22,13 +32,13 @@ Self-hosted investment portfolio tracker for any asset class, currency, and brok
 
 Tokens authenticate with `Authorization: Bearer $TEST_TOKEN`. Serve the app over HTTPS before using tokens — they are bearer secrets and travel in one header.
 
-A token profile is technical capability, not permission: only log transactions the owner has explicitly dictated after they happened. Never invent, edit, or delete entries on the agent's own initiative.
+A token profile is technical capability, not permission: only log transactions the owner has explicitly dictated after they happened, and only edit the specific entry the owner has explicitly named. Flag suspected mistakes for owner approval before changing them. Never invent or delete entries on the agent's own initiative.
 
 ### Profiles and allowlists
 
 - `read` (default) — `GET` only: `/api/holdings`, `/api/holdings/:id` (numeric id), `/api/summary`, `/api/allocation`, `/api/breakdown`, `/api/closed-positions`, `/api/capital-gains`, `/api/monthly-investments`, `/api/vintage-returns`, `/api/watchlist`, `/api/settings/asset-classes`, `/api/settings/asset-types`, `/api/settings/brokers`, `/api/settings/tickers`, `/api/settings/currency`, `/api/autocomplete/assets`, `/api/assets/names`, `/api/ticker-for-asset`, `/api/exchange-rate`, `/api/price/:ticker`.
-- `write` — everything in `read`, plus `POST /api/holdings` (idempotency key required, see below).
-- Everything else (`PUT`/`DELETE /api/holdings/:id`, copy, batch-update, batch-delete, rename-asset, refresh-prices, all watchlist/settings writes, export, import, lock routes, csrf-token, token management) returns `403` for tokens. Unknown, revoked, or malformed tokens return `401` and never fall through to session auth. Non-`/api` paths are never served to tokens.
+- `write` — everything in `read`, plus `POST /api/holdings` (single creates) and `PUT /api/holdings/:id` (single-entry edits, numeric id only). Both require an idempotency key.
+- Everything else (`DELETE /api/holdings/:id`, `:id/copy`, batch-update, batch-delete, rename-asset, refresh-prices, all watchlist/settings writes, export, import, lock routes, csrf-token, token management) returns `403` for tokens. Unknown, revoked, or malformed tokens return `401` and never fall through to session auth. Non-`/api` paths are never served to tokens.
 
 ### Creating transactions (write tokens)
 
@@ -37,6 +47,18 @@ A token profile is technical capability, not permission: only log transactions t
 - Keep `buy_price`/`quantity`/`invested_amount`/`invested_base` as finite numbers (`1700` and `"1700"` are treated the same; `NaN`/`Infinity`/non-numeric strings are rejected with `400`).
 - `ticker` must be blank (resolved from the existing mapping) or exactly match the mapped ticker for that asset name; otherwise `409` — add or fix the mapping in Settings → Ticker Mapping first. Token requests never write the ticker map.
 - Foreign-currency entries (currency differs from the base currency) require `invested_base` → else `400`. Sell entries keep the server's sign-negation (send positive magnitudes).
+
+### Editing transactions (write tokens)
+
+- `PUT /api/holdings/:id` with a partial body — `date`, `name`, `asset_class`, `asset_type`, `broker`, `txn_type`, `buy_price`, `quantity`, `invested_amount`, `invested_base`, `currency`, `notes`, `ticker`, plus `idempotency_key` and `expected`. Omitted fields are preserved (never zeroed or blanked); any other top-level field → `400 { error: "Unknown field: <name>" }`.
+- Send positive magnitudes for provided `quantity`/`invested_amount`/`invested_base`; the server applies the sign for the merged `txn_type` (negative for sells). Omitted stored values keep their exact stored signs — a notes-only edit on a sell never re-negates anything. `buy_price` is never signed (positive for buys and sells, as the UI sends it).
+- SHOULD send `expected` with the stored values the edit is based on (same field names and value rules: numerics as numbers, `txn_type` case-insensitive, everything else exact-string). If the entry changed since the agent read it → `409 { error: "Holding changed since you read it; re-read and retry" }`, and nothing is written.
+- Send the key in the `Idempotency-Key` header (or `idempotency_key` body field). Fresh edit → `200 { id }`. Exact replay (claim found first, before `expected` and existence checks) → `200 { id, deduplicated: true }`, even if `expected` looks stale or the holding was deleted since (`200 { id, deduplicated: true, deleted: true }`, never recreated). Same key with a different payload → `409`; same key on a different holding id → `409` (route mismatch); a key used for a create reused on an edit (or vice versa) → `409` (method mismatch).
+- `ticker` is read-only as for creates: blank resolves from the existing mapping, a non-blank value must match it exactly, else `409`.
+- A foreign-currency entry (merged currency differs from the base currency) with a missing/empty `invested_base` → `400`; converting an entry to the base currency clears `invested_base`.
+- Changing `txn_type` requires `quantity` + `invested_amount` in the same edit → else `400` (a foreign-currency flip also requires `invested_base`), because the stored values carry the old sign.
+- Renaming via a token `PUT` renames only that single entry — bulk rename stays in the browser UI.
+- Browser-session edits are unchanged: keyless, full replacement, response `{ success: true }`.
 
 ### Rate limits and caching
 
@@ -52,6 +74,11 @@ curl -X POST http://localhost:3001/api/holdings \
   -H "Idempotency-Key: k-inr-1" \
   -H "Content-Type: application/json" \
   -d '{"date":"2026-01-15","name":"API TEST FUND","asset_class":"<existing asset class>","txn_type":"buy","buy_price":100,"quantity":1,"invested_amount":100,"currency":"INR","notes":"api test"}'
+curl -X PUT http://localhost:3001/api/holdings/123 \
+  -H "Authorization: Bearer $TEST_WRITE_TOKEN" \
+  -H "Idempotency-Key: k-edit-1" \
+  -H "Content-Type: application/json" \
+  -d '{"notes":"corrected by owner","expected":{"notes":"api test"}}'
 ```
 
 ## What's New in v4.19.5

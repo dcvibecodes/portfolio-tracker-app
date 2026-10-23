@@ -657,6 +657,12 @@ function tokenScopeGate(req, res, next) {
   if (method === "POST" && pathname === "/api/holdings" && req.token.profile === "write") {
     return next();
   }
+  // Option A (v4.21.0): write tokens may edit one existing transaction at a
+  // time. Numeric id only, so batch-delete, batch-update, rename-asset and
+  // :id/copy can never slip through. DELETE always stays denied for tokens.
+  if (method === "PUT" && /^\/api\/holdings\/\d+$/.test(pathname) && req.token.profile === "write") {
+    return next();
+  }
   return denyToken(res);
 }
 
@@ -1221,6 +1227,240 @@ function handleTokenHoldingCreate(req, res) {
   }
 }
 
+// --- Token-authenticated partial holding edits (tokens only) ---
+// Strict, partial, idempotent updates on ONE numeric-id row. Sessions keep
+// the full-replacement semantics below in app.put. See README "API Tokens".
+const TOKEN_EDITABLE_FIELDS = ["date", "name", "asset_class", "asset_type", "broker", "txn_type", "buy_price", "quantity", "invested_amount", "invested_base", "currency", "notes", "ticker"];
+const TOKEN_EDIT_BODY_FIELDS = new Set([...TOKEN_EDITABLE_FIELDS, "idempotency_key", "expected"]);
+
+function handleTokenHoldingUpdate(req, res) {
+  const id = Number(req.params.id);
+  const body = (req.body && typeof req.body === "object" && !Array.isArray(req.body)) ? req.body : {};
+
+  const rawKey = req.get("Idempotency-Key") !== undefined ? req.get("Idempotency-Key") : body.idempotency_key;
+  if (rawKey === undefined || rawKey === null) {
+    return res.status(400).json({ error: "Idempotency-Key header is required for API edits" });
+  }
+  if (typeof rawKey !== "string" || !rawKey.trim() || rawKey.trim().length > 200) {
+    return res.status(400).json({ error: "Invalid idempotency key" });
+  }
+  const idemKey = rawKey.trim();
+  const route = req.path; // concrete path, e.g. /api/holdings/123
+
+  // Strict body contract: unknown top-level fields fail loudly so a typo
+  // like `note` never silently does nothing.
+  for (const key of Object.keys(body)) {
+    if (!TOKEN_EDIT_BODY_FIELDS.has(key)) {
+      return res.status(400).json({ error: `Unknown field: ${key}` });
+    }
+  }
+
+  // Optional stale-write precondition. Structural checks only here; the
+  // comparison against the stored row happens inside the transaction, AFTER
+  // the idempotency-claim lookup (a retry carries pre-edit expectations).
+  let expected = body.expected;
+  if (expected !== undefined) {
+    if (!expected || typeof expected !== "object" || Array.isArray(expected)) {
+      return res.status(400).json({ error: "Invalid expected precondition" });
+    }
+    for (const key of Object.keys(expected)) {
+      if (!TOKEN_EDITABLE_FIELDS.includes(key)) {
+        return res.status(400).json({ error: `Unknown field in expected: ${key}` });
+      }
+    }
+    for (const field of TOKEN_NUMERIC_FIELDS) {
+      if (expected[field] === undefined || expected[field] === null || expected[field] === "") continue;
+      const n = typeof expected[field] === "number" ? expected[field] : Number(expected[field]);
+      if (typeof expected[field] !== "number" && typeof expected[field] !== "string") {
+        return res.status(400).json({ error: `Invalid numeric value in expected for field: ${field}` });
+      }
+      if (!Number.isFinite(n)) {
+        return res.status(400).json({ error: `Invalid numeric value in expected for field: ${field}` });
+      }
+    }
+    for (const key of Object.keys(expected)) {
+      if (key === "txn_type") {
+        if (typeof expected[key] !== "string") {
+          return res.status(400).json({ error: "Invalid expected value for field: txn_type" });
+        }
+      } else if (!TOKEN_NUMERIC_FIELDS.includes(key)) {
+        if (typeof expected[key] !== "string") {
+          return res.status(400).json({ error: `Invalid expected value for field: ${key}` });
+        }
+      }
+    }
+  } else {
+    expected = {};
+  }
+
+  // Numeric normalization is needed to fingerprint the payload; like the
+  // create path, blank/numeric-garbage validation happens before the txn.
+  const numCheck = validateTokenNumerics(body);
+  if (numCheck.error) return res.status(400).json({ error: numCheck.error });
+  const normalized = numCheck.normalized;
+  const payloadHash = fingerprintTokenPayload(body, normalized);
+
+  const tokenId = req.token.id;
+  const now = new Date().toISOString();
+
+  const editTxn = db.transaction(() => {
+    // Claim lookup comes FIRST: before the `expected` comparison, before
+    // merged-row validation, and before the holding existence check, so a
+    // retry with stale-looking `expected` still replays from the claim.
+    const claim = db.prepare("SELECT method, route, payload_hash, holding_id FROM idempotency_keys WHERE token_id = ? AND key = ?").get(tokenId, idemKey);
+    if (claim) {
+      if (claim.method !== "PUT" || claim.route !== route || claim.payload_hash !== payloadHash) {
+        throw { status: 409, message: "Idempotency key reused with a different operation or payload" };
+      }
+      if (claim.holding_id != null) {
+        const holding = db.prepare("SELECT id FROM holdings WHERE id = ?").get(claim.holding_id);
+        if (holding) return { id: claim.holding_id, deduplicated: true };
+        return { id: claim.holding_id, deduplicated: true, deleted: true };
+      }
+      throw { status: 409, message: "Idempotency key already in use" };
+    }
+
+    // Claim the key first; everything below commits atomically or rolls
+    // back together (row update + FIFO rebuild), so a retry is always safe.
+    db.prepare("INSERT INTO idempotency_keys (token_id, key, method, route, payload_hash, holding_id, created_at) VALUES (?, ?, 'PUT', ?, ?, ?, ?)").run(tokenId, idemKey, route, payloadHash, id, now);
+
+    const stored = db.prepare("SELECT * FROM holdings WHERE id = ?").get(id);
+    if (!stored) throw { status: 404, message: "Holding not found" };
+
+    // Stale-write precondition: compare against the current stored row.
+    for (const key of Object.keys(expected)) {
+      const want = expected[key];
+      if (TOKEN_NUMERIC_FIELDS.includes(key)) {
+        const wantNum = typeof want === "number" ? want : Number(want);
+        if (Number(stored[key]) !== wantNum) {
+          throw { status: 409, message: "Holding changed since you read it; re-read and retry" };
+        }
+      } else if (key === "txn_type") {
+        if (String(stored[key] || "buy").toLowerCase() !== String(want).toLowerCase()) {
+          throw { status: 409, message: "Holding changed since you read it; re-read and retry" };
+        }
+      } else {
+        if (String(stored[key] ?? "") !== want) {
+          throw { status: 409, message: "Holding changed since you read it; re-read and retry" };
+        }
+      }
+    }
+
+    // Partial update: omitted fields keep their stored values. Stored
+    // numerics already carry their persisted signs and are never re-negated.
+    const type = body.txn_type !== undefined ? String(body.txn_type).toLowerCase() : (stored.txn_type || "buy");
+    const typeChanged = body.txn_type !== undefined && type !== String(stored.txn_type || "buy").toLowerCase();
+    const merged = {
+      date: body.date !== undefined ? body.date : stored.date,
+      name: (body.name !== undefined ? String(body.name) : (stored.name || "")).trim(),
+      asset_class: (body.asset_class !== undefined ? String(body.asset_class) : (stored.asset_class || "")).trim(),
+      asset_type: body.asset_type !== undefined ? String(body.asset_type).trim() : (stored.asset_type || ""),
+      broker: body.broker !== undefined ? String(body.broker).trim() : (stored.broker || ""),
+      txn_type: type,
+      buy_price: normalized.buy_price !== undefined ? normalized.buy_price : (stored.buy_price ?? 0),
+      notes: body.notes !== undefined ? String(body.notes).trim() : (stored.notes || ""),
+      currency: body.currency !== undefined ? String(body.currency).toUpperCase() : (stored.currency || "INR"),
+      ticker: body.ticker !== undefined ? String(body.ticker).trim() : (stored.ticker || ""),
+    };
+    // Sign convention: callers send positive magnitudes; the server signs
+    // PROVIDED magnitude fields for the merged txn_type (sell = negative).
+    // buy_price is never signed (session convention; FIFO uses abs()).
+    // Omitted stored values pass through untouched with their stored signs.
+    if (normalized.quantity !== undefined) {
+      merged.quantity = type === "sell" ? -Math.abs(normalized.quantity) : normalized.quantity;
+    } else {
+      merged.quantity = stored.quantity ?? 0;
+    }
+    if (normalized.invested_amount !== undefined) {
+      merged.invested_amount = type === "sell" ? -Math.abs(normalized.invested_amount) : normalized.invested_amount;
+    } else {
+      merged.invested_amount = stored.invested_amount ?? 0;
+    }
+
+    // Same validation semantics as the session route, on the merged row.
+    if (!isValidDate(merged.date)) throw { status: 400, message: "Invalid date format (YYYY-MM-DD)." };
+    if (!merged.name || !merged.asset_class) throw { status: 400, message: "Name and asset class are required." };
+
+    // A txn_type change re-signs persisted magnitudes, so the new
+    // magnitudes must be supplied in the same edit.
+    if (typeChanged) {
+      if (normalized.quantity === undefined || normalized.invested_amount === undefined) {
+        throw { status: 400, message: "Changing txn_type requires quantity and invested_amount in the same edit" };
+      }
+    }
+
+    const defaultCur = getDefaultCurrency();
+    const investedBaseProvided = normalized.invested_base !== undefined;
+    let investedBase;
+    if (defaultCur && merged.currency && merged.currency !== defaultCur) {
+      if (typeChanged && !investedBaseProvided) {
+        throw { status: 400, message: "Changing txn_type on a foreign-currency entry requires invested_base in the same edit" };
+      }
+      const mergedBase = investedBaseProvided
+        ? (type === "sell" ? -Math.abs(normalized.invested_base) : normalized.invested_base)
+        : stored.invested_base;
+      const baseMissing = mergedBase === undefined || mergedBase === null || mergedBase === "" || (typeof mergedBase === "number" && !Number.isFinite(mergedBase));
+      if (baseMissing) throw { status: 400, message: "invested_base is required for foreign-currency entries" };
+      investedBase = mergedBase;
+    } else {
+      investedBase = null;
+    }
+
+    // Ticker map is read-only for tokens: resolve blank tickers, never upsert.
+    let resolvedTicker = merged.ticker;
+    if (!resolvedTicker) {
+      const mapped = db.prepare("SELECT ticker FROM ticker_map WHERE asset_name = ?").get(merged.name);
+      if (mapped) resolvedTicker = mapped.ticker;
+    } else {
+      const mapped = db.prepare("SELECT ticker FROM ticker_map WHERE asset_name = ?").get(merged.name);
+      if (!mapped) throw { status: 409, message: "Add the ticker mapping in the app UI first" };
+      if (mapped.ticker !== resolvedTicker) throw { status: 409, message: "Ticker conflicts with the existing mapping; change it in the app UI" };
+    }
+
+    db.prepare(`
+      UPDATE holdings SET
+        date = @date, name = @name, asset_class = @asset_class, asset_type = @asset_type,
+        broker = @broker, txn_type = @txn_type, buy_price = @buy_price, quantity = @quantity, invested_amount = @invested_amount,
+        currency = @currency, notes = @notes, ticker = @ticker, invested_base = @invested_base
+      WHERE id = @id
+    `).run({
+      id,
+      date: merged.date,
+      name: merged.name,
+      asset_class: merged.asset_class,
+      asset_type: merged.asset_type,
+      broker: merged.broker,
+      txn_type: type,
+      buy_price: merged.buy_price,
+      quantity: merged.quantity,
+      invested_amount: merged.invested_amount,
+      currency: merged.currency,
+      notes: merged.notes,
+      ticker: resolvedTicker,
+      invested_base: investedBase
+    });
+
+    rebuildAssetLots(merged.name);
+    if (stored.name !== merged.name) rebuildAssetLots(stored.name);
+    return { id };
+  });
+
+  // Bounded busy handling, same pattern as the create path.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const outcome = editTxn.immediate();
+      return res.json(outcome); // 200: fresh edit, deduplicated replay, or deleted replay
+    } catch (e) {
+      if (e && e.status) return res.status(e.status).json({ error: e.message });
+      if (e && /BUSY|LOCKED/i.test(e && e.message ? e.message : "") && attempt < 5) {
+        sleepSyncMs(50);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 app.post("/api/holdings", (req, res) => {
   if (req.token) return handleTokenHoldingCreate(req, res);
   const { date, name, asset_class, asset_type, broker, txn_type, buy_price, quantity, invested_amount, currency, notes, ticker, invested_base } = req.body;
@@ -1276,6 +1516,7 @@ app.post("/api/holdings", (req, res) => {
 });
 
 app.put("/api/holdings/:id", (req, res) => {
+  if (req.token) return handleTokenHoldingUpdate(req, res);
   const id = Number(req.params.id);
   const existing = db.prepare("SELECT * FROM holdings WHERE id = ?").get(id);
   if (!existing) return res.status(404).json({ error: "Not found." });
