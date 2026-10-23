@@ -2306,26 +2306,56 @@ function positionChartTooltip(el, chart, tooltip) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  function formatTokenDate(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  }
+
   async function loadTokens() {
     const tbody = document.getElementById("settings-tokens-list");
-    if (!tbody) return;
-    // Token management is desktop-only; mobile shows a notice instead.
-    if (window.matchMedia("(max-width: 768px)").matches) return;
+    const cards = document.getElementById("settings-tokens-cards");
+    if (!tbody || !cards) return;
+    const renderEmpty = (text) => {
+      tbody.innerHTML = `<tr><td colspan="5" class="settings-desc">${text}</td></tr>`;
+      cards.innerHTML = `<p class="token-empty">${text}</p>`;
+    };
     try {
       const data = await apiFetch("/api/tokens");
       const tokens = data.tokens || [];
       if (tokens.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="settings-desc">No API tokens yet.</td></tr>`;
+        renderEmpty("No API tokens yet.");
         return;
       }
+      const profileLabel = (profile) => profile === "write" ? "Read + write" : "Read only";
       tbody.innerHTML = tokens.map((t) => {
         const revoked = !!t.revoked_at;
         const action = revoked
           ? `<span class="settings-desc">Revoked</span>`
           : `<button type="button" class="cancel-btn" data-token-revoke="${t.id}">Revoke</button>`;
-        return `<tr><td>${escapeHtml(t.name)}</td><td>${t.profile === "write" ? "Read + write" : "Read only"}</td><td>${escapeHtml(t.created_at || "")}</td><td>${escapeHtml(t.last_used_at || "—")}</td><td class="col-actions">${action}</td></tr>`;
+        const createdLabel = escapeHtml(formatTokenDate(t.created_at));
+        const lastUsedLabel = escapeHtml(formatTokenDate(t.last_used_at));
+        return `<tr><td>${escapeHtml(t.name)}</td><td>${profileLabel(t.profile)}</td><td title="${escapeHtml(t.created_at || "")}">${createdLabel}</td><td title="${escapeHtml(t.last_used_at || "")}">${lastUsedLabel}</td><td class="col-actions">${action}</td></tr>`;
       }).join("");
-      tbody.querySelectorAll("[data-token-revoke]").forEach((btn) => {
+      cards.innerHTML = tokens.map((t) => {
+        const revoked = !!t.revoked_at;
+        const action = revoked
+          ? `<span class="token-card-revoked">Revoked</span>`
+          : `<button type="button" class="cancel-btn" data-token-revoke="${t.id}">Revoke</button>`;
+        return `<div class="token-card${revoked ? " is-revoked" : ""}">
+          <div class="token-card-head">
+            <span class="token-card-name">${escapeHtml(t.name)}</span>
+            <span class="token-card-badge${t.profile === "write" ? " is-write" : ""}">${profileLabel(t.profile)}</span>
+          </div>
+          <div class="token-card-meta">
+            <div class="token-card-field"><span class="token-card-label">Created</span><span class="token-card-value" title="${escapeHtml(t.created_at || "")}">${escapeHtml(formatTokenDate(t.created_at))}</span></div>
+            <div class="token-card-field"><span class="token-card-label">Last used</span><span class="token-card-value" title="${escapeHtml(t.last_used_at || "")}">${escapeHtml(formatTokenDate(t.last_used_at))}</span></div>
+          </div>
+          <div class="token-card-actions">${action}</div>
+        </div>`;
+      }).join("");
+      document.querySelectorAll("#settings-tokens-list [data-token-revoke], #settings-tokens-cards [data-token-revoke]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const msg = document.getElementById("settings-token-message");
           try {
@@ -2336,7 +2366,7 @@ function positionChartTooltip(el, chart, tooltip) {
         });
       });
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="5" class="settings-desc">Token management needs the app lock set up first.</td></tr>`;
+      renderEmpty("Token management needs the app lock set up first.");
     }
   }
 
@@ -3009,6 +3039,19 @@ function positionChartTooltip(el, chart, tooltip) {
   document.querySelectorAll('#settings-pin, #settings-pin-confirm, #settings-disable-pin').forEach(input => { input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); }); });
 
   //--- API Tokens UI wiring ---
+  const selectTokenText = () => {
+    const textEl = document.getElementById("settings-token-once-text");
+    if (textEl && textEl.offsetParent !== null) {
+      const range = document.createRange();
+      range.selectNodeContents(textEl);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+    const input = document.getElementById("settings-token-once-value");
+    if (input) input.select();
+  };
   const tokenProfileSelect = document.getElementById("settings-token-profile");
   if (tokenProfileSelect) {
     const syncTokenWarning = () => {
@@ -3027,6 +3070,7 @@ function positionChartTooltip(el, chart, tooltip) {
         const data = await apiFetch("/api/tokens", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, profile }) });
         document.getElementById("settings-token-once").style.display = "block";
         document.getElementById("settings-token-once-value").value = data.token;
+        document.getElementById("settings-token-once-text").textContent = data.token;
         document.getElementById("settings-token-name").value = "";
         if (msg) { msg.textContent = "Token created. Copy it now — it will never be shown again."; msg.className = "form-msg success"; }
         loadTokens();
@@ -3039,9 +3083,9 @@ function positionChartTooltip(el, chart, tooltip) {
       const input = document.getElementById("settings-token-once-value");
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(input.value);
-        else { input.select(); document.execCommand("copy"); }
+        else { selectTokenText(); document.execCommand("copy"); }
         toast("Token copied", "success");
-      } catch (e) { input.select(); toast("Copy it manually — shown only once", "info"); }
+      } catch (e) { selectTokenText(); toast("Copy it manually — shown only once", "info"); }
     });
   }
   document.getElementById("settings-pin-confirm").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("settings-lock-enable").click(); } });

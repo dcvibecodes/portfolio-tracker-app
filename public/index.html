@@ -660,8 +660,6 @@
       <section class="card">
         <h2>API Tokens</h2>
         <p class="settings-desc">Personal access tokens let an external agent you approve read your portfolio and log transactions you dictate, without your browser session. Tokens are bearer secrets — anyone holding one can use it.</p>
-        <p class="settings-desc api-tokens-mobile-note">API token management is available on the desktop version of Invest More. Please open Settings on a larger screen to create or revoke tokens.</p>
-        <div class="api-tokens-desktop">
         <div class="settings-add">
           <input type="text" id="settings-token-name" placeholder="Token name (e.g. agent)" maxlength="80" />
           <select id="settings-token-profile" class="settings-select">
@@ -673,29 +671,32 @@
         <p id="settings-token-profile-warning" class="settings-desc" style="display:none;">Read + write tokens can add transactions to your ledger. Only create one for an agent you trust, and only log transactions you explicitly dictate.</p>
         <div id="settings-token-once" style="display:none;">
           <p class="settings-desc">Copy this token now — it is shown once and never again.</p>
+          <p id="settings-token-once-text" class="token-once-text"></p>
           <div class="settings-add">
             <input type="text" id="settings-token-once-value" readonly />
             <button id="settings-token-copy-btn" class="add-btn">Copy</button>
           </div>
         </div>
         <p id="settings-token-message" class="form-msg"></p>
-        <div class="table-wrap">
-          <table class="ticker-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Profile</th>
-                <th>Created</th>
-                <th>Last used</th>
-                <th class="col-actions">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="settings-tokens-list">
-              <tr><td colspan="5"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:80px"></div></div></td></tr>
-            </tbody>
-          </table>
+        <div class="token-table-desktop">
+          <div class="table-wrap">
+            <table class="ticker-table token-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Profile</th>
+                  <th>Created</th>
+                  <th>Last used</th>
+                  <th class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="settings-tokens-list">
+                <tr><td colspan="5"><div class="skeleton-row"><div class="skeleton skeleton-text" style="flex:1"></div><div class="skeleton skeleton-text" style="width:80px"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        </div>
+        <div id="settings-tokens-cards" class="token-cards"></div>
       </section>
 
       <section class="card">
