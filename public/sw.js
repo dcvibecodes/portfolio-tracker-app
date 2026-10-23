@@ -1,4 +1,4 @@
-const CACHE_NAME = "invest-more-v6";
+const CACHE_NAME = "invest-more-v7";
 const STATIC_ASSETS = [
   "/",
   "/style.css",
@@ -10,6 +10,8 @@ const STATIC_ASSETS = [
   "/icon-192.png",
   "/icon-512.png",
   "/manifest.json",
+  "/fonts/fraunces-latin-var.woff2",
+  "/fonts/outfit-latin-var.woff2",
 ];
 
 // Install: cache static assets

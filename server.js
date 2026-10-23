@@ -559,6 +559,11 @@ function authMiddleware(req, res, next) {
   if (req.path.startsWith("/api/")) {
     return res.status(401).json({ error: "Unauthorized. Please unlock the app first." });
   }
+
+  // Self-hosted fonts must load on the lock screen itself
+  if (req.path.startsWith("/fonts/")) {
+    return next();
+  }
   return res.send(getLoginPage());
 }
 
@@ -569,15 +574,16 @@ function getLoginPage() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Invest More Locked</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" href="/fonts/fraunces-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/outfit-latin-var.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  @font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/fraunces-latin-var.woff2') format('woff2'); }
+  @font-face { font-family: 'Outfit'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('/fonts/outfit-latin-var.woff2') format('woff2'); }
   *{ margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5efe6; display: flex; align-items: center; justify-content: center; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5efe6; display: flex; align-items: center; justify-content: center; min-height: 100vh; -webkit-font-smoothing: antialiased; }
   @media (prefers-color-scheme: dark) { body { background: #000000; } .lock-modal { background: #000000; border-color: #232323; } h2 { color: #e4e4e4; } .subtitle { color: #6a6a6a; } input[type="password"], input[type="text"] { background: #000000; border-color: #232323; color: #e4e4e4; } input:focus { border-color: #f5f5f5; box-shadow: 0 0 0 2px rgba(255,255,255,0.14); } button { background: #f5f5f5; color: #000000; } button:hover { opacity: 0.85; background: #f5f5f5; } .error { color: #f87171; } .recovery-link a { color: #f5f5f5; } }
   .lock-modal { background: #fdfbf7; border: 1px solid #e8ddd0; border-radius: 12px; padding: 36px 32px; width: 100%; max-width: 340px; text-align: center; }
-  h2 { margin-bottom: 6px; font-size: 0.92rem; font-weight: 700; color: #1a1a1a; }
+  h2 { margin-bottom: 6px; font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 700; color: #1a1a1a; }
   .subtitle { color: #aaa; font-size: 0.72rem; margin: 0 0 18px; }
   input[type="password"], input[type="text"] { display: block; width: 100%; text-align: center; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 1.2rem; letter-spacing: 0.3em; margin-bottom: 10px; padding: 8px; border: 1px solid #e8ddd0; border-radius: 5px; background: #f5efe6; color: #2c241b; outline: none; transition: border-color 0.15s; }
   input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }

@@ -1,6 +1,15 @@
-# Invest More v4.19.4
+# Invest More v4.19.5
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.19.5
+
+### Self-Hosted Fonts — Same Typography on Web, Mobile, and Offline
+
+- **Outfit + Fraunces are now served locally** from `public/fonts/` with `@font-face` in `style.css`; Google Fonts and its preconnects are gone. The app no longer depends on an external font CDN and renders the same display typography on desktop, mobile, and offline/PWA.
+- **Lock screen matches the app** — the generated PIN lock page now uses the same self-hosted Outfit/Fraunces pair instead of Google-hosted Inter.
+- **Offline-safe** — both WOFF2 files are precached in `invest-more-v7`; only ~100 KB total including license files.
+- **No server or database change.** Static assets are network-first.
 
 ## What's New in v4.19.4
 
