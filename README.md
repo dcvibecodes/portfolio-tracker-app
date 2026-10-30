@@ -1,6 +1,14 @@
-# Invest More v4.21.0
+# Invest More v4.22.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.22.0
+
+### Pull Down to Refresh on Phones
+
+- **Phones and phone PWAs pull instead of tapping** — on touch devices in the mobile layout the header refresh icon is gone; pull down at the top of the page to run the same price refresh (holdings, dashboard, and watchlist). A small pill shows "Pull to refresh" / "Release to refresh" / "Refreshing…" as you drag.
+- **Desktop and web keep the refresh button** — including a narrow desktop window; nothing changes there.
+- Service worker cache bumped to `invest-more-v9`.
 
 ## What's New in v4.21.0
 

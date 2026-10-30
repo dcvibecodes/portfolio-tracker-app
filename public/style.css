@@ -584,27 +584,46 @@ span.negative { color: var(--red); font-weight: 600; }
 .recovery-warning { font-weight: 600; color: var(--orange) !important; }
 .recovery-tips { font-size: 0.66rem !important; color: var(--text-faint) !important; margin-bottom: 0 !important; }
 
-/* ── Pull to Refresh ── */
-.pull-indicator {
-  display: none;
-  text-align: center;
-  padding: 10px;
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  transition: opacity 0.2s;
+/* ── Pull to Refresh (touch phones) ──
+   Desktop/web keeps the header refresh icon. Touch devices in the mobile
+   layout pull down at the top of the page instead. */
+@media (max-width: 899px) and (pointer: coarse) {
+  #refresh-prices-btn { display: none; }
 }
-.pull-indicator.visible { display: block; }
-.pull-indicator .spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  vertical-align: middle;
-  margin-right: 5px;
+
+.pull-refresh {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 6px);
+  left: 50%;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--elevated);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -36px);
+  transition: transform 0.22s ease, opacity 0.18s ease;
+  will-change: transform, opacity;
 }
+
+.pull-refresh-icon { width: 15px; height: 15px; flex: none; }
+.pull-refresh.armed { color: var(--text); }
+.pull-refresh.pulling { transition: none; }
+.pull-refresh.refreshing .pull-refresh-icon { animation: spin 0.7s linear infinite; transform-origin: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh { transition: none; }
+  .pull-refresh.refreshing .pull-refresh-icon { animation: none; }
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Multi-currency Info Boxes ── */
