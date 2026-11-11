@@ -1,6 +1,15 @@
-# Invest More v4.22.1
+# Invest More v4.23.0
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.23.0
+
+### Expand Full Notes on Tap or Click
+
+- **Tap or click the note icon to read the whole note inline** — the full text opens directly under the transaction row (desktop) or inside the transaction card (mobile), preserving line breaks and long words. Tap/click again to collapse.
+- **Nothing shows while collapsed** — the row and card look exactly as before; the truncated hover tooltip and ellipsis preview are gone. There is no preview text in the collapsed state.
+- **Only real notes open** — the note icon is enabled only on entries that have a note; entries without one keep the faded icon and it no longer reacts to clicks. Add or change a note from Edit transaction or the **Edit note** link inside the expanded panel.
+- Service worker cache bumped to `invest-more-v12`.
 
 ## What's New in v4.22.1
 
