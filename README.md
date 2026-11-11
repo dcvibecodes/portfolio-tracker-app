@@ -1,6 +1,15 @@
-# Invest More v4.22.0
+# Invest More v4.22.1
 
 Self-hosted investment portfolio tracker for any asset class, currency, and broker. Part of a unified suite with Spend Less.
+
+## What's New in v4.22.1
+
+### Icon Wordmark Matches Spend Less
+
+- **"Invest" now fills the icon width** — both rows measure ~356px of ink across the 512 canvas (Invest 355.9, More 357.0), the same measure and side padding as the Spend Less icon (Spend 350.8, Less 356.4). Previously "Invest" was 32% narrower than "More", so the top word looked inset.
+- **Sizes rebalanced** — `ROW1_SIZE` 140 → 149 and `ROW2_SIZE` 208 → 168 in `generate-icons.py`; matching the two ink widths mathematically caps the size contrast at ~12%, so "More" stays the larger word but the 40% jump from Spend Less is not reachable at equal width.
+- **Row gap set for optical consistency** — `ROW_GAP` is an ink-box gap, so Spend Less's 8px sits below the `p` descender and reads as ~41px from baseline to the next capital; Invest More's 8px read as ~9px. Now 39, which gives the same optical spacing.
+- Service worker cache bumped to `invest-more-v10` so installed PWAs pick up the new icons.
 
 ## What's New in v4.22.0
 
