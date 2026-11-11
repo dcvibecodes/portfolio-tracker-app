@@ -11,6 +11,19 @@
     save: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
   };
 
+  function escAttr(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function noteTooltip(note) {
+    if (!note || !String(note).trim()) return "Add note";
+    const flat = String(note).replace(/\s+/g, " ").trim();
+    const limit = 60;
+    if (flat.length <= limit) return flat;
+    const sliced = flat.slice(0, limit);
+    const lastSpace = sliced.lastIndexOf(" ");
+    const truncated = lastSpace > 35 ? sliced.slice(0, lastSpace) : sliced;
+    return truncated + "\u2026";
+  }
 
   //--- Theme Management (auto-detect system preference, with user override) ---
   function updateThemeColor() {
@@ -1595,7 +1608,6 @@ function positionChartTooltip(el, chart, tooltip) {
       const plClass = (r.gain_loss != null && r.gain_loss >= 0) ? "positive" : "negative";
       const checked = selectedIds.has(r.id) ? "checked" : "";
       const txnBadge = r.txn_type === "sell" ? '<span class="badge badge-sell">SELL</span>' : '<span class="badge badge-buy">BUY</span>';
-      const hasNote = Boolean(r.notes && String(r.notes).trim());
 
       const tr = document.createElement("tr");
       tr.className = r.txn_type === "sell" ? "row-sell" : "";
@@ -1615,29 +1627,13 @@ function positionChartTooltip(el, chart, tooltip) {
         <td class="col-amount ${plClass}">${r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-"}</td>
         <td class="col-amount ${plClass}">${fmtPct(r.gain_loss_pct)}</td>
         <td class="col-actions">
-          ${hasNote ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View note" aria-label="View note" aria-expanded="false">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="No note" aria-label="No note" disabled>${ICON.noteEmpty}</button>`}
+          ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="${escAttr(noteTooltip(r.notes))}">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
           <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">${ICON.copy}</button>
           <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">${ICON.edit}</button>
           <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">${ICON.delete}</button>
         </td>
       `;
       tbody.appendChild(tr);
-
-      if (hasNote) {
-        const noteRow = document.createElement("tr");
-        noteRow.className = "note-expand-row";
-        noteRow.dataset.noteFor = r.id;
-        noteRow.hidden = true;
-        noteRow.innerHTML = `
-          <td colspan="15" class="note-expand-cell">
-            <div class="note-expand-inner">
-              <div class="note-expand-text">${escapeHtml(String(r.notes))}</div>
-              <button type="button" class="note-edit-btn" data-id="${r.id}">Edit note</button>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(noteRow);
-      }
 
       const plStr = r.gain_loss != null ? fmt(r.gain_loss, r.currency) : "-";
       const plPctStr = r.gain_loss_pct != null ? fmtPct(r.gain_loss_pct) : "-";
@@ -1663,12 +1659,11 @@ function positionChartTooltip(el, chart, tooltip) {
             <div class="mdc-stat"><span class="mdc-label">Current Price</span><span class="mdc-value">${curPriceStrH}</span></div>
           </div>
           <div class="mdc-actions">
-            ${hasNote ? `<button class="action-btn notes-btn" data-id="${r.id}" title="View note" aria-label="View note" aria-expanded="false">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="No note" aria-label="No note" disabled>${ICON.noteEmpty}</button>`}
+            ${r.notes ? `<button class="action-btn notes-btn" data-id="${r.id}" title="${escAttr(noteTooltip(r.notes))}">${ICON.note}</button>` : `<button class="action-btn notes-empty notes-btn" data-id="${r.id}" title="Add note">${ICON.noteEmpty}</button>`}
             <button class="action-btn copy-btn" data-id="${r.id}" title="Copy transaction">${ICON.copy}</button>
             <button class="action-btn edit-btn" data-id="${r.id}" title="Edit">${ICON.edit}</button>
             <button class="action-btn delete delete-btn" data-id="${r.id}" title="Delete">${ICON.delete}</button>
           </div>
-          ${hasNote ? `<div class="mdc-note" data-note-for="${r.id}" hidden><div class="mdc-note-text">${escapeHtml(String(r.notes))}</div><button type="button" class="note-edit-btn" data-id="${r.id}">Edit note</button></div>` : ""}
         </div>
       `;
     }
@@ -1803,8 +1798,7 @@ function positionChartTooltip(el, chart, tooltip) {
     if (btn.classList.contains("edit-btn")) editHolding(id);
     else if (btn.classList.contains("delete-btn")) deleteHolding(id);
     else if (btn.classList.contains("copy-btn")) copyHolding(id);
-    else if (btn.classList.contains("notes-btn")) toggleNoteExpand(id);
-    else if (btn.classList.contains("note-edit-btn")) viewNotes(id);
+    else if (btn.classList.contains("notes-btn")) viewNotes(id);
   });
 
   //--- Delegated click handlers for holdings mobile cards ---
@@ -1817,8 +1811,7 @@ function positionChartTooltip(el, chart, tooltip) {
       if (btn.classList.contains("edit-btn")) editHolding(id);
       else if (btn.classList.contains("delete-btn")) deleteHolding(id);
       else if (btn.classList.contains("copy-btn")) copyHolding(id);
-      else if (btn.classList.contains("notes-btn")) toggleNoteExpand(id);
-      else if (btn.classList.contains("note-edit-btn")) viewNotes(id);
+      else if (btn.classList.contains("notes-btn")) viewNotes(id);
     });
   }
 
@@ -2789,16 +2782,6 @@ function positionChartTooltip(el, chart, tooltip) {
   }
 
   //--- Notes Logic (fix #1.3 — uses GET by ID, preserves invested_base & txn_type) ---
-  function toggleNoteExpand(id) {
-    const panels = document.querySelectorAll(`[data-note-for="${id}"]`);
-    if (!panels.length) return;
-    const expand = panels[0].hidden;
-    panels.forEach(panel => { panel.hidden = !expand; });
-    document.querySelectorAll(`.notes-btn[data-id="${id}"]`).forEach(btn => {
-      if (!btn.disabled) btn.setAttribute("aria-expanded", String(expand));
-    });
-  }
-
   const notesModal = document.getElementById("notes-modal");
   async function viewNotes(id) {
     let row;
