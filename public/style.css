@@ -1492,3 +1492,9 @@ body { overflow-x: clip; }
 .skeleton-text { height: 12px; border-radius: 3px; }
 .skeleton-text-sm { height: 10px; border-radius: 3px; width: 60%; }
 .skeleton-chart { height: 200px; border-radius: 6px; }
+
+/* Mobile: hide scrollbars while keeping every scroller functional. */
+@media (max-width: 899px) {
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+}
